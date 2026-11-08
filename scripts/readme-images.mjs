@@ -3,22 +3,20 @@ import { writeFileSync, existsSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-const home = os.homedir();
-const CHROMIUM_PATH = path.join(home, 'Library/Caches/ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-mac-arm64/chrome-headless-shell');
 const OUT_FILE = path.resolve('docs/assets/showcase.png');
 
 async function render() {
   let playwright;
   try {
-    playwright = await import(path.join(home, 'Documents/github/shortty/node_modules/playwright/index.mjs'));
+    playwright = await import('playwright');
   } catch {
-    console.log('Playwright not available locally, skipping image re-render.');
+    console.log('Playwright not installed, skipping image generation.');
     return;
   }
 
   const { chromium } = playwright;
   const browser = await chromium.launch({
-    executablePath: existsSync(CHROMIUM_PATH) ? CHROMIUM_PATH : undefined,
+    executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined,
     args: ['--no-sandbox'],
   });
 

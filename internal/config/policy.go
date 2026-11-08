@@ -17,6 +17,7 @@ type Policy struct {
 	Voice         Voice              `json:"voice"              toml:"voice"`
 	Native        Native             `json:"native"             toml:"native"`
 	Profiles      map[string]Profile `json:"profiles,omitempty" toml:"profiles,omitempty"`
+	MCP           map[string]any     `json:"mcp,omitempty"      toml:"mcp,omitempty"`
 }
 
 // Profile configures layered prompt instructions and optional configuration overrides.
@@ -51,6 +52,7 @@ type Permissions struct {
 	DenyCommandExact     []string `json:"denyCommandExact"     toml:"denyCommandExact"`
 	DenyCommandPrefixes  []string `json:"denyCommandPrefixes"  toml:"denyCommandPrefixes"`
 	AskCommandPrefixes   []string `json:"askCommandPrefixes"   toml:"askCommandPrefixes"`
+	AllowedMCP           []string `json:"allowedMcp,omitempty" toml:"allowedMcp,omitempty"`
 }
 
 // Models holds model tier mappings across agents.
@@ -242,4 +244,5 @@ func applyPermissionsProfile(p *Policy, perm *Permissions) {
 	p.Permissions.DenyCommandExact = append(p.Permissions.DenyCommandExact, perm.DenyCommandExact...)
 	p.Permissions.DenyCommandPrefixes = append(p.Permissions.DenyCommandPrefixes, perm.DenyCommandPrefixes...)
 	p.Permissions.DenyCommandPatterns = append(p.Permissions.DenyCommandPatterns, perm.DenyCommandPatterns...)
+	p.Permissions.AllowedMCP = append(p.Permissions.AllowedMCP, perm.AllowedMCP...)
 }

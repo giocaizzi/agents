@@ -16,21 +16,37 @@ import (
 // not next to the copy.
 func TestCLICheck_FileCopyIsComparedWithRealSource(t *testing.T) {
 	t.Parallel()
-	homeDir, err := filepath.Abs(filepath.Join("..", "..", "..", "..", "home"))
-	if err != nil {
+	homeDir := t.TempDir()
+	data, readErr := os.ReadFile(filepath.Join("..", "testdata", "harness-policy.toml"))
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if err := os.MkdirAll(filepath.Join(homeDir, ".chezmoidata"), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if _, statErr := os.Stat(homeDir); statErr != nil {
-		t.Skip("skipping test in standalone repo: home directory not present")
+	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoidata", "harness-policy.toml"), data, 0o600); err != nil {
+		t.Fatal(err)
 	}
-	policyPath := filepath.Join(homeDir, ".chezmoidata", "harness-policy.toml")
-	data, readErr := os.ReadFile(policyPath)
-	if readErr != nil {
-		var fallbackErr error
-		data, fallbackErr = os.ReadFile(filepath.Join("..", "testdata", "harness-policy.toml"))
-		if fallbackErr != nil {
-			t.Fatal(fallbackErr)
-		}
+	if err := os.MkdirAll(filepath.Join(homeDir, "dot_config", "Code", "User"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, "dot_config", "Code", "User", "settings.json"), []byte(`{"dictation.enabled": true}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(filepath.Join(homeDir, ".chezmoitemplates"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoitemplates", "claude-settings.json"), []byte(`.agents.voice.enabled .agents.voice.mode .agents.voice.autoSubmit`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	pkgToml := `[package]
+gopls = {}
+pyright = {}
+vtsls = {}
+rust-analyzer = {}
+`
+	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoidata", "packages.toml"), []byte(pkgToml), 0o600); err != nil {
+		t.Fatal(err)
 	}
 	text := string(data)
 	i := strings.Index(text, "# --- D9")
