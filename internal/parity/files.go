@@ -110,13 +110,11 @@ func checkClaudeTemplate(path string) []finding.Finding {
 	text := string(data)
 
 	var fs []finding.Finding
-	for _, ref := range []string{
-		".harnessPolicy.voice.enabled",
-		".harnessPolicy.voice.mode",
-		".harnessPolicy.voice.autoSubmit",
-	} {
-		if !strings.Contains(text, ref) {
-			fs = append(fs, finding.New(where, "%s must read %s from the policy", path, ref))
+	for _, field := range []string{"enabled", "mode", "autoSubmit"} {
+		refAgents := ".agents.voice." + field
+		refPolicy := ".harnessPolicy.voice." + field
+		if !strings.Contains(text, refAgents) && !strings.Contains(text, refPolicy) {
+			fs = append(fs, finding.New(where, "%s must read %s (or %s) from the configuration", path, refAgents, refPolicy))
 		}
 	}
 	if strings.Contains(text, `"language":`) {
