@@ -217,7 +217,9 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 	}
 	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
 		candidates = append(candidates,
+			filepath.Join(src, "home", ".chezmoidata", "agents.toml"),
 			filepath.Join(src, ".chezmoidata", "agents.toml"),
+			filepath.Join(src, "home", ".chezmoidata", "harness-policy.toml"),
 			filepath.Join(src, ".chezmoidata", "harness-policy.toml"),
 		)
 	}

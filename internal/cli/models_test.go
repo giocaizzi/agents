@@ -379,6 +379,74 @@ func TestModelsRenderExplicitDocWins(t *testing.T) {
 	}
 }
 
+func TestModelsRenderCheckSkipsWhenCacheMissingAndDocExists(t *testing.T) {
+	t.Parallel()
+	ctx := t.Context()
+	root := t.TempDir()
+	doc := filepath.Join(root, "docs", "MODELS.md")
+	if err := os.MkdirAll(filepath.Dir(doc), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(doc, []byte("# Models\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, stdout, stderr := testDeps()
+	// Run render -check with -doc pointing to doc and no models.json present
+	code := d.Run(ctx, []string{"models", "render", "-check", "-doc", doc})
+	if code != 0 {
+		t.Fatalf("exit %d, want 0, stderr %q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "benchmark cache not present; skipped check") {
+		t.Errorf("stdout %q lacks skip message", stdout.String())
+	}
+}
+
+func TestModelsLoadCatalogFromPolicy(t *testing.T) {
+	t.Parallel()
+	root := t.TempDir()
+	policyDir := filepath.Join(root, "home", ".chezmoidata")
+	if err := os.MkdirAll(policyDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	agentsTOML := `
+[models.catalog]
+providers = ["anthropic", "openai"]
+since = "2026-02-01"
+[models.catalog.pins]
+"chat/fast" = "anthropic/claude-3-5-haiku"
+`
+	if err := os.WriteFile(filepath.Join(policyDir, "agents.toml"), []byte(agentsTOML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d, _, _ := testDeps()
+	d.Getenv = func(k string) string {
+		if k == "CHEZMOI_SOURCE_DIR" {
+			return root
+		}
+		if k == "XDG_CACHE_HOME" {
+			return root
+		}
+		return ""
+	}
+	cat, path, err := d.loadCatalog("", false)
+	if err != nil {
+		t.Fatalf("loadCatalog failed: %v", err)
+	}
+	if !slices.Equal(cat.Providers, []string{"anthropic", "openai"}) {
+		t.Errorf("got providers %v", cat.Providers)
+	}
+	if cat.Since != "2026-02-01" {
+		t.Errorf("got since %q", cat.Since)
+	}
+	if cat.Pin["chat/fast"] != "anthropic/claude-3-5-haiku" {
+		t.Errorf("got pins %v", cat.Pin)
+	}
+	wantPath := filepath.Join(root, "agents", "models.json")
+	if path != wantPath {
+		t.Errorf("got path %q, want %q", path, wantPath)
+	}
+}
+
 func TestModelsRenderInvalidFileExits1(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
