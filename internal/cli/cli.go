@@ -248,7 +248,7 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 }
 
 // findPolicySourceDir returns the chezmoi source directory (the one holding
-// .chezmoidata/harness-policy.toml), searched in the order loadPolicy uses.
+// .chezmoidata/agents.toml or harness-policy.toml), searched in the order loadPolicy uses.
 func (d Deps) findPolicySourceDir() (string, error) {
 	var candidates []string
 	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
@@ -257,6 +257,9 @@ func (d Deps) findPolicySourceDir() (string, error) {
 	candidates = append(candidates, "home", ".", filepath.Join("..", "home"), filepath.Join("..", "..", "home"))
 	for _, cand := range candidates {
 		cleaned := filepath.Clean(cand)
+		if _, err := os.Stat(filepath.Join(cleaned, ".chezmoidata", "agents.toml")); err == nil {
+			return cleaned, nil
+		}
 		if _, err := os.Stat(filepath.Join(cleaned, ".chezmoidata", "harness-policy.toml")); err == nil {
 			return cleaned, nil
 		}
