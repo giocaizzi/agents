@@ -79,7 +79,7 @@ func (c Catalog) tierDrift() []error {
 	want := ComputeTiers(c.Models, c.Pin)
 	for _, tier := range Tiers() {
 		if !slices.Equal(withoutPinned(c.Tiers[tier], c.Pin), withoutPinned(want[tier], c.Pin)) {
-			errs = append(errs, fmt.Errorf("tiers.%s: differs from the rule (run chezmoi agents models sync)", tier))
+			errs = append(errs, fmt.Errorf("tiers.%s: differs from the rule (run agents models sync)", tier))
 		}
 	}
 	return errs

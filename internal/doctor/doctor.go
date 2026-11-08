@@ -1,4 +1,4 @@
-// Package doctor is the advisory of chezmoi-agents: it compares the models
+// Package doctor is the advisory of agents: it compares the models
 // the harness policy configures with the model catalog and the provider
 // accounts the usage tool found, and says what is retired, drifted, beaten by
 // a model available to the same accounts, missing an account, or near a

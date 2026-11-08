@@ -52,7 +52,7 @@ func fingerprint(provider, token string) string {
 	if token == "" {
 		return ""
 	}
-	sum := sha256.Sum256([]byte("chezmoi-agents/credential/v1\x00" + provider + "\x00" + token))
+	sum := sha256.Sum256([]byte("agents/credential/v1\x00" + provider + "\x00" + token))
 	return "fp:" + hex.EncodeToString(sum[:])[:16]
 }
 

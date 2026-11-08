@@ -69,7 +69,7 @@ func (s Style) Table(w io.Writer, header []string, rows [][]string) {
 }
 
 // Warn writes one warning line: a yellow "!" then msg. It is the one warning
-// surface of chezmoi-agents.
+// surface of agents.
 func (s Style) Warn(w io.Writer, msg string) {
 	fmt.Fprintf(w, "%s!%s %s\n", s.Y, s.O, msg)
 }
