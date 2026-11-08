@@ -59,7 +59,7 @@ func usageDeps(t *testing.T) (Deps, *bytes.Buffer, *bytes.Buffer, string) {
 			return ""
 		},
 	}
-	return d, &out, &errb, filepath.Join(cacheHome, "chezmoi-agents", "usage.json")
+	return d, &out, &errb, filepath.Join(cacheHome, "agents", "usage.json")
 }
 
 func TestRunUsageFlagError(t *testing.T) {
@@ -89,7 +89,7 @@ func TestRunUsageCachedWithoutCache(t *testing.T) {
 	if code := d.runUsageWith(t.Context(), nil, fakeStore{home: f.home}, f); code != 0 {
 		t.Fatalf("exit = %d, want 0", code)
 	}
-	for _, want := range []string{"chezmoi agents usage", "no cache yet; -live to refresh"} {
+	for _, want := range []string{"agents usage", "no cache yet; -live to refresh"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

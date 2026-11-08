@@ -23,8 +23,8 @@ func TestCheck(t *testing.T) {
 		want     string
 	}{
 		{"in step", plugins, []string{"go"}, []string{"api", "go"}, ""},
-		{"missing here", plugins, nil, []string{"api", "go", "hud"}, "hud: plugin of giocaizzi/harness missing here"},
-		{"gone upstream", plugins, nil, []string{"api"}, "go: not a plugin of giocaizzi/harness"},
+		{"missing here", plugins, nil, []string{"api", "go", "hud"}, "hud: plugin of example/harness missing here"},
+		{"gone upstream", plugins, nil, []string{"api"}, "go: not a plugin of example/harness"},
 		{"unknown personal", plugins, []string{"nope"}, []string{"api", "go"}, "nope is not in [harnessPlugins]"},
 		{"unknown harness", map[string][]string{"api": {"emacs"}}, nil, []string{"api"}, "unknown harness emacs"},
 		{"nothing upstream", plugins, nil, nil, "no plugin directories found upstream"},

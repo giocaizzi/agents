@@ -109,7 +109,7 @@ func newFakeServer(t *testing.T) *fakeServer {
 			fs.failures[r.URL.Path]--
 		}
 		fs.mu.Unlock()
-		if r.Header.Get("User-Agent") != "chezmoi-agents" {
+		if r.Header.Get("User-Agent") != "agents" {
 			http.Error(w, "bad user agent", http.StatusForbidden)
 			return
 		}
@@ -337,7 +337,7 @@ func TestModelsRenderCheckFailsAfterTheDocIsEdited(t *testing.T) {
 	if code := d.Run(ctx, []string{"models", "render", "-check", "-file", file}); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}
-	want := "error: " + doc + " is out of date: run chezmoi agents models render"
+	want := "error: " + doc + " is out of date: run agents models render"
 	if !strings.Contains(stderr.String(), want) {
 		t.Errorf("stderr %q lacks %q", stderr.String(), want)
 	}

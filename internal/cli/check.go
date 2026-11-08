@@ -15,14 +15,15 @@ import (
 
 func (d Deps) runCheck(ctx context.Context, args []string) int {
 	fs := newFlags("check")
-	fileFlag := fs.String("file", "", "path to harness-policy.toml or harness.toml")
-	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "a checkout of giocaizzi/harness")
+	fileFlag := fs.String("file", "", "path to harness-policy.toml, agents.toml or harness.toml")
+	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
+	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
 		return 2
 	}
 
-	findings, msgs, err := d.checkTarget(ctx, *fileFlag, *harnessDirFlag)
+	findings, msgs, err := d.checkTarget(ctx, *fileFlag, *harnessDirFlag, *profileFlag)
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "check error: %v\n", err)
 		return 1
@@ -37,37 +38,42 @@ func (d Deps) runCheck(ctx context.Context, args []string) int {
 	return 0
 }
 
-func (d Deps) checkTarget(ctx context.Context, file, harnessDir string) ([]finding.Finding, []string, error) {
-	if file != "" {
-		if isHarnessToml(file) {
-			findings, err := pluginreg.ValidateFile(ctx, file, harnessDir)
-			if err != nil {
-				return nil, nil, fmt.Errorf("validate plugins: %w", err)
-			}
-			return findings, []string{fmt.Sprintf("✓ harness plugins (%s)", file)}, nil
-		}
-
-		p, path, err := d.loadPolicy(file)
+func (d Deps) checkTarget(ctx context.Context, file, harnessDir, profile string) ([]finding.Finding, []string, error) {
+	if file == "" {
+		return d.checkAll(ctx, harnessDir, profile)
+	}
+	if isHarnessToml(file) {
+		findings, err := pluginreg.ValidateFile(ctx, file, harnessDir)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, fmt.Errorf("validate plugins: %w", err)
 		}
-		findings := p.Validate(path)
-		findings = append(findings, parity.CheckParity(p)...)
-		msgs := []string{fmt.Sprintf("✓ policy & harness parity (%s)", path)}
-		findings, msgs = d.appendSourceFiles(p, findings, msgs)
-		return findings, msgs, nil
+		return findings, []string{fmt.Sprintf("✓ harness plugins (%s)", file)}, nil
 	}
 
-	return d.checkAll(ctx, harnessDir)
+	p, path, err := d.loadPolicy(file)
+	if err != nil {
+		return nil, nil, err
+	}
+	if profile != "" {
+		p = p.WithProfile(profile)
+	}
+	findings := p.Validate(path)
+	findings = append(findings, parity.CheckParity(p)...)
+	msgs := []string{fmt.Sprintf("✓ policy & harness parity (%s)", path)}
+	findings, msgs = d.appendSourceFiles(p, findings, msgs)
+	return findings, msgs, nil
 }
 
-func (d Deps) checkAll(ctx context.Context, harnessDir string) ([]finding.Finding, []string, error) {
+func (d Deps) checkAll(ctx context.Context, harnessDir, profile string) ([]finding.Finding, []string, error) {
 	var allFindings []finding.Finding
 	var msgs []string
 
 	p, polPath, err := d.loadPolicy("")
 	if err != nil {
 		return nil, nil, fmt.Errorf("load policy: %w", err)
+	}
+	if profile != "" {
+		p = p.WithProfile(profile)
 	}
 	findings := p.Validate(polPath)
 	findings = append(findings, parity.CheckParity(p)...)
@@ -93,7 +99,11 @@ func (d Deps) checkAll(ctx context.Context, harnessDir string) ([]finding.Findin
 func (d Deps) appendSourceFiles(p *config.Policy, findings []finding.Finding, msgs []string) ([]finding.Finding, []string) {
 	srcDir, err := d.findPolicySourceDir()
 	if err != nil {
-		return append(findings, finding.New("source", "%v", err)), msgs
+		if d.Getenv("CHEZMOI_SOURCE_DIR") != "" {
+			return append(findings, finding.New("source", "%v", err)), msgs
+		}
+		// In standalone mode outside chezmoi, skip native voice template checks.
+		return findings, msgs
 	}
 	findings = append(findings, parity.CheckSourceFiles(p, srcDir)...)
 	return findings, append(msgs, fmt.Sprintf("✓ native voice settings (%s)", srcDir))

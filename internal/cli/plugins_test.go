@@ -85,7 +85,7 @@ func TestPluginsList(t *testing.T) {
 	}
 
 	out := stdout.String()
-	if !strings.Contains(out, "chezmoi agents plugins") {
+	if !strings.Contains(out, "agents plugins") {
 		t.Errorf("expected header in output, got:\n%s", out)
 	}
 	if !strings.Contains(out, "dev-tools") {

@@ -176,7 +176,7 @@ func (d Deps) runModelsRender(args []string) int {
 	if *check {
 		got, err := os.ReadFile(filepath.Clean(docFile))
 		if err != nil || !bytes.Equal(got, want) {
-			return d.modelsFail("%s is out of date: run chezmoi agents models render", docFile)
+			return d.modelsFail("%s is out of date: run agents models render", docFile)
 		}
 		fmt.Fprintf(d.Stdout, "%s✓%s %s is up to date\n", st.G, st.O, docFile)
 		return 0
@@ -435,7 +435,7 @@ func (f fetcher) getOnce(ctx context.Context, rawURL string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("get %s: %w", rawURL, err)
 	}
-	req.Header.Set("User-Agent", "chezmoi-agents")
+	req.Header.Set("User-Agent", "agents")
 	resp, err := f.client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("get %s: %w", rawURL, err)

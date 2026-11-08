@@ -220,7 +220,7 @@ func Check(in Input) []Finding {
 		return append(out, Finding{
 			Level: LevelInfo, Kind: KindNoUsage,
 			Text: "no usage data yet: account, capacity and model checks skipped",
-			Fix:  "chezmoi agents usage -live",
+			Fix:  "agents usage -live",
 		})
 	}
 	for _, h := range in.Harnesses {
@@ -232,7 +232,7 @@ func Check(in Input) []Finding {
 // staleCatalog is check (3): the catalog was never synced, or longer ago
 // than StaleAfter.
 func staleCatalog(c catalog.Catalog, now time.Time) (Finding, bool) {
-	const fix = "chezmoi agents models sync, or merge the weekly models-sync PR"
+	const fix = "agents models sync, or merge the weekly models-sync PR"
 	if c.SyncedAt == "" {
 		return Finding{Level: LevelWarn, Kind: KindStaleCatalog, Text: "model catalog never synced", Fix: fix}, true
 	}

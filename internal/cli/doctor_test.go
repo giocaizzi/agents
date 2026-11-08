@@ -50,7 +50,7 @@ func doctorEnv(t *testing.T, catalog string) (Deps, *bytes.Buffer, *bytes.Buffer
 			return ""
 		},
 	}
-	return d, &out, &errb, filepath.Join(cacheHome, "chezmoi-agents", usageCacheFile)
+	return d, &out, &errb, filepath.Join(cacheHome, "agents", usageCacheFile)
 }
 
 // countingStore counts every access to the credential store.
@@ -106,7 +106,7 @@ func TestRunDoctorStaleCatalog(t *testing.T) {
 	if code := d.runDoctorWith(t.Context(), nil, fakeStore{home: f.home}, f); code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
-	for _, want := range []string{"chezmoi agents doctor", "(no usage cache; -live to refresh)", "model catalog synced 309 days ago (2026-01-01)"} {
+	for _, want := range []string{"agents doctor", "(no usage cache; -live to refresh)", "model catalog synced 309 days ago (2026-01-01)"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}

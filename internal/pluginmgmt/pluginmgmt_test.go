@@ -88,7 +88,7 @@ func TestListPlugins(t *testing.T) {
 	}
 
 	// Create claude cache
-	claudeDevTools := filepath.Join(tmpHome, ".claude", "plugins", "cache", "giocaizzi-harness", "dev-tools", "1.53.0")
+	claudeDevTools := filepath.Join(tmpHome, ".claude", "plugins", "cache", "example-harness", "dev-tools", "1.53.0")
 	if err := os.MkdirAll(claudeDevTools, 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -133,7 +133,7 @@ func TestFindPruneCandidates(t *testing.T) {
 	tmpHome := t.TempDir()
 
 	// Claude cache with 2 versions
-	cDir := filepath.Join(tmpHome, ".claude", "plugins", "cache", "giocaizzi-harness", "dev-tools")
+	cDir := filepath.Join(tmpHome, ".claude", "plugins", "cache", "example-harness", "dev-tools")
 	if err := os.MkdirAll(filepath.Join(cDir, "1.51.9"), 0o700); err != nil {
 		t.Fatal(err)
 	}

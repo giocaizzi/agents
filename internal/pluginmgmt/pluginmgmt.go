@@ -94,7 +94,7 @@ func (m Manager) namespace() string {
 		reg = m.HarnessConfig.Registry
 	}
 	if reg == "" {
-		reg = "giocaizzi/harness"
+		reg = pluginreg.DefaultHarnessRegistry
 	}
 	return pluginreg.ResolveNamespace(reg)
 }

@@ -294,7 +294,7 @@ defaultProvider = "openai"
 defaultModel = "gpt-5.6-terra"
 defaultThinkingLevel = "medium"
 packages = [
-    "../../.local/share/giocaizzi-harness"
+    "../../.local/share/example-harness"
 ]
 
 [harnessPolicy.native.opencode]

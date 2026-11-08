@@ -17,7 +17,8 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	harnessFlag := fs.String("harness", "", "target client harness (claude, antigravity, copilot, codex, pi, opencode)")
 	partFlag := fs.String("part", "", "output granularity (permissions, settings, all)")
 	osFlag := fs.String("os", "", "target operating system (darwin, linux, windows)")
-	fileFlag := fs.String("file", "", "path to harness-policy.toml")
+	fileFlag := fs.String("file", "", "path to harness-policy.toml or agents.toml")
+	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
@@ -37,6 +38,9 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "error loading policy: %v\n", err)
 		return 1
+	}
+	if *profileFlag != "" {
+		p = p.WithProfile(*profileFlag)
 	}
 
 	if err := d.renderHarness(p, strings.ToLower(*harnessFlag), strings.ToLower(*partFlag), targetOS); err != nil {
