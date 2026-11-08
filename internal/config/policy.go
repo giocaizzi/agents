@@ -2,18 +2,31 @@
 // across Claude Code, Antigravity, Copilot CLI, VS Code Copilot, Codex, Pi, and opencode.
 package config
 
+import "maps"
+
 // Policy is the canonical cross-harness security, notification and runtime configuration.
 type Policy struct {
-	Autonomy      Autonomy      `json:"autonomy"      toml:"autonomy"`
-	Permissions   Permissions   `json:"permissions"   toml:"permissions"`
-	Models        Models        `json:"models"        toml:"models"`
-	Context       Context       `json:"context"       toml:"context"`
-	UI            UI            `json:"ui"            toml:"ui"`
-	Notifications Notifications `json:"notifications" toml:"notifications"`
-	Telemetry     Telemetry     `json:"telemetry"     toml:"telemetry"`
-	LSP           LSP           `json:"lsp"           toml:"lsp"`
-	Voice         Voice         `json:"voice"         toml:"voice"`
-	Native        Native        `json:"native"        toml:"native"`
+	Autonomy      Autonomy           `json:"autonomy"           toml:"autonomy"`
+	Permissions   Permissions        `json:"permissions"        toml:"permissions"`
+	Models        Models             `json:"models"             toml:"models"`
+	Context       Context            `json:"context"            toml:"context"`
+	UI            UI                 `json:"ui"                 toml:"ui"`
+	Notifications Notifications      `json:"notifications"      toml:"notifications"`
+	Telemetry     Telemetry          `json:"telemetry"          toml:"telemetry"`
+	LSP           LSP                `json:"lsp"                toml:"lsp"`
+	Voice         Voice              `json:"voice"              toml:"voice"`
+	Native        Native             `json:"native"             toml:"native"`
+	Profiles      map[string]Profile `json:"profiles,omitempty" toml:"profiles,omitempty"`
+}
+
+// Profile configures layered prompt instructions and optional configuration overrides.
+type Profile struct {
+	Instructions []string     `json:"instructions,omitempty" toml:"instructions,omitempty"`
+	Models       *Models      `json:"models,omitempty"       toml:"models,omitempty"`
+	Permissions  *Permissions `json:"permissions,omitempty"  toml:"permissions,omitempty"`
+	Autonomy     *Autonomy    `json:"autonomy,omitempty"     toml:"autonomy,omitempty"`
+	UI           *UI          `json:"ui,omitempty"           toml:"ui,omitempty"`
+	Plugins      []string     `json:"plugins,omitempty"      toml:"plugins,omitempty"`
 }
 
 // Autonomy configures agent autonomy level.
@@ -176,4 +189,57 @@ type PiNative struct {
 type OpenCodeNative struct {
 	DefaultModel string `json:"defaultModel,omitempty" toml:"defaultModel,omitempty"`
 	Sandbox      bool   `json:"sandbox,omitempty"      toml:"sandbox,omitempty"`
+}
+
+// WithProfile returns a copy of Policy with the specified profile applied.
+// If name is empty, it returns the policy unchanged.
+// If the profile exists in Profiles, its non-nil elements override or merge with the base policy.
+func (p Policy) WithProfile(name string) *Policy {
+	if name == "" {
+		return &p
+	}
+	prof, ok := p.Profiles[name]
+	if !ok {
+		return &p
+	}
+	cp := p
+	applyModelsProfile(&cp, prof.Models)
+	applyPermissionsProfile(&cp, prof.Permissions)
+	if prof.Autonomy != nil {
+		if prof.Autonomy.ExecutionMode != "" {
+			cp.Autonomy.ExecutionMode = prof.Autonomy.ExecutionMode
+		}
+		if prof.Autonomy.SandboxMode != "" {
+			cp.Autonomy.SandboxMode = prof.Autonomy.SandboxMode
+		}
+	}
+	if prof.UI != nil {
+		cp.UI = *prof.UI
+	}
+	return &cp
+}
+
+func applyModelsProfile(p *Policy, m *Models) {
+	if m == nil || m.Tiers == nil {
+		return
+	}
+	if p.Models.Tiers == nil {
+		p.Models.Tiers = make(map[string]ModelTier)
+	} else {
+		p.Models.Tiers = maps.Clone(p.Models.Tiers)
+	}
+	maps.Copy(p.Models.Tiers, m.Tiers)
+}
+
+func applyPermissionsProfile(p *Policy, perm *Permissions) {
+	if perm == nil {
+		return
+	}
+	p.Permissions.AllowCommands = append(p.Permissions.AllowCommands, perm.AllowCommands...)
+	p.Permissions.AllowedUrls = append(p.Permissions.AllowedUrls, perm.AllowedUrls...)
+	p.Permissions.DenyRead = append(p.Permissions.DenyRead, perm.DenyRead...)
+	p.Permissions.DenyWrite = append(p.Permissions.DenyWrite, perm.DenyWrite...)
+	p.Permissions.DenyCommandExact = append(p.Permissions.DenyCommandExact, perm.DenyCommandExact...)
+	p.Permissions.DenyCommandPrefixes = append(p.Permissions.DenyCommandPrefixes, perm.DenyCommandPrefixes...)
+	p.Permissions.DenyCommandPatterns = append(p.Permissions.DenyCommandPatterns, perm.DenyCommandPatterns...)
 }

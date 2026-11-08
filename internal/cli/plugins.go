@@ -45,9 +45,9 @@ func (d Deps) runPlugins(ctx context.Context, args []string) int {
 	case helpCmd, helpFlag, "-h":
 		st := term.NewStyle(d.Stdout, d.Getenv)
 		fmt.Fprintf(d.Stdout, "%sUSAGE%s\n", st.B, st.O)
-		fmt.Fprintf(d.Stdout, "  chezmoi agents plugins [list] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
-		fmt.Fprintf(d.Stdout, "  chezmoi agents plugins update [-n] [-f] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
-		fmt.Fprintf(d.Stdout, "  chezmoi agents plugins prune  [-n] [-file <path>]\n")
+		fmt.Fprintf(d.Stdout, "  agents plugins [list] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
+		fmt.Fprintf(d.Stdout, "  agents plugins update [-n] [-f] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
+		fmt.Fprintf(d.Stdout, "  agents plugins prune  [-n] [-file <path>]\n")
 		return 0
 	default:
 		st := term.NewStyle(d.Stderr, d.Getenv)
@@ -68,7 +68,7 @@ type pluginsCommonFlags struct {
 func parsePluginsFlags(name string, args []string, getenv func(string) string) (pluginsCommonFlags, error) {
 	fs := newFlags(name)
 	fileFlag := fs.String("file", "", "path to harness.toml")
-	harnessDirFlag := fs.String("harness-dir", getenv("HARNESS_DIR"), "path to giocaizzi/harness checkout")
+	harnessDirFlag := fs.String("harness-dir", getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
 	harnessFlag := fs.String("harness", "", "target harness (antigravity, claude, codex, etc.)")
 	dryRunFlag := fs.Bool("n", false, "dry-run mode (inspect only, do not modify)")
 	dryRunLong := fs.Bool("dry-run", false, "dry-run mode")
@@ -206,7 +206,7 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 		return 0
 	}
 
-	fmt.Fprintf(d.Stdout, "%schezmoi agents plugins — harness plugin status and lifecycle%s\n\n", st.B, st.O)
+	fmt.Fprintf(d.Stdout, "%sagents plugins — harness plugin status and lifecycle%s\n\n", st.B, st.O)
 
 	harnesses := pluginmgmt.SortHarnesses(pluginmgmt.EnabledHarnesses(mgr.HarnessConfig))
 	if flags.harness != "" {
@@ -244,7 +244,7 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 	}
 
 	if staleCount > 0 || missingCount > 0 {
-		st.Warn(d.Stdout, fmt.Sprintf("%d plugin(s) stale or missing: run `chezmoi agents plugins update`", staleCount+missingCount))
+		st.Warn(d.Stdout, fmt.Sprintf("%d plugin(s) stale or missing: run `agents plugins update`", staleCount+missingCount))
 	} else {
 		fmt.Fprintf(d.Stdout, "  %s✓%s all %d plugins up to date across %d configured harnesses\n", st.G, st.O, len(list), len(harnesses))
 	}
@@ -266,7 +266,7 @@ func (d Deps) runPluginsUpdate(ctx context.Context, args []string) int {
 		return 1
 	}
 
-	fmt.Fprintf(d.Stdout, "%schezmoi agents plugins update — sync and lifecycle across harnesses%s\n\n", st.B, st.O)
+	fmt.Fprintf(d.Stdout, "%sagents plugins update — sync and lifecycle across harnesses%s\n\n", st.B, st.O)
 
 	d.syncUpstream(ctx, st, mgr.HarnessDir, flags.dryRun)
 
@@ -484,7 +484,7 @@ func (d Deps) runPluginsPrune(_ context.Context, args []string) int {
 		return 1
 	}
 
-	fmt.Fprintf(d.Stdout, "%schezmoi agents plugins prune — clean obsolete plugin caches%s\n\n", st.B, st.O)
+	fmt.Fprintf(d.Stdout, "%sagents plugins prune — clean obsolete plugin caches%s\n\n", st.B, st.O)
 
 	if len(candidates) == 0 {
 		fmt.Fprintf(d.Stdout, "  %s✓%s nothing to prune\n", st.G, st.O)

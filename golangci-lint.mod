@@ -1,4 +1,4 @@
-module github.com/giocaizzi/dotfiles/tools/dots/golangci-lint
+module github.com/giocaizzi/agents/golangci-lint
 
 go 1.27.2
 

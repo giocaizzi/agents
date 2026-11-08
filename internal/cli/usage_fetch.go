@@ -23,7 +23,7 @@ import (
 
 const (
 	maxBody        = 1 << 20 // 1 MiB
-	userAgent      = "chezmoi-agents"
+	userAgent      = "agents"
 	liveTimeout    = 10 * time.Second
 	agyUnavailable = "agy did not answer /usage"
 	hdrAuth        = "Authorization"
@@ -404,7 +404,7 @@ func (f usageFetcher) runAgy(ctx context.Context, timeout time.Duration) ([]byte
 	secs := max(int(timeout/time.Second), 1)
 	cmd := exec.CommandContext(ctx, path, "-p", "/usage", "--output-format", "json", "--print-timeout", strconv.Itoa(secs)+"s")
 	// A fresh private directory: a shared temp dir could hold planted workspace config.
-	dir, err := os.MkdirTemp("", "chezmoi-agents-agy-")
+	dir, err := os.MkdirTemp("", "agents-agy-")
 	if err != nil {
 		return nil, errors.New("agy failed")
 	}

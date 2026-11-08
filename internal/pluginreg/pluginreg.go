@@ -20,8 +20,8 @@ import (
 	"github.com/giocaizzi/agents/internal/finding"
 )
 
-// DefaultHarnessRegistry is the default upstream plugin repository.
-const DefaultHarnessRegistry = "giocaizzi/harness"
+// DefaultHarnessRegistry is the default upstream plugin repository placeholder.
+const DefaultHarnessRegistry = "example/harness"
 
 // StandalonePlugin describes an individual plugin external to any registry.
 type StandalonePlugin struct {

@@ -1,4 +1,4 @@
-chezmoi agents usage — subscription usage per provider account   (cached 12m ago; -live to refresh)
+agents usage — subscription usage per provider account   (cached 12m ago; -live to refresh)
 
 anthropic       Enterprise seat · me@example.com  claude
   5h             ██████░░░░░░░░░░░░░░   31%   resets in 2h 14m

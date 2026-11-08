@@ -122,7 +122,7 @@ func sortSnapshots(snaps []usg.Snapshot) []usg.Snapshot {
 // renderUsage writes the report. meta is the dim text after the title, e.g.
 // "(live)" or "(cached 12m ago; -live to refresh)".
 func renderUsage(w io.Writer, st term.Style, snaps []usg.Snapshot, meta string, now time.Time) {
-	fmt.Fprintf(w, "%schezmoi agents usage — subscription usage per provider account%s   %s%s%s\n\n", st.B, st.O, st.D, meta, st.O)
+	fmt.Fprintf(w, "%sagents usage — subscription usage per provider account%s   %s%s%s\n\n", st.B, st.O, st.D, meta, st.O)
 
 	clean := make([]usg.Snapshot, len(snaps))
 	for i, s := range snaps {

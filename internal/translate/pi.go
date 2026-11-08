@@ -20,8 +20,8 @@ func PiSettings(p *config.Policy) map[string]any {
 	}
 
 	pkgs := p.Native.Pi.Packages
-	if len(pkgs) == 0 {
-		pkgs = []string{"../../.local/share/giocaizzi-harness"}
+	if pkgs == nil {
+		pkgs = []string{}
 	}
 
 	return map[string]any{

@@ -119,7 +119,7 @@ func TestFetchAnthropicHeaders(t *testing.T) {
 	for k, want := range map[string]string{
 		"Authorization":  "Bearer " + secret,
 		"Anthropic-Beta": "oauth-2025-04-20",
-		"User-Agent":     "chezmoi-agents",
+		"User-Agent":     "agents",
 	} {
 		if got := r.Header.Get(k); got != want {
 			t.Errorf("header %s = %q, want %q", k, got, want)
@@ -461,8 +461,8 @@ EOF
 	}
 	cwd, _ := os.ReadFile(filepath.Join(dir, "cwd"))
 	gotCwd := strings.TrimSpace(string(cwd))
-	if base := filepath.Base(gotCwd); !strings.HasPrefix(base, "chezmoi-agents-agy-") {
-		t.Errorf("agy cwd = %q, want a chezmoi-agents-agy-* directory", gotCwd)
+	if base := filepath.Base(gotCwd); !strings.HasPrefix(base, "agents-agy-") {
+		t.Errorf("agy cwd = %q, want an agents-agy-* directory", gotCwd)
 	}
 	if _, err := os.Stat(gotCwd); !os.IsNotExist(err) {
 		t.Errorf("agy cwd %q still exists (err %v)", gotCwd, err)

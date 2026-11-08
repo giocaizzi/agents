@@ -24,6 +24,20 @@ func (p Policy) Validate(where string) []finding.Finding {
 	fs = append(fs, p.validateNative(where)...)
 	fs = append(fs, p.validateVoice(where)...)
 	fs = append(fs, p.validateLSP(where)...)
+	fs = append(fs, p.validateProfiles(where)...)
+	return fs
+}
+
+func (p Policy) validateProfiles(where string) []finding.Finding {
+	var fs []finding.Finding
+	for name, prof := range p.Profiles {
+		if strings.TrimSpace(name) == "" {
+			fs = append(fs, finding.New(where, "profiles has an empty profile name"))
+		}
+		if prof.Models != nil {
+			fs = append(fs, Policy{Models: *prof.Models}.validateModels(fmt.Sprintf("%s.profiles.%s", where, name))...)
+		}
+	}
 	return fs
 }
 

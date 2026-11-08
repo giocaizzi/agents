@@ -27,19 +27,19 @@ func sampleFindings() []doctor.Finding {
 		return doctor.Finding{Level: doctor.LevelWarn, Kind: doctor.KindUnknownModel, Harness: h, Text: "scout: model ghost is not in the catalog", Fix: "harnessPolicy.models.tiers.scout"}
 	}
 	return []doctor.Finding{
-		{Level: doctor.LevelWarn, Kind: doctor.KindStaleCatalog, Text: "model catalog synced 40 days ago (2026-09-27)", Fix: "chezmoi agents models sync"},
+		{Level: doctor.LevelWarn, Kind: doctor.KindStaleCatalog, Text: "model catalog synced 40 days ago (2026-09-27)", Fix: "agents models sync"},
 		{Level: doctor.LevelInfo, Kind: doctor.KindNoUsage, Text: "no usage data: account checks skipped"},
 		warn("claude"),
 		suggestFinding("claude"),
 		warn("codex"),
 		suggestFinding("codex"),
-		{Level: doctor.LevelSuggest, Kind: doctor.KindNoAccount, Harness: "pi", Text: "pi: no account for provider acme", Fix: "chezmoi agents usage -live"},
+		{Level: doctor.LevelSuggest, Kind: doctor.KindNoAccount, Harness: "pi", Text: "pi: no account for provider acme", Fix: "agents usage -live"},
 	}
 }
 
-const wantPlain = `chezmoi agents doctor — models, accounts and capacity   (live)
+const wantPlain = `agents doctor — models, accounts and capacity   (live)
 
-! model catalog synced 40 days ago (2026-09-27)  · chezmoi agents models sync
+! model catalog synced 40 days ago (2026-09-27)  · agents models sync
 i no usage data: account checks skipped
 
 ↑ driver   Old 4 → New 5   better-ranked · coding #9 → #2 · $3/$15 → $2.5/$12.5 /Mtok · included in your plan · claude, codex
@@ -48,7 +48,7 @@ claude · codex
   ! scout: model ghost is not in the catalog  · harnessPolicy.models.tiers.scout
 
 pi
-  ↑ pi: no account for provider acme  · chezmoi agents usage -live
+  ↑ pi: no account for provider acme  · agents usage -live
 `
 
 func TestRenderDoctorPlain(t *testing.T) {
@@ -65,9 +65,9 @@ func TestRenderDoctorStyled(t *testing.T) {
 	st := term.Style{B: "<B>", M: "<M>", R: "<R>", G: "<G>", Y: "<Y>", C: "<C>", D: "<D>", O: "<O>"}
 	var buf bytes.Buffer
 	renderDoctor(&buf, st, sampleFindings(), "(live)", 0)
-	want := `<B>chezmoi agents doctor — models, accounts and capacity<O>   <D>(live)<O>
+	want := `<B>agents doctor — models, accounts and capacity<O>   <D>(live)<O>
 
-<Y>!<O> model catalog synced 40 days ago (2026-09-27)  <D>· chezmoi agents models sync<O>
+<Y>!<O> model catalog synced 40 days ago (2026-09-27)  <D>· agents models sync<O>
 <D>i<O> no usage data: account checks skipped
 
 <G>↑<O> <M>driver   <O>Old 4 → <M>New 5<O>   <D>better-ranked · coding #9 → #2 · $3/$15 → $2.5/$12.5 /Mtok · included in your plan · claude, codex<O>
@@ -76,7 +76,7 @@ func TestRenderDoctorStyled(t *testing.T) {
   <Y>!<O> scout: model ghost is not in the catalog  <D>· harnessPolicy.models.tiers.scout<O>
 
 <B>pi<O>
-  <G>↑<O> pi: no account for provider acme  <D>· chezmoi agents usage -live<O>
+  <G>↑<O> pi: no account for provider acme  <D>· agents usage -live<O>
 `
 	if diff := cmp.Diff(want, buf.String()); diff != "" {
 		t.Errorf("styled render mismatch (-want +got):\n%s", diff)
@@ -87,7 +87,7 @@ func TestRenderDoctorNothingToReport(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	renderDoctor(&buf, term.Style{}, nil, "(no usage cache; -live to refresh)", 0)
-	want := "chezmoi agents doctor — models, accounts and capacity   (no usage cache; -live to refresh)\n\n  ✓ nothing to report\n"
+	want := "agents doctor — models, accounts and capacity   (no usage cache; -live to refresh)\n\n  ✓ nothing to report\n"
 	if diff := cmp.Diff(want, buf.String()); diff != "" {
 		t.Errorf("render mismatch (-want +got):\n%s", diff)
 	}
@@ -213,7 +213,7 @@ func TestRenderDoctorQuietOverLimit(t *testing.T) {
 	if len(lines) != 2+5+1 {
 		t.Fatalf("lines = %d, want title, blank, 5 and the more line:\n%s", len(lines), buf.String())
 	}
-	if want := "  <D>… 2 more: run chezmoi agents doctor<O>"; lines[len(lines)-1] != want {
+	if want := "  <D>… 2 more: run agents doctor<O>"; lines[len(lines)-1] != want {
 		t.Errorf("last line = %q, want %q", lines[len(lines)-1], want)
 	}
 }

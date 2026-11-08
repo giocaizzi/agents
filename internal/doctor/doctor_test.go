@@ -212,16 +212,16 @@ func TestGlobalFindings(t *testing.T) {
 			{
 				Level: LevelWarn, Kind: KindUnknownModel, Role: RoleScout,
 				Text: "claude-ghost (harnessPolicy.models.tiers.scout) is not in the model catalog: retired, renamed or not tracked",
-				Fix:  "pick a lightweight model from chezmoi agents models",
+				Fix:  "pick a lightweight model from agents models",
 			},
 			{
 				Level: LevelWarn, Kind: KindUnknownModel, Role: RoleDefault,
 				Text: "ghost (harnessPolicy.native.pi.defaultModel) is not in the model catalog: retired, renamed or not tracked",
-				Fix:  "pick a tracked model from chezmoi agents models",
+				Fix:  "pick a tracked model from agents models",
 			},
 			{
 				Level: LevelInfo, Kind: KindNoUsage,
-				Text: "no usage data yet: account, capacity and model checks skipped", Fix: "chezmoi agents usage -live",
+				Text: "no usage data yet: account, capacity and model checks skipped", Fix: "agents usage -live",
 			},
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -299,7 +299,7 @@ func TestAccountFindings(t *testing.T) {
 		want := []Finding{{
 			Level: LevelWarn, Kind: KindNoAccount, Harness: "copilot",
 			Text: "no github-copilot account found for scout, worker, driver (claude-haiku-5, gpt-6)",
-			Fix:  "log in to copilot, then chezmoi agents usage -live",
+			Fix:  "log in to copilot, then agents usage -live",
 		}}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)

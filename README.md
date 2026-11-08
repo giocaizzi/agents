@@ -83,6 +83,13 @@ fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
 [profiles.default]
 instructions = ["prompts/core.md", "prompts/principles.md"]
 
+[profiles.work]
+instructions = ["prompts/core.md", "prompts/work.md"]
+[profiles.work.models]
+driver       = "claude-3-7-sonnet"
+[profiles.work.permissions]
+deny         = ["git push --force", "terraform apply", "rm -rf"]
+
 [plugins]
 # Primary or upstream plugin registry:
 registry = "https://github.com/example/harness"

@@ -19,7 +19,7 @@ const roleCol = 9
 // With limit > 0 it is the quiet report instead: only the loud lines, at most
 // limit of them, then a dim line counting the rest.
 func renderDoctor(w io.Writer, st term.Style, findings []doctor.Finding, meta string, limit int) {
-	fmt.Fprintf(w, "%schezmoi agents doctor — models, accounts and capacity%s   %s%s%s\n\n", st.B, st.O, st.D, sanitize(meta), st.O)
+	fmt.Fprintf(w, "%sagents doctor — models, accounts and capacity%s   %s%s%s\n\n", st.B, st.O, st.D, sanitize(meta), st.O)
 	if len(findings) == 0 {
 		fmt.Fprintf(w, "  %s✓%s nothing to report\n", st.G, st.O)
 		return
@@ -87,7 +87,7 @@ func renderQuiet(w io.Writer, st term.Style, global []doctor.Finding, byHarness 
 	lines := loudLines(st, global, byHarness, names, collapsed)
 	for i, l := range lines {
 		if i == limit {
-			fmt.Fprintf(w, "  %s… %d more: run chezmoi agents doctor%s\n", st.D, len(lines)-limit, st.O)
+			fmt.Fprintf(w, "  %s… %d more: run agents doctor%s\n", st.D, len(lines)-limit, st.O)
 			return
 		}
 		fmt.Fprintln(w, l)

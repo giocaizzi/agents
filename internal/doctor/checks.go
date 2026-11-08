@@ -49,9 +49,9 @@ func unknownModels(rs []resolved) []Finding {
 			continue
 		}
 		seen[k] = true
-		fix := "pick a tracked model from chezmoi agents models"
+		fix := "pick a tracked model from agents models"
 		if r.Role != RoleDefault {
-			fix = fmt.Sprintf("pick a %s model from chezmoi agents models", RoleTier(r.Role))
+			fix = fmt.Sprintf("pick a %s model from agents models", RoleTier(r.Role))
 		}
 		out = append(out, Finding{
 			Level: LevelWarn, Kind: KindUnknownModel, Role: r.Role,
@@ -161,7 +161,7 @@ func noAccounts(h string, considered []resolved, avail []string) []Finding {
 		out = append(out, Finding{
 			Level: LevelWarn, Kind: KindNoAccount, Harness: h,
 			Text: fmt.Sprintf("no %s account found for %s (%s)", ap, strings.Join(roles, ", "), strings.Join(models, ", ")),
-			Fix:  fmt.Sprintf("log in to %s, then chezmoi agents usage -live", h),
+			Fix:  fmt.Sprintf("log in to %s, then agents usage -live", h),
 		})
 	}
 	return out

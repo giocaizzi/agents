@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -11,32 +10,29 @@ import (
 
 func (d Deps) runPrompt(_ context.Context, args []string) int {
 	fs := newFlags("prompt")
-	profileFlag := fs.String("profile", "personal", "target profile (personal, work, light)")
+	profileFlag := fs.String("profile", "default", "target profile name (e.g. default, personal, work, light)")
 	checkOnly := fs.Bool("check", false, "only check that prompt layers exist and assemble cleanly")
-	fileFlag := fs.String("file", "", "optional path to edited prompt layer file")
+	fileFlag := fs.String("file", "", "optional path to policy or layer file")
 
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
 		return 2
 	}
 
-	if *fileFlag != "" {
-		cleaned := filepath.Clean(*fileFlag)
-		data, err := os.ReadFile(cleaned)
-		if err != nil {
-			fmt.Fprintf(d.Stderr, "error reading layer file %s: %v\n", *fileFlag, err)
-			return 1
-		}
-		if len(bytes.TrimSpace(data)) == 0 {
-			fmt.Fprintf(d.Stderr, "layer file %s is empty\n", *fileFlag)
-			return 1
-		}
+	profile := strings.ToLower(strings.TrimSpace(*profileFlag))
+	if profile == "" {
+		profile = "default"
 	}
 
-	profile := strings.ToLower(*profileFlag)
-	if profile != "personal" && profile != "work" && profile != "light" {
-		fmt.Fprintf(d.Stderr, "invalid profile %q (expected personal, work, or light)\n", profile)
-		return 2
+	if out, ok, err := d.tryPolicyProfile(*fileFlag, profile, *checkOnly); ok {
+		if err != nil {
+			fmt.Fprintf(d.Stderr, "%v\n", err)
+			return 1
+		}
+		if out != "" {
+			fmt.Fprint(d.Stdout, out)
+		}
+		return 0
 	}
 
 	if profile == "light" {
@@ -46,50 +42,140 @@ func (d Deps) runPrompt(_ context.Context, args []string) int {
 		return 0
 	}
 
-	srcDir := d.findSourceDir()
-	corePath := filepath.Join(srcDir, ".chezmoitemplates", "agents", "core.md")
-	envPath := filepath.Join(srcDir, ".chezmoitemplates", "agents", "env.md")
-	privPath := filepath.Join(srcDir, ".chezmoitemplates", "agents", profile+".md.age")
+	if out, ok, err := d.tryTemplatePrompt(profile, *checkOnly); ok {
+		if err != nil {
+			fmt.Fprintf(d.Stderr, "%v\n", err)
+			return 1
+		}
+		fmt.Fprint(d.Stdout, out)
+		return 0
+	}
+
+	fmt.Fprintf(d.Stderr, "unknown profile %q (no instructions found in configuration or prompt layers)\n", profile)
+	return 1
+}
+
+func (d Deps) tryPolicyProfile(file, profile string, checkOnly bool) (string, bool, error) {
+	p, polPath, err := d.loadPolicy(file)
+	if err != nil {
+		return "", false, err
+	}
+	if p == nil || len(p.Profiles) == 0 {
+		return "", false, nil
+	}
+	prof, ok := p.Profiles[profile]
+	if !ok {
+		return "", false, nil
+	}
+	if len(prof.Instructions) == 0 {
+		if checkOnly {
+			return fmt.Sprintf("✓ prompt (%s: no instructions configured)\n", profile), true, nil
+		}
+		return "", true, nil
+	}
+
+	content, err := assembleLayers(filepath.Dir(polPath), prof.Instructions)
+	if err != nil {
+		return "", true, err
+	}
+	if checkOnly {
+		return fmt.Sprintf("✓ prompt (%s profile: %d layer(s) present)\n", profile, len(prof.Instructions)), true, nil
+	}
+	return content, true, nil
+}
+
+func assembleLayers(baseDir string, instructions []string) (string, error) {
+	var sb strings.Builder
+	for _, layerRel := range instructions {
+		layerPath := layerRel
+		if !filepath.IsAbs(layerPath) {
+			layerPath = filepath.Join(baseDir, layerRel)
+		}
+		data, err := os.ReadFile(filepath.Clean(layerPath))
+		if err != nil {
+			return "", fmt.Errorf("missing prompt layer %s: %w", layerPath, err)
+		}
+		sb.Write(data)
+		if !strings.HasSuffix(sb.String(), "\n") {
+			sb.WriteString("\n")
+		}
+	}
+	return sb.String(), nil
+}
+
+func (d Deps) tryTemplatePrompt(profile string, checkOnly bool) (string, bool, error) {
+	corePath := d.findCorePath()
+	if corePath == "" {
+		return "", false, nil
+	}
 
 	coreBytes, err := os.ReadFile(filepath.Clean(corePath))
 	if err != nil {
-		fmt.Fprintf(d.Stderr, "missing core prompt layer %s: %v\n", corePath, err)
-		return 1
+		return "", true, fmt.Errorf("missing core prompt layer %s: %w", corePath, err)
 	}
 
-	envBytes, err := os.ReadFile(filepath.Clean(envPath))
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "missing env prompt layer %s: %v\n", envPath, err)
-		return 1
-	}
+	dir := filepath.Dir(corePath)
+	envBytes := readOptional(filepath.Join(dir, "env.md"))
+	hasPriv := checkPrivLayer(dir, profile)
 
-	if _, err := os.Stat(filepath.Clean(privPath)); err != nil {
-		// Try unencrypted fallback
-		privFallback := filepath.Join(srcDir, ".chezmoitemplates", "agents", profile+".md")
-		if _, err := os.Stat(filepath.Clean(privFallback)); err != nil {
-			fmt.Fprintf(d.Stderr, "missing profile prompt layer %s: %v\n", privPath, err)
-			return 1
+	if checkOnly {
+		layerDesc := "core"
+		if hasPriv {
+			layerDesc += " + " + profile
 		}
-	}
-
-	if *checkOnly {
-		fmt.Fprintf(d.Stdout, "✓ prompt (%s profile: core + env + %s layer present)\n", profile, profile)
-		return 0
+		return fmt.Sprintf("✓ prompt (%s profile: %s layer present)\n", profile, layerDesc), true, nil
 	}
 
 	var sb strings.Builder
 	sb.Write(coreBytes)
-	if !strings.HasSuffix(sb.String(), "\n") {
-		sb.WriteString("\n")
+	ensureNewline(&sb)
+	if len(envBytes) > 0 {
+		sb.Write(envBytes)
+		ensureNewline(&sb)
 	}
-	sb.Write(envBytes)
-	if !strings.HasSuffix(sb.String(), "\n") {
-		sb.WriteString("\n")
+	if hasPriv {
+		fmt.Fprintf(&sb, "\n<!-- Profile Layer: %s -->\n", profile)
 	}
-	fmt.Fprintf(&sb, "\n<!-- Profile Layer: %s (age-encrypted in repository) -->\n", profile)
+	return sb.String(), true, nil
+}
 
-	fmt.Fprint(d.Stdout, sb.String())
-	return 0
+func readOptional(path string) []byte {
+	if _, err := os.Stat(filepath.Clean(path)); err == nil {
+		data, _ := os.ReadFile(filepath.Clean(path))
+		return data
+	}
+	return nil
+}
+
+func checkPrivLayer(dir, profile string) bool {
+	privPath := filepath.Join(dir, profile+".md.age")
+	if _, err := os.Stat(filepath.Clean(privPath)); err == nil {
+		return true
+	}
+	privFallback := filepath.Join(dir, profile+".md")
+	_, err := os.Stat(filepath.Clean(privFallback))
+	return err == nil
+}
+
+func ensureNewline(sb *strings.Builder) {
+	if !strings.HasSuffix(sb.String(), "\n") {
+		sb.WriteString("\n")
+	}
+}
+
+func (d Deps) findCorePath() string {
+	srcDir := d.findSourceDir()
+	candidates := []string{
+		filepath.Join(srcDir, ".chezmoitemplates", "agents", "core.md"),
+		filepath.Join(srcDir, "prompts", "core.md"),
+		filepath.Join("prompts", "core.md"),
+	}
+	for _, c := range candidates {
+		if _, err := os.Stat(filepath.Clean(c)); err == nil {
+			return c
+		}
+	}
+	return ""
 }
 
 func (d Deps) findSourceDir() string {

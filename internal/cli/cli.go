@@ -1,4 +1,4 @@
-// Package cli implements the chezmoi-agents command line interface.
+// Package cli implements the agents command line interface.
 package cli
 
 import (
@@ -124,9 +124,9 @@ func usage(s term.Style) string {
 	p("%sUSAGE%s\n", b, o)
 	p("  %sagents%s %sinit%s %s[-global]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %sstatusline%s %s[claude|copilot|tmux|omp]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %scheck%s %s[-file <path>] [-harness-dir <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %srender%s %s[-file <path>]%s %s-harness <name>%s %s[-target <file>]%s\n", m, o, m, o, d, o, y, o, d, o)
-	p("  %sagents%s %sprompt%s %s[-profile <profile>]%s %s[-check]%s %s[-file <path>]%s\n", m, o, m, o, d, o, d, o, d, o)
+	p("  %sagents%s %scheck%s %s[-file <path>] [-profile <name>] [-harness-dir <path>]%s\n", m, o, m, o, d, o)
+	p("  %sagents%s %srender%s %s[-file <path>]%s %s-harness <name>%s %s[-profile <name>]%s %s[-target <file>]%s\n", m, o, m, o, d, o, y, o, d, o, d, o)
+	p("  %sagents%s %sprompt%s %s[-profile <name>]%s %s[-check]%s %s[-file <path>]%s\n", m, o, m, o, d, o, d, o, d, o)
 	p("  %sagents%s %smcp sync%s %s[path] [-check] [-account <id>]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %smcp add%s %s[flags] <name> <commandOrUrl> [args...]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %smodels%s %s[-file <path>]%s\n", m, o, m, o, d, o)
@@ -157,8 +157,8 @@ func usage(s term.Style) string {
 	p("%sFLAGS%s\n", b, o)
 	p("  %s-file%s %s<path>%s         Path to harness-policy.toml, harness.toml, models.json, or prompt layer\n", y, o, d, o)
 	p("  %s-harness%s %s<name>%s      Target harness (render) or comma-separated harnesses (doctor)\n", y, o, d, o)
-	p("  %s-harness-dir%s %s<path>%s  Checkout of giocaizzi/harness (defaults to HARNESS_DIR)\n", y, o, d, o)
-	p("  %s-profile%s %s<profile>%s   System prompt profile (personal|work|light)\n", y, o, d, o)
+	p("  %s-harness-dir%s %s<path>%s  Checkout of plugin registry repository (defaults to HARNESS_DIR)\n", y, o, d, o)
+	p("  %s-profile%s %s<name>%s      Configuration or prompt profile (e.g. default, work, light)\n", y, o, d, o)
 	p("  %s-check%s               Validate layer presence or models doc freshness without printing output\n", y, o)
 	p("  %s-doc%s %s<path>%s          Path to docs/MODELS.md\n", y, o, d, o)
 	p("  %s-target%s %s<file>%s       Target file to write rendered configuration\n", y, o, d, o)

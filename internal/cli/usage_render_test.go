@@ -119,7 +119,7 @@ func TestRenderUsageSortsByProviderThenAccount(t *testing.T) {
 	renderUsage(&buf, term.Style{}, sampleSnapshots(), "(live)", renderNow)
 	var providers []string
 	for line := range strings.SplitSeq(buf.String(), "\n") {
-		if line != "" && line[0] != ' ' && !strings.HasPrefix(line, "chezmoi") {
+		if line != "" && line[0] != ' ' && !strings.HasPrefix(line, "agents") {
 			providers = append(providers, strings.Fields(line)[0])
 		}
 	}
