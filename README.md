@@ -20,7 +20,7 @@ Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-p
 │   Anthropic    personal@...    active     $42.50    Tier 4             │
 │   OpenAI       work@...        active     $15.20    Tier 2             │
 │   Google       personal@...    active     Free      Gemini 2.5         │
-│   GitHub       giocaizzi       active     Pro       Copilot            │
+│   GitHub       octocat         active     Pro       Copilot            │
 │                                                                        │
 │   4 providers active · All credentials valid                           │
 │                                                                        │
@@ -100,8 +100,8 @@ fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
 instructions = ["prompts/core.md", "prompts/principles.md"]
 
 [plugins]
-registry = "https://github.com/giocaizzi/harness"
-enabled  = ["foundations", "python", "dev-tools"]
+registry = "https://github.com/example/harness"
+enabled  = ["core", "dev-tools"]
 ```
 
 ### 3. Verify & Apply

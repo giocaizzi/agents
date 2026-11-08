@@ -40,8 +40,8 @@ fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
 instructions = ["prompts/core.md", "prompts/principles.md"]
 
 [plugins]
-registry = "https://github.com/giocaizzi/harness"
-enabled  = ["foundations", "python", "dev-tools"]
+registry = "https://github.com/example/harness"
+enabled  = ["core", "dev-tools"]
 `
 
 func (d Deps) runInit(_ context.Context, args []string) int {

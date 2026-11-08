@@ -9,11 +9,12 @@ import (
 )
 
 type tomlWrapper struct {
+	Agents        Policy `toml:"agents"`
 	HarnessPolicy Policy `toml:"harnessPolicy"`
 }
 
 // ParseTOML parses a policy from a TOML reader. It transparently supports both
-// a root table (standalone policy) and a wrapped [harnessPolicy] table (.chezmoidata source).
+// a root table (standalone policy) and a wrapped [agents] or [harnessPolicy] table (.chezmoidata source).
 func ParseTOML(r io.Reader) (*Policy, error) {
 	b, err := io.ReadAll(r)
 	if err != nil {
@@ -21,8 +22,13 @@ func ParseTOML(r io.Reader) (*Policy, error) {
 	}
 
 	var w tomlWrapper
-	if err := toml.Unmarshal(b, &w); err == nil && !w.HarnessPolicy.isEmpty() {
-		return &w.HarnessPolicy, nil
+	if err := toml.Unmarshal(b, &w); err == nil {
+		if !w.Agents.isEmpty() {
+			return &w.Agents, nil
+		}
+		if !w.HarnessPolicy.isEmpty() {
+			return &w.HarnessPolicy, nil
+		}
 	}
 
 	var p Policy
@@ -35,7 +41,9 @@ func ParseTOML(r io.Reader) (*Policy, error) {
 // FromData converts an untyped chezmoi data map into a typed Policy struct.
 func FromData(data map[string]any) (*Policy, error) {
 	target := data
-	if sub, ok := data["harnessPolicy"].(map[string]any); ok {
+	if sub, ok := data["agents"].(map[string]any); ok {
+		target = sub
+	} else if sub, ok := data["harnessPolicy"].(map[string]any); ok {
 		target = sub
 	}
 
