@@ -1,0 +1,23 @@
+{
+  "modelCatalog": {
+    "schema": 2,
+    "syncedAt": "2026-01-01",
+    "since": "2026-01-01",
+    "providers": [
+      "anthropic"
+    ],
+    "sources": {
+      "arena": {
+        "publishDate": "2026-01-01",
+        "board": "text_style_control"
+      }
+    },
+    "tiers": {
+      "lightweight": [],
+      "versatile": [],
+      "powerful": [],
+      "extra": []
+    },
+    "models": {}
+  }
+}

@@ -1,0 +1,12 @@
+// User settings belong in settings.json.
+// This file is managed automatically.
+{
+  /* the first login: a "//" inside a string must survive */
+  "loggedInUsers": [
+    { "login": "octocat", "host": "https://github.com" }, // active
+    "hubot"
+  ],
+  "lastLoggedInUser": { "login": "octocat", "host": "https://github.com" },
+  "banner": "see https://example.com/a//b and /* not a comment */",
+  "esc": "quote \" // still a string"
+}

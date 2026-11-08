@@ -1,0 +1,61 @@
+{
+  "rows": [
+    {
+      "row_idx": 0,
+      "row": {
+        "model_name": "Claude Opus 5.5 (Max)",
+        "organization": "anthropic",
+        "license": "Proprietary",
+        "score": 0.20144840119751856,
+        "score_ci_lower": 0.1805897726415885,
+        "score_ci_upper": 0.22230702975344863,
+        "observation_count": 2350984.0,
+        "session_count": 14169.0,
+        "rank": 1,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-11-04",
+        "cost_per_task_p50": 6.7819518,
+        "output_tokens_per_task_p50": 128551.75
+      }
+    },
+    {
+      "row_idx": 1,
+      "row": {
+        "model_name": "Gemini 4 Carbon (High)",
+        "organization": "google",
+        "license": "Proprietary",
+        "score": 0.16716595213257168,
+        "score_ci_lower": 0.15950033099714978,
+        "score_ci_upper": 0.1748315732679936,
+        "observation_count": 7450409.0,
+        "session_count": 44873.0,
+        "rank": 2,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-11-04",
+        "cost_per_task_p50": 1.6845276,
+        "output_tokens_per_task_p50": 54518.5
+      }
+    },
+    {
+      "row_idx": 2,
+      "row": {
+        "model_name": "Claude Sonnet 5.5 (Max)",
+        "organization": "anthropic",
+        "license": "Proprietary",
+        "score": 0.15423674759515776,
+        "score_ci_lower": 0.1264750029811495,
+        "score_ci_upper": 0.18199849220916603,
+        "observation_count": 1201743.0,
+        "session_count": 8596.0,
+        "rank": 3,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-11-04",
+        "cost_per_task_p50": 3.7182732999999994,
+        "output_tokens_per_task_p50": 156509.0
+      }
+    }
+  ],
+  "num_rows_total": 58,
+  "num_rows_per_page": 100,
+  "partial": false
+}

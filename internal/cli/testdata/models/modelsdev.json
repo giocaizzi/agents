@@ -1,0 +1,58 @@
+{
+  "anthropic": {
+    "id": "anthropic",
+    "name": "Anthropic",
+    "models": {
+      "claude-opus-5-5": {
+        "id": "claude-opus-5-5",
+        "name": "Claude Opus 5.5",
+        "family": "claude-opus",
+        "release_date": "2026-09-01",
+        "tool_call": true,
+        "canonical_model_id": "anthropic/claude-opus-5-5",
+        "modalities": {"input": ["text", "image"], "output": ["text"]},
+        "cost": {"input": 5, "output": 25}
+      },
+      "claude-sonnet-5-5": {
+        "id": "claude-sonnet-5-5",
+        "name": "Claude Sonnet 5.5",
+        "family": "claude-sonnet",
+        "release_date": "2026-09-01",
+        "tool_call": true,
+        "canonical_model_id": "anthropic/claude-sonnet-5-5",
+        "modalities": {"input": ["text", "image"], "output": ["text"]},
+        "cost": {"input": 3, "output": 15}
+      }
+    }
+  },
+  "openai": {
+    "id": "openai",
+    "name": "OpenAI",
+    "models": {
+      "gpt-6-luna": {
+        "id": "gpt-6-luna",
+        "name": "GPT-6 Luna",
+        "family": "gpt",
+        "release_date": "2026-10-01",
+        "tool_call": true,
+        "canonical_model_id": "openai/gpt-6-luna",
+        "modalities": {"input": ["text"], "output": ["text"]},
+        "cost": {"input": 0.1, "output": 0.5}
+      }
+    }
+  },
+  "mistral": {
+    "id": "mistral",
+    "name": "Mistral",
+    "models": {
+      "mistral-large-9": {
+        "id": "mistral-large-9",
+        "name": "Mistral Large 9",
+        "release_date": "2026-10-01",
+        "tool_call": true,
+        "modalities": {"input": ["text"], "output": ["text"]},
+        "cost": {"input": 2, "output": 6}
+      }
+    }
+  }
+}

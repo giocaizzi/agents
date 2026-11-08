@@ -1,0 +1,4 @@
+Model version,Time horizon,average_score,Release date,Organization,Country,Training compute (FLOP),Training compute notes,CI_high,CI_low,Source,Source link,Notes,Time Horizon (80%),METR version,id
+claude-mythos-preview-early,1044.780145,0.85205,2026-04-07,Anthropic,United States of America,,Not disclosed.,3304.261235,508.876789,https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/,,,185.911829,METR-Horizon-v1.1,recW9gDVlpPKxhewo
+claude-opus-4-6_unknown,718.80683,0.788644,2026-02-05,Anthropic,United States of America,,,3949.750392,319.32091,,,,69.874587,METR-Horizon-v1.1,recF8cs4o1pSE7d15
+gemini-3.1-pro-preview,384.147435,0.77035,2026-02-19,Google DeepMind,United States of America,,,694.750898,233.50073,https://metr.org/blog/2025-03-19-measuring-ai-ability-to-complete-long-tasks/,,,89.801503,METR-Horizon-v1.1,recVAgCABLb9qKDM9

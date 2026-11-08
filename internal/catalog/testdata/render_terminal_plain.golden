@@ -1,0 +1,33 @@
+Model tiers · synced 2026-11-06 · arena text_style_control 2026-10-28
+
+Lightweight (2)
+  MODEL              PROVIDER   ID                           $IN   $OUT  $CACHE  CTX    TEXT  CODE  AGENT  WEB  HARD  MATH  IF  MULTI  ECI  METR
+  GPT-6 Luna         openai     openai/gpt-6-luna            $0.1  $0.5  $0.01   1.05M  #12   #60   ·      ·    ·     ·     ·   ·      ·    ·
+  Gemma 4 31B        google     google/gemma-4-31b-it        n/a   n/a   ·       262k   #30   ·     ·      ·    ·     ·     ·   ·      ·    ·
+
+Versatile (2)
+  MODEL              PROVIDER   ID                           $IN   $OUT  $CACHE  CTX    TEXT  CODE  AGENT  WEB  HARD  MATH  IF  MULTI  ECI  METR
+  Claude Sonnet 5.5  anthropic  anthropic/claude-sonnet-5-5  $3    $15   $0.3    200k   #4    #2    ·      ·    ·     #9    ·   ·      151  95m
+  openai/ghost                  openai/ghost                 n/a   n/a   ·       ·      ·     ·     ·      ·    ·     ·     ·   ·      ·    ·
+
+Powerful (1)
+  MODEL              PROVIDER   ID                           $IN   $OUT  $CACHE  CTX    TEXT  CODE  AGENT  WEB  HARD  MATH  IF  MULTI  ECI  METR
+  Claude Opus 5.5    anthropic  anthropic/claude-opus-5-5    $5    $25   $0.5    1M     #1    #2    ·      #3   ·     ·     ·   ·      ·    ·
+
+Extra (0)
+  none
+
+Untiered (2)
+  MODEL              PROVIDER   ID                           $IN   $OUT  $CACHE  CTX    TEXT  CODE  AGENT  WEB  HARD  MATH  IF  MULTI  ECI  METR
+  GPT-6 Sol          openai     openai/gpt-6-sol             $2.5  $10   ·       1.05M  ·     ·     ·      ·    ·     ·     ·   ·      ·    ·
+  Untiered | Pipe    openai     openai/untiered-pipe         $1    $4    ·       400k   ·     ·     #7     ·    ·     ·     ·   ·      ·    ·
+
+Best when
+  CATEGORY  MODEL                   RANK
+  Text      Claude Opus 5.5 (High)  #1
+  Coding    Claude Opus 5.5 (High)  #2
+  Agent     Untiered | Pipe         #7
+  WebDev    Claude Opus 5.5         #3
+  Math      Claude Sonnet 5.5       #9
+
+Rankings: LMArena leaderboard dataset · Benchmarks: Epoch AI, CC-BY

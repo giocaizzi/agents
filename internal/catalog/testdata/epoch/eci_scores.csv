@@ -1,0 +1,4 @@
+Model,Display name,eci,eci_ci_low,eci_ci_high,date,Organization,Country (of organization),Model accessibility,Accessibility group,model_versions
+GPT-6 Astra,GPT-6 Astra,169.07,166.16,172.28,2026-09-03,OpenAI,United States of America,API access,Closed weights,
+GPT-6.1 Sol,GPT-6.1 Sol,168.94,165.97,172.19,2026-09-29,OpenAI,United States of America,API access,Closed weights,
+Claude Opus 5.5,Claude Opus 5.5,168.36,165.54,171.51,2026-09-22,Anthropic,United States of America,API access,Closed weights,

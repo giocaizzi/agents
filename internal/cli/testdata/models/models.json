@@ -1,0 +1,41 @@
+{
+  "modelCatalog": {
+    "schema": 2,
+    "syncedAt": "2026-01-01",
+    "since": "2026-01-01",
+    "providers": [
+      "anthropic",
+      "openai"
+    ],
+    "sources": {
+      "arena": {
+        "publishDate": "2026-01-01",
+        "board": "text_style_control"
+      }
+    },
+    "pin": {
+      "anthropic/claude-opus-5-5": "powerful"
+    },
+    "tiers": {
+      "lightweight": [],
+      "versatile": [],
+      "powerful": [
+        "anthropic/claude-opus-5-5"
+      ],
+      "extra": []
+    },
+    "models": {
+      "anthropic/claude-opus-5-5": {
+        "name": "Claude Opus 5.5",
+        "releaseDate": "2026-09-01",
+        "provider": "anthropic",
+        "id": "claude-opus-5-5",
+        "context": 1000000,
+        "api": {
+          "in": 5,
+          "out": 25
+        }
+      }
+    }
+  }
+}

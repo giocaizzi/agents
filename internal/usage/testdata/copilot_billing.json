@@ -1,0 +1,7 @@
+{
+  "timePeriod": {"year": 2026, "month": 11},
+  "usageItems": [
+    {"product": "Copilot", "sku": "Copilot Premium Request", "model": "m1", "unitType": "requests", "pricePerUnit": 0.04, "grossQuantity": 100, "grossAmount": 4, "discountQuantity": 90, "discountAmount": 3.6, "netQuantity": 10, "netAmount": 0.4},
+    {"product": "Copilot", "sku": "Copilot Premium Request", "model": "m2", "grossQuantity": 50, "netAmount": 1.1}
+  ]
+}

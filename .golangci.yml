@@ -1,0 +1,119 @@
+# golangci-lint v2 baseline: every linter on, then opt out with a reason.
+# Copy to the repo root as .golangci.yml. Pinned through golangci-lint.mod (see PROJECT_SETUP.md),
+# so a golangci-lint upgrade that adds linters lands in its own PR.
+version: "2"
+
+run:
+  timeout: 5m
+  relative-path-mode: gomod
+  build-tags:
+    - integration   # lint the integration tests too (go-testing)
+
+linters:
+  default: all
+  disable:
+    # Deprecated upstream; their _v5 / _v2 successors are covered below or by `default: all`.
+    - exhaustruct
+    - gomodguard
+    - wsl
+    # Zero values are idiomatic; forcing every field in every literal fights that.
+    - exhaustruct_v5
+    # Whitespace and naming taste, not correctness.
+    - wsl_v5
+    - nlreturn
+    - varnamelen
+    - lll
+    - noinlineerr        # `if err := f(); err != nil` is idiomatic
+    - nonamedreturns     # named results document multi-value returns; nakedret still bans bare returns
+    # Needs a per-repo allow/deny list; add it back with rules once there is one.
+    - depguard
+    # To-do comments are tracked (as issues, by CI), not lint errors.
+    - godox
+    # Dynamic errors with context (fmt.Errorf("open %s: %w", ...)) are the norm; sentinels only where callers branch.
+    - err113
+    # White-box tests in the same package are allowed; black-box (_test package) where the API is the subject.
+    - testpackage
+    # Struct tags follow the external format they map (an API's snake_case JSON), not a house case.
+    - tagliatelle
+    # Numbers in tests and table data are clearer inline; named constants where a value has meaning.
+    - mnd
+    # gocognit covers complexity; these overlap with it or count lines rather than difficulty.
+    - cyclop
+    - gocyclo
+    - funlen
+    - maintidx
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment   # memory layout tuning, not correctness; enable per hot struct
+    interfacebloat:
+      max: 12   # the edit.Chezmoi port mirrors the chezmoi CLI surface
+    funcorder:
+      struct-method: false   # helpers stay beside their callers
+    gocognit:
+      min-complexity: 20
+    nakedret:
+      max-func-lines: 0
+    sloglint:
+      kv-only: false
+      attr-only: true
+      no-global: all
+      context: scope
+      static-msg: true
+      key-naming-case: snake
+    wrapcheck:
+      # Errors from our own internal packages are wrapped where they originate.
+      ignore-package-globs:
+        - github.com/giocaizzi/dotfiles/tools/dots/internal/*
+      ignore-sig-regexps:
+        - \.Errorf\(
+        - errors\.New\(
+        - errors\.Join\(
+        - \.Wait\(\)        # errgroup.Group.Wait returns the goroutines' own (already wrapped) errors
+    gosec:
+      excludes:
+        - G204   # subprocess launched with variable: a process supervisor does this on purpose
+    revive:
+      rules:
+        - name: exported
+        - name: package-comments
+        - name: unused-parameter
+        - name: context-as-argument
+        - name: error-return
+        - name: error-strings
+        - name: receiver-naming
+    paralleltest:
+      ignore-missing-subtests: true
+    usetesting:
+      os-temp-dir: true
+
+  exclusions:
+    generated: strict
+    presets:
+      - std-error-handling
+    rules:
+      - path: _test\.go
+        linters:
+          - gochecknoglobals   # golden-file flags and test tables
+          - wrapcheck
+          - gosec
+          - dupl
+          - goconst
+
+formatters:
+  enable:
+    - gofumpt
+    - gci
+  settings:
+    gofumpt:
+      extra:
+        group-params: true
+    gci:
+      sections:
+        - standard
+        - default
+        - localmodule

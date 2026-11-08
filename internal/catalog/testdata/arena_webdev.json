@@ -1,0 +1,55 @@
+{
+  "rows": [
+    {
+      "row_idx": 0,
+      "row": {
+        "model_name": "Claude Opus 5.5 (Max)",
+        "organization": "anthropic",
+        "license": "Proprietary",
+        "rating": 1809.8391605525123,
+        "rating_lower": 1797.0047852622824,
+        "rating_upper": 1822.673535842742,
+        "variance": 42.87985288377925,
+        "vote_count": 3473,
+        "rank": 1,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-10-28"
+      }
+    },
+    {
+      "row_idx": 1,
+      "row": {
+        "model_name": "GPT-6 Astra (Max)",
+        "organization": "openai",
+        "license": "Proprietary",
+        "rating": 1773.3545606290113,
+        "rating_lower": 1763.8328470745705,
+        "rating_upper": 1782.876274183452,
+        "variance": 23.601197681572426,
+        "vote_count": 7210,
+        "rank": 2,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-10-28"
+      }
+    },
+    {
+      "row_idx": 2,
+      "row": {
+        "model_name": "Claude Sonnet 5.5 (xHigh)",
+        "organization": "anthropic",
+        "license": "Proprietary",
+        "rating": 1769.7283971913196,
+        "rating_lower": 1758.4502972988341,
+        "rating_upper": 1781.006497083805,
+        "variance": 33.111258800867795,
+        "vote_count": 4469,
+        "rank": 3,
+        "category": "overall",
+        "leaderboard_publish_date": "2026-10-28"
+      }
+    }
+  ],
+  "num_rows_total": 655,
+  "num_rows_per_page": 100,
+  "partial": false
+}

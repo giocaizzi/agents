@@ -1,0 +1,4 @@
+Model version,Binary accuracy,Partial score,Reasoning,Tool setting,Step budget,Release date,Organization,Country,Training compute (FLOP),Training compute notes,Name,Model family,Estimated cost (USD),Source,Notes
+claude-opus-5_max,0.3143,0.6831,max,batch tool,500,2026-07-24,Anthropic,United States of America,,,Claude Opus 5 (max),Claude,,https://osworld-v2.xlang.ai/,
+claude-opus-5_xhigh,0.30210000000000004,0.6767000000000001,xhigh,batch tool,500,2026-07-24,Anthropic,United States of America,,,Claude Opus 5 (xhigh),Claude,,https://osworld-v2.xlang.ai/,
+claude-opus-5_high,0.2898,0.6379,high,batch tool,500,2026-07-24,Anthropic,United States of America,,,Claude Opus 5 (high),Claude,,https://osworld-v2.xlang.ai/,

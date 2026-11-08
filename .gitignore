@@ -13,3 +13,8 @@ CLAUDE.local.md
 .opencode/plans/
 .pi/npm/
 .pi/git/
+
+bin/
+coverage.out
+dist/
+

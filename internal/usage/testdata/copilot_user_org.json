@@ -1,0 +1,11 @@
+{
+  "copilot_plan": "individual",
+  "organization_login_list": ["acme"],
+  "quota_reset_date": "2026-12-01",
+  "quota_snapshots": {
+    "chat": {"entitlement": 0, "remaining": 0, "percent_remaining": 100, "unlimited": true},
+    "completions": {"unlimited": true},
+    "premium_interactions": {"entitlement": 300, "remaining": 90, "percent_remaining": 30, "unlimited": false, "overage_permitted": true, "overage_count": 0},
+    "future_quota": {"entitlement": 10, "remaining": 5, "percent_remaining": 50}
+  }
+}

@@ -1,0 +1,33 @@
+<b>Model tiers</> <d>· synced 2026-11-06 · arena text_style_control 2026-10-28</>
+
+<b>Lightweight</> <d>(2)</>
+  <d>MODEL                    PROVIDER   ID                                 $IN        $OUT       $CACHE   CTX      TEXT      CODE       AGENT     WEB       HARD     MATH      IF       MULTI    ECI      METR</>
+  <m>GPT-6 Luna</>         openai     <d>openai/gpt-6-luna</>            $0.1       $0.5       $0.01    1.05M    #12       <d>#60</>  <d>·</>   <d>·</>   <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+  <m>Gemma 4 31B</>        google     <d>google/gemma-4-31b-it</>        <d>n/a</>  <d>n/a</>  <d>·</>  262k     #30       <d>·</>    <d>·</>   <d>·</>   <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+
+<b>Versatile</> <d>(2)</>
+  <d>MODEL                    PROVIDER   ID                                 $IN        $OUT       $CACHE   CTX      TEXT      CODE       AGENT     WEB       HARD     MATH      IF       MULTI    ECI      METR</>
+  <m>Claude Sonnet 5.5</>  anthropic  <d>anthropic/claude-sonnet-5-5</>  $3         $15        $0.3     200k     <g>#4</>  <g>#2</>   <d>·</>   <d>·</>   <d>·</>  <g>#9</>  <d>·</>  <d>·</>  151      95m
+  <m>openai/ghost</>                  <d>openai/ghost</>                 <d>n/a</>  <d>n/a</>  <d>·</>  <d>·</>  <d>·</>   <d>·</>    <d>·</>   <d>·</>   <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+
+<b>Powerful</> <d>(1)</>
+  <d>MODEL                    PROVIDER   ID                                 $IN        $OUT       $CACHE   CTX      TEXT      CODE       AGENT     WEB       HARD     MATH      IF       MULTI    ECI      METR</>
+  <m>Claude Opus 5.5</>    anthropic  <d>anthropic/claude-opus-5-5</>    $5         $25        $0.5     1M       <g>#1</>  <g>#2</>   <d>·</>   <g>#3</>  <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+
+<b>Extra</> <d>(0)</>
+  <d>none</>
+
+<b>Untiered</> <d>(2)</>
+  <d>MODEL                    PROVIDER   ID                                 $IN        $OUT       $CACHE   CTX      TEXT      CODE       AGENT     WEB       HARD     MATH      IF       MULTI    ECI      METR</>
+  <m>GPT-6 Sol</>          openai     <d>openai/gpt-6-sol</>             $2.5       $10        <d>·</>  1.05M    <d>·</>   <d>·</>    <d>·</>   <d>·</>   <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+  <m>Untiered | Pipe</>    openai     <d>openai/untiered-pipe</>         $1         $4         <d>·</>  400k     <d>·</>   <d>·</>    <g>#7</>  <d>·</>   <d>·</>  <d>·</>   <d>·</>  <d>·</>  <d>·</>  <d>·</>
+
+<b>Best when</>
+  <d>CATEGORY  MODEL                               RANK</>
+  Text      <m>Claude Opus 5.5</> <d>(High)</>  <g>#1</>
+  Coding    <m>Claude Opus 5.5</> <d>(High)</>  <g>#2</>
+  Agent     <m>Untiered | Pipe</>               <g>#7</>
+  WebDev    <m>Claude Opus 5.5</>               <g>#3</>
+  Math      <m>Claude Sonnet 5.5</>             <g>#9</>
+
+<d>Rankings: LMArena leaderboard dataset · Benchmarks: Epoch AI, CC-BY</>

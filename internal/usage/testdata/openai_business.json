@@ -1,0 +1,6 @@
+{
+  "plan_type": "business_usage_based",
+  "rate_limit": {"primary_window": {"used_percent": 10, "limit_window_seconds": 18000, "reset_at": 1793000000}},
+  "credits": {"has_credits": false, "unlimited": true, "balance": 0},
+  "spend_control": {"reached": false}
+}

@@ -1,0 +1,5 @@
+{"timestamp":"2026-11-05T10:00:00.000Z","type":"session_meta","payload":{"id":"x"}}
+{"timestamp":"2026-11-05T10:00:01.000Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":"codex","plan_type":"pro","primary":{"used_percent":90,"window_minutes":300,"resets_at":1793000000},"secondary":null}}}
+{"timestamp":"2026-11-05T11:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":null,"rate_limits":{"limit_id":"codex","plan_type":"plus","primary":{"used_percent":12.5,"window_minutes":300,"resets_at":1000},"secondary":{"used_percent":40,"window_minutes":10080,"resets_at":1793500000},"credits":{"has_credits":false,"unlimited":false,"balance":null}}}}
+{"timestamp":"2026-11-05T12:00:00.000Z","type":"event_msg","payload":{"type":"token_count","info":{"total":1},"rate_limits":null}}
+{"timestamp":"2026-11-05T12:00:01.000Z","type":"event_msg","payload":{"type":"agent_message","text":"token_count"}}
