@@ -121,7 +121,7 @@ func (d Deps) doctorWork(ctx context.Context, store provider.Store, f usageFetch
 
 	cat, _, err := d.loadCatalog("", false)
 	if err != nil {
-		return fail(err)
+		note("doctor: ignoring model catalog: %v\n", err)
 	}
 	pol, _, err := d.loadPolicy("")
 	if err != nil {

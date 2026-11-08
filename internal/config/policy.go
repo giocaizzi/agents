@@ -55,11 +55,21 @@ type Permissions struct {
 	AllowedMCP           []string `json:"allowedMcp,omitempty" toml:"allowedMcp,omitempty"`
 }
 
-// Models holds model tier mappings across agents.
+// Models holds model tier mappings across agents and catalog preferences.
 type Models struct {
 	DefaultEffortLevel    string               `json:"defaultEffortLevel,omitempty"    toml:"defaultEffortLevel,omitempty"`
 	ShowThinkingSummaries bool                 `json:"showThinkingSummaries,omitempty" toml:"showThinkingSummaries,omitempty"`
 	Tiers                 map[string]ModelTier `json:"tiers,omitempty"                 toml:"tiers,omitempty"`
+	Catalog               CatalogConfig        `json:"catalog"                         toml:"catalog,omitempty"`
+}
+
+// CatalogConfig defines manual catalog sync preferences.
+type CatalogConfig struct {
+	Providers []string                     `json:"providers,omitempty" toml:"providers,omitempty"`
+	Since     string                       `json:"since,omitempty"     toml:"since,omitempty"`
+	Pins      map[string]string            `json:"pins,omitempty"      toml:"pins,omitempty"`
+	Ignore    []string                     `json:"ignore,omitempty"    toml:"ignore,omitempty"`
+	Aliases   map[string]map[string]string `json:"aliases,omitempty"   toml:"aliases,omitempty"`
 }
 
 // ModelTier specifies model and effort for a tier.

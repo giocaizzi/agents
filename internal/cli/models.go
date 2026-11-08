@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
 	"net/url"
 	"os"
@@ -16,7 +17,9 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/giocaizzi/agents/internal/cache"
 	"github.com/giocaizzi/agents/internal/catalog"
+	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/term"
 )
 
@@ -87,6 +90,14 @@ func (d Deps) flagFail(err error) int {
 func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, string, error) {
 	path, err := d.findModelsJSON(explicit)
 	if err != nil {
+		if explicit != "" {
+			return catalog.Catalog{}, "", err
+		}
+		p, _, pErr := d.loadPolicy("")
+		if pErr == nil && p != nil && len(p.Models.Catalog.Providers) > 0 {
+			targetPath := d.defaultModelsJSONPath()
+			return d.catalogFromPolicy(p), targetPath, nil
+		}
 		return catalog.Catalog{}, "", err
 	}
 	data, err := os.ReadFile(filepath.Clean(path))
@@ -97,6 +108,11 @@ func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, stri
 	if err != nil {
 		return catalog.Catalog{}, "", fmt.Errorf("parse %s: %w", path, err)
 	}
+
+	if p, _, pErr := d.loadPolicy(""); pErr == nil && p != nil {
+		d.overlayCatalogPolicy(&c, p)
+	}
+
 	if !validate {
 		return c, path, nil
 	}
@@ -104,6 +120,72 @@ func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, stri
 		return catalog.Catalog{}, "", fmt.Errorf("%s:\n%w", path, err)
 	}
 	return c, path, nil
+}
+
+func (d Deps) defaultModelsJSONPath() string {
+	if dir, err := cache.Dir(d.Getenv); err == nil {
+		return filepath.Join(dir, "models.json")
+	}
+	return "models.json"
+}
+
+func (d Deps) catalogFromPolicy(p *config.Policy) catalog.Catalog {
+	since := p.Models.Catalog.Since
+	if since == "" {
+		since = "2026-01-01"
+	}
+	c := catalog.Catalog{
+		Schema:    catalog.Schema,
+		Since:     since,
+		Providers: p.Models.Catalog.Providers,
+		Pin:       p.Models.Catalog.Pins,
+		Ignore:    p.Models.Catalog.Ignore,
+		Tiers:     make(map[string][]string),
+		Models:    make(map[string]catalog.Model),
+	}
+	if p.Models.Catalog.Aliases != nil {
+		c.Aliases = catalog.Aliases{
+			Arena: p.Models.Catalog.Aliases["arena"],
+			Epoch: p.Models.Catalog.Aliases["epoch"],
+		}
+	}
+	return c
+}
+
+func (d Deps) overlayCatalogPolicy(c *catalog.Catalog, p *config.Policy) {
+	if len(p.Models.Catalog.Providers) > 0 {
+		c.Providers = p.Models.Catalog.Providers
+	}
+	if p.Models.Catalog.Since != "" {
+		c.Since = p.Models.Catalog.Since
+	}
+	if len(p.Models.Catalog.Pins) > 0 {
+		if c.Pin == nil {
+			c.Pin = make(map[string]string)
+		}
+		maps.Copy(c.Pin, p.Models.Catalog.Pins)
+	}
+	if len(p.Models.Catalog.Ignore) > 0 {
+		c.Ignore = p.Models.Catalog.Ignore
+	}
+	if len(p.Models.Catalog.Aliases) > 0 {
+		d.overlayAliases(&c.Aliases, p.Models.Catalog.Aliases)
+	}
+}
+
+func (d Deps) overlayAliases(a *catalog.Aliases, aliases map[string]map[string]string) {
+	if arena := aliases["arena"]; len(arena) > 0 {
+		if a.Arena == nil {
+			a.Arena = make(map[string]string)
+		}
+		maps.Copy(a.Arena, arena)
+	}
+	if epoch := aliases["epoch"]; len(epoch) > 0 {
+		if a.Epoch == nil {
+			a.Epoch = make(map[string]string)
+		}
+		maps.Copy(a.Epoch, epoch)
+	}
 }
 
 func (d Deps) findModelsJSON(explicit string) (string, error) {
@@ -115,17 +197,7 @@ func (d Deps) findModelsJSON(explicit string) (string, error) {
 		return cleaned, nil
 	}
 
-	var candidates []string
-	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
-		candidates = append(candidates, filepath.Join(src, ".chezmoidata", "models.json"))
-	}
-	candidates = append(candidates,
-		filepath.Join("home", ".chezmoidata", "models.json"),
-		filepath.Join(".chezmoidata", "models.json"),
-		filepath.Join("..", "home", ".chezmoidata", "models.json"),
-		filepath.Join("..", "..", "home", ".chezmoidata", "models.json"),
-	)
-	for _, cand := range candidates {
+	for _, cand := range d.modelsJSONCandidates() {
 		cleaned := filepath.Clean(cand)
 		if _, err := os.Stat(cleaned); err == nil {
 			return cleaned, nil
@@ -134,13 +206,40 @@ func (d Deps) findModelsJSON(explicit string) (string, error) {
 	return "", errors.New("models.json not found")
 }
 
-// docPath is docs/MODELS.md of the repo whose home/.chezmoidata holds file,
-// unless explicit.
+func (d Deps) modelsJSONCandidates() []string {
+	var candidates []string
+	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
+		candidates = append(candidates,
+			filepath.Join(src, "home", ".chezmoidata", "models.json"),
+			filepath.Join(src, ".chezmoidata", "models.json"),
+		)
+	}
+	if dir, err := cache.Dir(d.Getenv); err == nil {
+		candidates = append(candidates, filepath.Join(dir, "models.json"))
+	}
+	candidates = append(candidates,
+		filepath.Join("home", ".chezmoidata", "models.json"),
+		filepath.Join(".chezmoidata", "models.json"),
+		"models.json",
+		filepath.Join("..", "home", ".chezmoidata", "models.json"),
+		filepath.Join("..", "..", "home", ".chezmoidata", "models.json"),
+	)
+	return candidates
+}
+
+// docPath is docs/MODELS.md of the repo, resolved from explicit flag,
+// file location, or current workspace.
 func docPath(file, explicit string) string {
 	if explicit != "" {
 		return filepath.Clean(explicit)
 	}
-	return filepath.Join(filepath.Dir(file), "..", "..", "docs", "MODELS.md")
+	if file != "" && strings.Contains(file, filepath.Join("home", ".chezmoidata")) {
+		return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "docs", "MODELS.md"))
+	}
+	if file != "" && strings.Contains(file, ".chezmoidata") {
+		return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "docs", "MODELS.md"))
+	}
+	return filepath.Join("docs", "MODELS.md")
 }
 
 func (d Deps) runModelsShow(args []string) int {
@@ -167,6 +266,14 @@ func (d Deps) runModelsRender(args []string) int {
 	}
 	c, path, err := d.loadCatalog(*file, true)
 	if err != nil {
+		if *check && (errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "models.json not found")) {
+			docFile := docPath("", *doc)
+			if _, statErr := os.Stat(filepath.Clean(docFile)); statErr == nil {
+				st := term.NewStyle(d.Stdout, d.Getenv)
+				fmt.Fprintf(d.Stdout, "%s✓%s %s (benchmark cache not present; skipped check)\n", st.G, st.O, docFile)
+				return 0
+			}
+		}
 		return d.modelsFail("%v", err)
 	}
 	docFile := docPath(path, *doc)
