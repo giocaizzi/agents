@@ -28,8 +28,6 @@ const (
 
 	TransportHTTP  = "http"
 	TransportStdio = "stdio"
-
-	placeholderAccount = "${MCP_CONNECTOR_ACCOUNT}"
 )
 
 var (
@@ -173,14 +171,18 @@ func resolvePlaceholders(rawURL, account string) (string, error) {
 	for _, match := range matches {
 		fullMatch := match[0]
 		varName := match[1]
-		if fullMatch != placeholderAccount {
-			return "", fmt.Errorf("unsupported placeholder %q: only ${MCP_CONNECTOR_ACCOUNT} is allowed", fullMatch)
+		if varName == "MCP_CONNECTOR_ACCOUNT" {
+			if account == "" || !accountParamRe.MatchString(account) {
+				return "", fmt.Errorf("account parameter is required and must match ^[a-zA-Z0-9-]+$, got %q", account)
+			}
+			resolved = strings.ReplaceAll(resolved, fullMatch, account)
+		} else {
+			envVal := os.Getenv(varName)
+			if envVal == "" {
+				return "", fmt.Errorf("environment variable %q required for placeholder %q is not set", varName, fullMatch)
+			}
+			resolved = strings.ReplaceAll(resolved, fullMatch, envVal)
 		}
-		if account == "" || !accountParamRe.MatchString(account) {
-			return "", fmt.Errorf("account parameter is required and must match ^[a-zA-Z0-9-]+$, got %q", account)
-		}
-		resolved = strings.ReplaceAll(resolved, placeholderAccount, account)
-		_ = varName
 	}
 	return resolved, nil
 }
