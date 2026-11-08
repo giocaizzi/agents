@@ -277,6 +277,16 @@ func (d Deps) runModelsRender(args []string) int {
 		return d.modelsFail("%v", err)
 	}
 	docFile := docPath(path, *doc)
+	if len(c.Models) == 0 {
+		if *check {
+			if _, statErr := os.Stat(filepath.Clean(docFile)); statErr == nil {
+				st := term.NewStyle(d.Stdout, d.Getenv)
+				fmt.Fprintf(d.Stdout, "%s✓%s %s (benchmark cache not present; skipped check)\n", st.G, st.O, docFile)
+				return 0
+			}
+		}
+		return d.modelsFail("benchmark cache is empty: run agents models sync")
+	}
 	want := catalog.Markdown(c)
 	st := term.NewStyle(d.Stdout, d.Getenv)
 
