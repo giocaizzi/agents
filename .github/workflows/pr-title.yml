@@ -1,0 +1,44 @@
+name: PR title
+
+# Copied verbatim into every repo by `sync.sh apply workflows`. Required check: `Validate PR title`.
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+  merge_group:
+
+concurrency:
+  # one group per pull request, superseded runs cancelled; every other run gets its own group, never cancelled
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    # A draft's edit that leaves the title alone skips the job: no runner, no billed minute. A skipped job passes a
+    # required check and may replace an earlier failed run, so the skipped run takes another name (GitHub lists it
+    # under the unevaluated expression text) and never reports `Validate PR title`; the skip is limited to drafts
+    # (they cannot merge) and ready_for_review validates again.
+    # Keep the condition identical in `name` and `if`.
+    name: ${{ (github.event.action == 'edited' && !github.event.changes.title && github.event.pull_request.draft) && 'Skip PR title (draft edit)' || 'Validate PR title' }}
+    if: ${{ !(github.event.action == 'edited' && !github.event.changes.title && github.event.pull_request.draft) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check PR title format
+        # release-please opens its own release PRs: skip the step, the job reports success.
+        # Known gap: a merge_group run validates nothing (docs/standard.md, Pull requests).
+        if: ${{ github.event_name == 'pull_request' && !startsWith(github.head_ref, 'release-please--') }}
+        # Read from env, never interpolated into the script: a title cannot inject shell.
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          types='feat|fix|perf|refactor|revert|docs|style|test|build|ci|chore'
+          re="^(${types})(\([a-z0-9._/-]+\))?!?: [a-z].*$"
+          if [[ "$TITLE" =~ $re ]]; then
+            echo "OK: $TITLE"
+          else
+            echo "::error::PR title must be 'type(scope): lowercase description', type in ${types//|/, }. Got: $TITLE"
+            exit 1
+          fi

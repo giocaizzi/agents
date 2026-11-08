@@ -1,0 +1,121 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  push:
+    branches: [main]
+  workflow_dispatch: # on-demand run, also the opt-in of CI tiers
+  # CI tiers, only with a merge queue that every change must pass (giocaizzi/.github docs/standard.md, CI tiers):
+  # merge_group:
+
+concurrency:
+  # one group per pull request, superseded runs cancelled; every other run gets its own group, never cancelled
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  # Drafts skip CI: every job without `needs` carries the draft condition (standard, CI hygiene, Drafts).
+  secrets:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+  # Path filter: its outputs decide which heavy jobs run. It filters only pull_request runs; on every other event
+  # each output is 'true', and it fails (never outputs 'false') when it cannot compute the diff.
+  # A gated job sets `needs: [changes]` and `if: needs.changes.outputs.code == 'true'`.
+  changes:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        if: github.event_name == 'pull_request'
+        with:
+          fetch-depth: 2
+      - id: filter
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          set -euo pipefail
+          if [ "$EVENT" != pull_request ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # A pull_request checkout is the merge commit: its first parent is the base, so this lists the PR's changes.
+          # --no-renames lists both paths of a move, so a file moved out of a filtered path still counts.
+          files=$(git diff --name-only --no-renames HEAD^1 HEAD)
+          # code: anything outside docs/ and Markdown (adapt the pattern per repo). grep exits 0 on a match,
+          # 1 on none; anything else (a bad pattern) fails the job instead of outputting 'false'.
+          rc=0
+          grep -qvE '^docs/|\.md$' <<<"$files" || rc=$?
+          case "$rc" in
+            0) code=true ;;
+            1) code=false ;;
+            *) exit "$rc" ;;
+          esac
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+  # Example heavy job gated by `changes`: uncomment, adapt, add it to `check.needs` and to GATED in `check`.
+  # e2e:
+  #   needs: [changes]
+  #   if: needs.changes.outputs.code == 'true'
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #     - run: make e2e
+
+  # Example full-tier job (CI tiers, only with a merge queue): runs on merge_group and on an opt-in dispatch,
+  # skipped on pull_request and push. CI_FULL_TIER_ON_PR=true (repository variable) is the rollback to a full PR run. Uncomment, add it to `check.needs` and to FULL_TIER in `check`.
+  # integration:
+  #   if: github.event_name == 'merge_group' || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && !github.event.pull_request.draft && vars.CI_FULL_TIER_ON_PR == 'true')
+  #   runs-on: ubuntu-latest
+  #   timeout-minutes: 30
+  #   steps:
+  #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+  #     - run: make integration
+
+  # Required status check of the GitHub standard. Add jobs to `needs`, never rename this job.
+  check:
+    name: ${{ github.event.pull_request.draft && 'Skip CI (draft)' || 'check' }}
+    needs: [secrets, changes]
+    if: ${{ always() && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Fail if a needed job did not succeed
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') || contains(needs.*.result, 'skipped')
+        run: exit 1
+      # With a gated or full-tier job, replace the step above with this one: it accepts `skipped` only for a
+      # full-tier job on pull_request and push, or a gated job that `changes` said was not needed.
+      # - name: Fail unless every needed job passed, or was skipped by its tier or by `changes`
+      #   env:
+      #     EVENT: ${{ github.event_name }}
+      #     RESULTS: ${{ toJSON(needs) }}
+      #     CHANGES: ${{ toJSON(needs.changes.outputs) }}
+      #     FULL_TIER: integration # skipped on pull_request and push
+      #     GATED: '{"e2e": "code"}' # job -> the `changes` output that gates it
+      #   run: |
+      #     jq -e --arg event "$EVENT" --arg full "$FULL_TIER" --argjson gated "$GATED" --argjson changes "$CHANGES" '
+      #       ($full | split(" ")) as $f
+      #       | to_entries | all(.value.result == "success"
+      #         or (.value.result == "skipped" and ($event == "pull_request" or $event == "push") and (.key | IN($f[])))
+      #         or (.value.result == "skipped" and $gated[.key] != null and $changes[$gated[.key]] == "false"))' <<<"$RESULTS"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: make check
