@@ -1,4 +1,4 @@
-// Package catalog is the model catalog of chezmoi-agents: model tiers plus
+// Package catalog is the model catalog of agents: model tiers plus
 // model data synced from models.dev (first-party API prices), the LMArena
 // leaderboard dataset (ranks) and Epoch AI (external benchmarks). It is pure:
 // callers fetch the raw bytes and write the results.
