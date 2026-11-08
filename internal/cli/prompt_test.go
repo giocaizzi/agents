@@ -131,3 +131,44 @@ func TestPolicyWithProfile(t *testing.T) {
 		t.Errorf("base policy was mutated")
 	}
 }
+
+func TestPromptWithLayerFile(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+
+	validLayer := filepath.Join(tmpDir, "layer.md")
+	if err := os.WriteFile(validLayer, []byte("# Layer\nValid content"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	emptyLayer := filepath.Join(tmpDir, "empty.md")
+	if err := os.WriteFile(emptyLayer, []byte("   \n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	}
+
+	// Valid layer check
+	code := d.Run(context.Background(), []string{"prompt", "-file", validLayer, "-check"})
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "✓ prompt layer layer.md") {
+		t.Errorf("unexpected output: %s", stdout.String())
+	}
+
+	// Empty layer check fails
+	stdout.Reset()
+	stderr.Reset()
+	code = d.Run(context.Background(), []string{"prompt", "-file", emptyLayer, "-check"})
+	if code == 0 {
+		t.Fatalf("exit = 0, want error for empty layer")
+	}
+	if !strings.Contains(stderr.String(), "is empty") {
+		t.Errorf("expected empty error, got: %s", stderr.String())
+	}
+}

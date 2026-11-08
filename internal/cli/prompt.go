@@ -24,6 +24,10 @@ func (d Deps) runPrompt(_ context.Context, args []string) int {
 		profile = "default"
 	}
 
+	if code, handled := d.tryLayerFile(*fileFlag, *checkOnly); handled {
+		return code
+	}
+
 	if out, ok, err := d.tryPolicyProfile(*fileFlag, profile, *checkOnly); ok {
 		if err != nil {
 			fmt.Fprintf(d.Stderr, "%v\n", err)
@@ -53,6 +57,27 @@ func (d Deps) runPrompt(_ context.Context, args []string) int {
 
 	fmt.Fprintf(d.Stderr, "unknown profile %q (no instructions found in configuration or prompt layers)\n", profile)
 	return 1
+}
+
+func (d Deps) tryLayerFile(file string, checkOnly bool) (int, bool) {
+	if file == "" || (!strings.HasSuffix(file, ".md") && !strings.HasSuffix(file, ".age")) {
+		return 0, false
+	}
+	data, err := os.ReadFile(filepath.Clean(file))
+	if err != nil {
+		fmt.Fprintf(d.Stderr, "read layer %s: %v\n", file, err)
+		return 1, true
+	}
+	if len(strings.TrimSpace(string(data))) == 0 {
+		fmt.Fprintf(d.Stderr, "layer %s is empty\n", file)
+		return 1, true
+	}
+	if checkOnly {
+		fmt.Fprintf(d.Stdout, "✓ prompt layer %s (%d bytes)\n", filepath.Base(file), len(data))
+		return 0, true
+	}
+	fmt.Fprint(d.Stdout, string(data))
+	return 0, true
 }
 
 func (d Deps) tryPolicyProfile(file, profile string, checkOnly bool) (string, bool, error) {
