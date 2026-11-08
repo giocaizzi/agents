@@ -1,14 +1,16 @@
 // Frame terminal captures for README matching Shortty style (gradient, padding, drop shadows)
 import { writeFileSync, existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
-const CHROMIUM_PATH = '/Users/giorgiocaizzi/Library/Caches/ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-mac-arm64/chrome-headless-shell';
+const home = os.homedir();
+const CHROMIUM_PATH = path.join(home, 'Library/Caches/ms-playwright/chromium_headless_shell-1254/chrome-headless-shell-mac-arm64/chrome-headless-shell');
 const OUT_FILE = path.resolve('docs/assets/showcase.png');
 
 async function render() {
   let playwright;
   try {
-    playwright = await import('/Users/giorgiocaizzi/Documents/github/shortty/node_modules/playwright/index.mjs');
+    playwright = await import(path.join(home, 'Documents/github/shortty/node_modules/playwright/index.mjs'));
   } catch {
     console.log('Playwright not available locally, skipping image re-render.');
     return;

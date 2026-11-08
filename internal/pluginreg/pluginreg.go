@@ -92,7 +92,6 @@ func candidateDirs(explicitDir, registry string) []string {
 			filepath.Join(home, "Documents", "github", repoName),
 			filepath.Join(home, ".local", "share", ResolveNamespace(registry)),
 			filepath.Join(home, "Documents", "github", "harness"),
-			filepath.Join(home, ".local", "share", "giocaizzi-harness"),
 		)
 	}
 	return candidates

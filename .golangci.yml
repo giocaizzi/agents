@@ -68,7 +68,7 @@ linters:
     wrapcheck:
       # Errors from our own internal packages are wrapped where they originate.
       ignore-package-globs:
-        - github.com/giocaizzi/dotfiles/tools/dots/internal/*
+        - github.com/giocaizzi/agents/internal/*
       ignore-sig-regexps:
         - \.Errorf\(
         - errors\.New\(
