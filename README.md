@@ -107,9 +107,12 @@ harnesses = ["claude", "antigravity"]
 # Check parity across all installed harnesses
 agents check
 
-# Render client-native configuration
+# Render client-native configuration or effective system prompt
 agents render -harness claude
-agents render -harness copilot
+agents render -harness claude -part prompt
+
+# Inspect or validate effective harness prompt
+agents prompt -harness antigravity -check
 
 # Sync workspace MCP servers
 agents mcp sync
@@ -138,8 +141,8 @@ When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi aut
 | `init` | `[-global] [-dir <path>]` | Probe installed harnesses and scaffold `agents.toml` |
 | `statusline` | `[claude│copilot│tmux│omp]` | High-speed (<5ms) Catppuccin status bar output |
 | `check` | `[-file <path>]` | Validate configuration, parity, and plugin health |
-| `render` | `-harness <name>` | Compile native configuration JSON/TOML |
-| `prompt` | `[-profile <name>]` | Compose layered instruction prompt |
+| `render` | `-harness <name> [-part <type>]` | Compile native configuration JSON/TOML or harness prompt |
+| `prompt` | `[-harness <name>] [-profile <name>]` | Display or validate effective harness system prompt |
 | `mcp sync` | `[path]` | Synchronize workspace `.mcp.json` to harnesses |
 | `models` | `[sync│render]` | Inspect LMArena ranks, Epoch ECI, and pricing |
 | `usage` | `[-live]` | Live subscription usage per provider account |

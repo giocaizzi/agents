@@ -172,3 +172,62 @@ func TestPromptWithLayerFile(t *testing.T) {
 		t.Errorf("expected empty error, got: %s", stderr.String())
 	}
 }
+
+func TestPromptAndRenderWithHarness(t *testing.T) {
+	tmpDir := t.TempDir()
+	t.Chdir(tmpDir)
+
+	// Write workspace CLAUDE.md
+	claudeContent := "# Claude Workspace Instructions\nFollow these guidelines strictly."
+	if err := os.WriteFile("CLAUDE.md", []byte(claudeContent), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	}
+
+	// 1. prompt -harness claude (outputs content)
+	code := d.Run(context.Background(), []string{"prompt", "-harness", "claude"})
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Claude Workspace Instructions") {
+		t.Errorf("stdout lacks workspace prompt content: %s", stdout.String())
+	}
+
+	// 2. prompt -harness claude -check (outputs check line)
+	stdout.Reset()
+	stderr.Reset()
+	code = d.Run(context.Background(), []string{"prompt", "-harness", "claude", "-check"})
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "✓ prompt (claude: workspace CLAUDE.md") {
+		t.Errorf("unexpected check output: %s", stdout.String())
+	}
+
+	// 3. render -harness claude -part prompt (outputs content)
+	stdout.Reset()
+	stderr.Reset()
+	code = d.Run(context.Background(), []string{"render", "-harness", "claude", "-part", "prompt"})
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stderr: %s", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "Claude Workspace Instructions") {
+		t.Errorf("render stdout lacks workspace prompt content: %s", stdout.String())
+	}
+
+	// 4. Unknown harness returns error
+	stdout.Reset()
+	stderr.Reset()
+	code = d.Run(context.Background(), []string{"prompt", "-harness", "unknown-agent"})
+	if code == 0 {
+		t.Fatalf("expected error on unknown harness, got 0")
+	}
+	if !strings.Contains(stderr.String(), "unsupported harness") {
+		t.Errorf("expected unsupported harness error, got: %s", stderr.String())
+	}
+}

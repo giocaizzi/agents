@@ -11,6 +11,7 @@ import (
 func (d Deps) runPrompt(_ context.Context, args []string) int {
 	fs := newFlags("prompt")
 	profileFlag := fs.String("profile", "default", "target profile name (e.g. default, personal, work, light)")
+	harnessFlag := fs.String("harness", "", "target client harness (claude, antigravity, copilot, codex, pi, opencode)")
 	checkOnly := fs.Bool("check", false, "only check that prompt layers exist and assemble cleanly")
 	fileFlag := fs.String("file", "", "optional path to policy or layer file")
 
@@ -22,6 +23,10 @@ func (d Deps) runPrompt(_ context.Context, args []string) int {
 	profile := strings.ToLower(strings.TrimSpace(*profileFlag))
 	if profile == "" {
 		profile = "default"
+	}
+
+	if *harnessFlag != "" {
+		return d.runHarnessPrompt(strings.ToLower(strings.TrimSpace(*harnessFlag)), profile, *fileFlag, *checkOnly)
 	}
 
 	if code, handled := d.tryLayerFile(*fileFlag, *checkOnly); handled {
@@ -57,6 +62,20 @@ func (d Deps) runPrompt(_ context.Context, args []string) int {
 
 	fmt.Fprintf(d.Stderr, "unknown profile %q (no instructions found in configuration or prompt layers)\n", profile)
 	return 1
+}
+
+func (d Deps) runHarnessPrompt(harness, profile, file string, checkOnly bool) int {
+	content, origin, err := d.resolveHarnessPrompt(harness, profile, file)
+	if err != nil {
+		fmt.Fprintf(d.Stderr, "%v\n", err)
+		return 1
+	}
+	if checkOnly {
+		fmt.Fprintf(d.Stdout, "✓ prompt (%s: %s, %d bytes)\n", harness, origin, len(content))
+		return 0
+	}
+	fmt.Fprint(d.Stdout, content)
+	return 0
 }
 
 func (d Deps) tryLayerFile(file string, checkOnly bool) (int, bool) {
