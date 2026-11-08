@@ -10,7 +10,7 @@ Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-p
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/assets/showcase.svg" alt="agents showcase: statusline, multi-provider quota tracking, health diagnostics" width="880">
+  <img src="docs/assets/showcase.png" alt="agents showcase: statusline, multi-provider quota tracking, health diagnostics" width="880">
 </p>
 
 </div>
