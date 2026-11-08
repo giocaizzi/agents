@@ -15,7 +15,7 @@ import (
 func (d Deps) runRender(_ context.Context, args []string) int {
 	fs := newFlags("render")
 	harnessFlag := fs.String("harness", "", "target client harness (claude, antigravity, copilot, codex, pi, opencode)")
-	partFlag := fs.String("part", "", "output granularity (permissions, settings, all)")
+	partFlag := fs.String("part", "", "output granularity (permissions, settings, prompt, all)")
 	osFlag := fs.String("os", "", "target operating system (darwin, linux, windows)")
 	fileFlag := fs.String("file", "", "path to harness-policy.toml or agents.toml")
 	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
@@ -23,6 +23,20 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	if err := fs.Parse(args); err != nil {
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
 		return 2
+	}
+
+	if strings.ToLower(strings.TrimSpace(*partFlag)) == "prompt" {
+		harness := strings.ToLower(strings.TrimSpace(*harnessFlag))
+		content, _, err := d.resolveHarnessPrompt(harness, *profileFlag, *fileFlag)
+		if err != nil {
+			fmt.Fprintf(d.Stderr, "render error: %v\n", err)
+			return 1
+		}
+		if _, err := d.Stdout.Write([]byte(content)); err != nil {
+			fmt.Fprintf(d.Stderr, "render error: %v\n", err)
+			return 1
+		}
+		return 0
 	}
 
 	targetOS := *osFlag
