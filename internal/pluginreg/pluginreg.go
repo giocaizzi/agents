@@ -33,11 +33,12 @@ type StandalonePlugin struct {
 
 // HarnessConfig represents the structure of .chezmoidata/harness.toml or agents.toml plugin configs.
 type HarnessConfig struct {
-	Registry        string                      `toml:"harnessRegistry"`
-	PersonalPlugins []string                    `toml:"harnessPersonalPlugins"`
-	Plugins         map[string][]string         `toml:"harnessPlugins"`
-	Standalone      map[string]StandalonePlugin `toml:"harnessStandalone"`
-	Targets         map[string][]string         `toml:"harnessTargets"`
+	Registry         string                      `toml:"harnessRegistry"`
+	PersonalPlugins  []string                    `toml:"harnessPersonalPlugins"`
+	Plugins          map[string][]string         `toml:"harnessPlugins"`
+	Standalone       map[string]StandalonePlugin `toml:"harnessStandalone"`
+	Targets          map[string][]string         `toml:"harnessTargets"`
+	AllowedHarnesses []string                    `toml:"allowedHarnesses"`
 }
 
 // ResolveNamespace converts a registry repo or URL into a filesystem/cache-safe namespace string.
@@ -188,6 +189,9 @@ func CheckRegistry(plugins map[string][]string, personal, choices, upstream []st
 // MergeAgentsConfig merges configuration from agents.toml [plugins] table into cfg.
 func MergeAgentsConfig(cfg *HarnessConfig, data []byte) {
 	var agentsCfg struct {
+		Agents struct {
+			Harnesses []string `toml:"harnesses"`
+		} `toml:"agents"`
 		Plugins struct {
 			Registry   string                      `toml:"registry"`
 			Enabled    map[string][]string         `toml:"enabled"`
@@ -198,6 +202,9 @@ func MergeAgentsConfig(cfg *HarnessConfig, data []byte) {
 	}
 	if aErr := toml.Unmarshal(data, &agentsCfg); aErr != nil {
 		return
+	}
+	if len(agentsCfg.Agents.Harnesses) > 0 {
+		cfg.AllowedHarnesses = agentsCfg.Agents.Harnesses
 	}
 	if agentsCfg.Plugins.Registry != "" && cfg.Registry == "" {
 		cfg.Registry = agentsCfg.Plugins.Registry
@@ -254,7 +261,10 @@ func ValidateFile(ctx context.Context, harnessPath, harnessDir string) ([]findin
 	}
 
 	MergeAgentsConfig(&cfg, data)
-	choices := findChoices(harnessPath)
+	choices := cfg.AllowedHarnesses
+	if len(choices) == 0 {
+		choices = findChoices(harnessPath)
+	}
 
 	reg := cfg.Registry
 	if reg == "" {
