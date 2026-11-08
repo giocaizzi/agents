@@ -105,11 +105,14 @@ func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (plugi
 		return pluginmgmt.Manager{}, fmt.Errorf("parse %s: %w", tomlPath, err)
 	}
 
+	pluginreg.MergeAgentsConfig(&cfg, data)
+
 	harnessDir := explicitHarnessDir
 	if harnessDir == "" {
 		candidates := []string{
 			d.Getenv("HARNESS_DIR"),
 			filepath.Join(d.homeDir(), "Documents", "github", "harness"),
+			filepath.Join(d.homeDir(), ".local", "share", pluginreg.ResolveNamespace(cfg.Registry)),
 			filepath.Join(d.homeDir(), ".local", "share", "giocaizzi-harness"),
 		}
 		for _, c := range candidates {
@@ -125,6 +128,8 @@ func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (plugi
 	return pluginmgmt.Manager{
 		HarnessDir:    harnessDir,
 		HomeDir:       d.homeDir(),
+		Registry:      cfg.Registry,
+		Namespace:     pluginreg.ResolveNamespace(cfg.Registry),
 		HarnessConfig: cfg,
 	}, nil
 }
@@ -138,6 +143,37 @@ func (d Deps) homeDir() string {
 		return h
 	}
 	return ""
+}
+
+func buildPluginRow(p pluginmgmt.PluginInfo, harnesses []string, st term.Style) ([]string, bool, bool) {
+	up := p.UpstreamVersion
+	if up == "" {
+		up = "—"
+	}
+	nameStr := st.M + p.Name + st.O
+	if p.IsStandalone {
+		nameStr += st.D + " *" + st.O
+	}
+	row := []string{nameStr, st.D + up + st.O}
+	isStale := false
+	isMissing := false
+	for _, h := range harnesses {
+		state := p.State(h)
+		v := p.Installed[h]
+		switch state {
+		case pluginmgmt.StateOK:
+			row = append(row, st.G+"✓ "+v+st.O)
+		case pluginmgmt.StateStale:
+			isStale = true
+			row = append(row, st.Y+"↑ "+v+st.O)
+		case pluginmgmt.StateMissing:
+			isMissing = true
+			row = append(row, st.R+"✗ missing"+st.O)
+		case pluginmgmt.StateDisabled:
+			row = append(row, st.D+"—"+st.O)
+		}
+	}
+	return row, isStale, isMissing
 }
 
 func (d Deps) runPluginsList(ctx context.Context, args []string) int {
@@ -185,34 +221,27 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 	var rows [][]string
 	staleCount := 0
 	missingCount := 0
+	hasStandalone := false
 
 	for _, p := range list {
-		up := p.UpstreamVersion
-		if up == "" {
-			up = "—"
+		if p.IsStandalone {
+			hasStandalone = true
 		}
-		row := []string{st.M + p.Name + st.O, st.D + up + st.O}
-		for _, h := range harnesses {
-			state := p.State(h)
-			v := p.Installed[h]
-			switch state {
-			case pluginmgmt.StateOK:
-				row = append(row, st.G+"✓ "+v+st.O)
-			case pluginmgmt.StateStale:
-				staleCount++
-				row = append(row, st.Y+"↑ "+v+st.O)
-			case pluginmgmt.StateMissing:
-				missingCount++
-				row = append(row, st.R+"✗ missing"+st.O)
-			case pluginmgmt.StateDisabled:
-				row = append(row, st.D+"—"+st.O)
-			}
+		row, isStale, isMissing := buildPluginRow(p, harnesses, st)
+		if isStale {
+			staleCount++
+		}
+		if isMissing {
+			missingCount++
 		}
 		rows = append(rows, row)
 	}
 
 	st.Table(d.Stdout, headers, rows)
 	fmt.Fprintln(d.Stdout)
+	if hasStandalone {
+		fmt.Fprintf(d.Stdout, "  %s* standalone external plugin%s\n\n", st.D, st.O)
+	}
 
 	if staleCount > 0 || missingCount > 0 {
 		st.Warn(d.Stdout, fmt.Sprintf("%d plugin(s) stale or missing: run `chezmoi agents plugins update`", staleCount+missingCount))
@@ -348,15 +377,19 @@ func (d Deps) updateCodex(ctx context.Context, st term.Style, mgr pluginmgmt.Man
 	if _, err := exec.LookPath("codex"); err != nil {
 		return
 	}
+	ns := mgr.Namespace
+	if ns == "" {
+		ns = fallbackHarnessNamespace
+	}
 	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s codex plugin marketplace upgrade giocaizzi-harness\n", st.D, st.O)
+		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s codex plugin marketplace upgrade %s\n", st.D, st.O, ns)
 		return
 	}
-	_ = exec.CommandContext(ctx, "codex", "plugin", "marketplace", "upgrade", "giocaizzi-harness").Run()
+	_ = exec.CommandContext(ctx, "codex", "plugin", "marketplace", "upgrade", ns).Run()
 	count := 0
 	for p, hs := range mgr.HarnessConfig.Plugins {
 		if slices.Contains(hs, harnessCodex) {
-			if err := exec.CommandContext(ctx, "codex", "plugin", "add", p+"@giocaizzi-harness").Run(); err == nil {
+			if err := exec.CommandContext(ctx, "codex", "plugin", "add", p+"@"+ns).Run(); err == nil {
 				count++
 			}
 		}
@@ -368,44 +401,38 @@ func (d Deps) updateCodex(ctx context.Context, st term.Style, mgr pluginmgmt.Man
 	fmt.Fprintf(d.Stdout, "  %s✓%s codex: updated marketplace and %d plugin(s)\n", st.G, st.O, count)
 }
 
-func (d Deps) updateClaude(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("claude"); err != nil {
+const fallbackHarnessNamespace = "giocaizzi-harness"
+
+func (d Deps) updateMarketplaceHarness(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, harnessName, command string, dryRun bool) {
+	if _, err := exec.LookPath(command); err != nil {
 		return
+	}
+	ns := mgr.Namespace
+	if ns == "" {
+		ns = fallbackHarnessNamespace
 	}
 	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s claude plugin marketplace update giocaizzi-harness\n", st.D, st.O)
+		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s %s plugin marketplace update %s\n", st.D, st.O, command, ns)
 		return
 	}
-	_ = exec.CommandContext(ctx, "claude", "plugin", "marketplace", "update", "giocaizzi-harness").Run()
+	_ = exec.CommandContext(ctx, command, "plugin", "marketplace", "update", ns).Run()
 	count := 0
 	for p, hs := range mgr.HarnessConfig.Plugins {
-		if slices.Contains(hs, harnessClaude) {
-			if err := exec.CommandContext(ctx, "claude", "plugin", "update", p+"@giocaizzi-harness").Run(); err == nil {
+		if slices.Contains(hs, harnessName) {
+			if err := exec.CommandContext(ctx, command, "plugin", "update", p+"@"+ns).Run(); err == nil {
 				count++
 			}
 		}
 	}
-	fmt.Fprintf(d.Stdout, "  %s✓%s claude: updated marketplace and %d plugin(s)\n", st.G, st.O, count)
+	fmt.Fprintf(d.Stdout, "  %s✓%s %s: updated marketplace and %d plugin(s)\n", st.G, st.O, harnessName, count)
+}
+
+func (d Deps) updateClaude(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
+	d.updateMarketplaceHarness(ctx, st, mgr, harnessClaude, "claude", dryRun)
 }
 
 func (d Deps) updateCopilot(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("copilot"); err != nil {
-		return
-	}
-	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s copilot plugin marketplace update giocaizzi-harness\n", st.D, st.O)
-		return
-	}
-	_ = exec.CommandContext(ctx, "copilot", "plugin", "marketplace", "update", "giocaizzi-harness").Run()
-	count := 0
-	for p, hs := range mgr.HarnessConfig.Plugins {
-		if slices.Contains(hs, harnessCopilot) {
-			if err := exec.CommandContext(ctx, "copilot", "plugin", "update", p+"@giocaizzi-harness").Run(); err == nil {
-				count++
-			}
-		}
-	}
-	fmt.Fprintf(d.Stdout, "  %s✓%s copilot: updated marketplace and %d plugin(s)\n", st.G, st.O, count)
+	d.updateMarketplaceHarness(ctx, st, mgr, harnessCopilot, "copilot", dryRun)
 }
 
 func (d Deps) updateOpencode(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {

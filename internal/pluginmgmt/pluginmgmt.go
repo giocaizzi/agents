@@ -43,6 +43,8 @@ const (
 type PluginInfo struct {
 	Name            string            `json:"name"`
 	UpstreamVersion string            `json:"upstream_version"`
+	IsStandalone    bool              `json:"is_standalone,omitempty"`
+	Source          string            `json:"source,omitempty"`
 	Enabled         map[string]bool   `json:"enabled"`
 	Installed       map[string]string `json:"installed"`
 }
@@ -78,7 +80,23 @@ type PruneCandidate struct {
 type Manager struct {
 	HarnessDir    string
 	HomeDir       string
+	Registry      string
+	Namespace     string
 	HarnessConfig pluginreg.HarnessConfig
+}
+
+func (m Manager) namespace() string {
+	if m.Namespace != "" {
+		return m.Namespace
+	}
+	reg := m.Registry
+	if reg == "" {
+		reg = m.HarnessConfig.Registry
+	}
+	if reg == "" {
+		reg = "giocaizzi/harness"
+	}
+	return pluginreg.ResolveNamespace(reg)
 }
 
 // CompareVersions compares two semver strings (with or without 'v' prefix).
@@ -121,7 +139,7 @@ func ReadPluginVersion(dir string) string {
 
 // ListPlugins inspects all configured plugins and their status per harness.
 func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
-	upstreamNames, err := pluginreg.ResolveUpstream(ctx, m.HarnessDir)
+	upstreamNames, err := pluginreg.ResolveUpstreamRegistry(ctx, m.HarnessDir, m.Registry)
 	if err != nil {
 		upstreamNames = make([]string, 0, len(m.HarnessConfig.Plugins))
 		for p := range m.HarnessConfig.Plugins {
@@ -131,7 +149,7 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 	}
 
 	pluginsDir := filepath.Join(m.HarnessDir, "plugins")
-	out := make([]PluginInfo, 0, len(upstreamNames))
+	out := make([]PluginInfo, 0, len(upstreamNames)+len(m.HarnessConfig.Standalone))
 
 	for _, name := range upstreamNames {
 		info := PluginInfo{
@@ -157,6 +175,32 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 		out = append(out, info)
 	}
 
+	// List standalone plugins
+	for name, s := range m.HarnessConfig.Standalone {
+		upVer := s.Version
+		if upVer == "" && s.Path != "" {
+			upVer = ReadPluginVersion(s.Path)
+		}
+		info := PluginInfo{
+			Name:            name,
+			UpstreamVersion: upVer,
+			IsStandalone:    true,
+			Source:          s.Source,
+			Enabled:         make(map[string]bool),
+			Installed:       make(map[string]string),
+		}
+		for _, h := range s.Harnesses {
+			info.Enabled[h] = true
+		}
+		info.Installed[harnessAntigravity] = m.antigravityVersion(name)
+		info.Installed[harnessClaude] = m.claudeVersion(name)
+		info.Installed[harnessCodex] = m.codexVersion(name)
+		info.Installed[harnessCopilot] = m.copilotVersion(name)
+		info.Installed[harnessOpencode] = m.opencodeVersion(name)
+		info.Installed[harnessPi] = m.piVersion(name)
+		out = append(out, info)
+	}
+
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].Name < out[j].Name
 	})
@@ -176,12 +220,12 @@ func (m Manager) antigravityVersion(plugin string) string {
 }
 
 func (m Manager) claudeVersion(plugin string) string {
-	cacheDir := filepath.Join(m.HomeDir, ".claude", "plugins", "cache", "giocaizzi-harness", plugin)
+	cacheDir := filepath.Join(m.HomeDir, ".claude", "plugins", "cache", m.namespace(), plugin)
 	return newestDirVersion(cacheDir)
 }
 
 func (m Manager) codexVersion(plugin string) string {
-	cacheDir := filepath.Join(m.HomeDir, ".codex", "plugins", "cache", "giocaizzi-harness", plugin)
+	cacheDir := filepath.Join(m.HomeDir, ".codex", "plugins", "cache", m.namespace(), plugin)
 	return newestDirVersion(cacheDir)
 }
 
@@ -208,8 +252,9 @@ func newestDirVersion(dir string) string {
 func (m Manager) copilotVersion(plugin string) string {
 	base := filepath.Join(m.HomeDir, ".vscode", "agent-plugins")
 	entries, err := os.ReadDir(base)
+	ns := m.namespace()
 	if err == nil {
-		needle := "giocaizzi-harness-" + plugin
+		needle := ns + "-" + plugin
 		for _, e := range entries {
 			if e.IsDir() && strings.Contains(e.Name(), needle) {
 				v := ReadPluginVersion(filepath.Join(base, e.Name()))
@@ -226,7 +271,7 @@ func (m Manager) copilotVersion(plugin string) string {
 			EnabledPlugins map[string]bool `json:"enabledPlugins"`
 		}
 		if err := json.Unmarshal(data, &s); err == nil {
-			if s.EnabledPlugins[plugin+"@giocaizzi-harness"] {
+			if s.EnabledPlugins[plugin+"@"+ns] {
 				return "enabled"
 			}
 		}
@@ -294,11 +339,11 @@ func (m Manager) FindPruneCandidates() ([]PruneCandidate, error) {
 	var candidates []PruneCandidate
 
 	// 1. Claude cache
-	claudeBase := filepath.Join(m.HomeDir, ".claude", "plugins", "cache", "giocaizzi-harness")
+	claudeBase := filepath.Join(m.HomeDir, ".claude", "plugins", "cache", m.namespace())
 	candidates = append(candidates, findCachePruneCandidates(claudeBase, harnessClaude)...)
 
 	// 2. Codex cache
-	codexBase := filepath.Join(m.HomeDir, ".codex", "plugins", "cache", "giocaizzi-harness")
+	codexBase := filepath.Join(m.HomeDir, ".codex", "plugins", "cache", m.namespace())
 	candidates = append(candidates, findCachePruneCandidates(codexBase, harnessCodex)...)
 
 	// 3. Antigravity orphaned plugins

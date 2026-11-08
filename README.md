@@ -9,25 +9,9 @@ Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-p
 [![CI](https://github.com/giocaizzi/agents/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/giocaizzi/agents/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-```text
-┌────────────────────────────────────────────────────────────────────────┐
-│  🔴 🟡 🟢  ~ / projects / app                                          │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                        │
-│   $ agents usage -live                                                 │
-│                                                                        │
-│   PROVIDER     ACCOUNT         STATUS     QUOTA     TIER               │
-│   Anthropic    personal@...    active     $42.50    Tier 4             │
-│   OpenAI       work@...        active     $15.20    Tier 2             │
-│   Google       personal@...    active     Free      Gemini 2.5         │
-│   GitHub       octocat         active     Pro       Copilot            │
-│                                                                        │
-│   4 providers active · All credentials valid                           │
-│                                                                        │
-├────────────────────────────────────────────────────────────────────────┤
-│  [ claude-3-7-sonnet] [󰚥 84% quota] [󰊢 feat/new-setup] [ ~/code]    │
-└────────────────────────────────────────────────────────────────────────┘
-```
+<p align="center">
+  <img src="docs/assets/showcase.svg" alt="agents showcase: statusline, multi-provider quota tracking, health diagnostics" width="880">
+</p>
 
 </div>
 
@@ -46,7 +30,7 @@ Developers frequently switch between AI coding harnesses—**Claude Code, GitHub
 - **Live Provider Usage & Quota**: Inspect real-time subscription usage, billing limits, and reset dates across Anthropic, OpenAI, GitHub Copilot, and Google Gemini.
 - **Health Doctor**: Diagnose model drift against LMArena rankings, detect orphaned plugins, and audit missing system dependencies.
 - **Sub-5ms Status Line**: Native Go status bar hook for Claude Code, Copilot CLI, tmux, and oh-my-posh.
-- **Cross-Harness Plugin Management**: Matrix view comparing upstream vs. installed plugin versions with automated sync and prune operations.
+- **Abstract Plugin Engine**: Support for multiple registries (community, company, personal) alongside standalone external plugins, with automated update, prune, and parity checks.
 
 ---
 
@@ -100,8 +84,14 @@ fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
 instructions = ["prompts/core.md", "prompts/principles.md"]
 
 [plugins]
+# Primary or upstream plugin registry:
 registry = "https://github.com/example/harness"
-enabled  = ["core", "dev-tools"]
+enabled  = { dev-tools = ["claude", "antigravity", "codex", "pi"], python = ["claude", "antigravity"] }
+
+# Standalone external plugins ensured across harnesses (not bound to any registry):
+[plugins.standalone.custom-analysis]
+source    = "https://github.com/example/custom-analysis"
+harnesses = ["claude", "antigravity"]
 ```
 
 ### 3. Verify & Apply

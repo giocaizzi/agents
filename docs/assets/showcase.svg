@@ -1,0 +1,192 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 640" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient matching Shortty (sky blue -> indigo -> lavender) -->
+    <linearGradient id="bg-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8ec5fc" />
+      <stop offset="50%" stop-color="#a5b4fc" />
+      <stop offset="100%" stop-color="#d8b4fe" />
+    </linearGradient>
+
+    <!-- macOS Soft Window Drop Shadow -->
+    <filter id="win-shadow" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="24" stdDeviation="30" flood-color="#14103c" flood-opacity="0.38" />
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#14103c" flood-opacity="0.22" />
+    </filter>
+
+    <clipPath id="window-clip">
+      <rect x="80" y="60" width="840" height="520" rx="16" ry="16" />
+    </clipPath>
+
+    <style>
+      .mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace; font-size: 13.5px; }
+      .bold { font-weight: 600; }
+      .dim { fill: #6c7086; }
+      .text { fill: #cdd6f4; }
+      .blue { fill: #89b4fa; }
+      .mauve { fill: #cba6f7; }
+      .green { fill: #a6e3a1; }
+      .yellow { fill: #f9e2af; }
+      .peach { fill: #fab387; }
+      .red { fill: #f38ba8; }
+      .teal { fill: #94e2d5; }
+      
+      /* Scene Animations: 12s infinite loop */
+      @keyframes scene1 {
+        0%, 30% { opacity: 1; pointer-events: auto; }
+        33%, 100% { opacity: 0; pointer-events: none; }
+      }
+      @keyframes scene2 {
+        0%, 30% { opacity: 0; pointer-events: none; }
+        33%, 63% { opacity: 1; pointer-events: auto; }
+        66%, 100% { opacity: 0; pointer-events: none; }
+      }
+      @keyframes scene3 {
+        0%, 63% { opacity: 0; pointer-events: none; }
+        66%, 96% { opacity: 1; pointer-events: auto; }
+        100% { opacity: 0; pointer-events: none; }
+      }
+      @keyframes cursorBlink {
+        0%, 49% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+      }
+
+      .scene-1 { animation: scene1 12s infinite; }
+      .scene-2 { animation: scene2 12s infinite; }
+      .scene-3 { animation: scene3 12s infinite; }
+      .cursor { animation: cursorBlink 0.8s infinite; }
+    </style>
+  </defs>
+
+  <!-- Canvas Padding Background -->
+  <rect width="1000" height="640" rx="24" fill="url(#bg-grad)" />
+
+  <!-- Window Container with Shadow -->
+  <g filter="url(#win-shadow)">
+    <!-- Window Background -->
+    <rect x="80" y="60" width="840" height="520" rx="16" fill="#1e1e2e" stroke="rgba(255,255,255,0.22)" stroke-width="1.5" />
+
+    <!-- Window Titlebar -->
+    <path d="M 80,76 A 16,16 0 0,1 96,60 L 904,60 A 16,16 0 0,1 920,76 L 920,104 L 80,104 Z" fill="#181825" />
+    <line x1="80" y1="104" x2="920" y2="104" stroke="#313244" stroke-width="1" />
+
+    <!-- Traffic Lights -->
+    <circle cx="106" cy="82" r="6" fill="#ff5f56" stroke="#e0443e" stroke-width="0.5" />
+    <circle cx="126" cy="82" r="6" fill="#ffbd2e" stroke="#dea123" stroke-width="0.5" />
+    <circle cx="146" cy="82" r="6" fill="#27c93f" stroke="#1aab29" stroke-width="0.5" />
+
+    <!-- Titlebar Path & Badge -->
+    <text x="500" y="86" text-anchor="middle" fill="#a6adc8" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="12" font-weight="500">
+      ~ / workspace — agents (Universal AI Harness Manager)
+    </text>
+
+    <!-- Bottom Status Line Bar -->
+    <rect x="80" y="542" width="840" height="38" fill="#181825" />
+    <line x1="80" y1="542" x2="920" y2="542" stroke="#313244" stroke-width="1" />
+    <text x="100" y="566" class="mono">
+      <tspan class="dim">[</tspan><tspan class="blue"> claude-3-7-sonnet</tspan><tspan class="dim">]</tspan>
+      <tspan class="dim"> [</tspan><tspan class="green">󰚥 84% quota</tspan><tspan class="dim">]</tspan>
+      <tspan class="dim"> [</tspan><tspan class="mauve">󰊢 feat/standalone</tspan><tspan class="dim">]</tspan>
+      <tspan class="dim"> [</tspan><tspan class="yellow">󰏖 6 harnesses active</tspan><tspan class="dim">]</tspan>
+    </text>
+    <text x="900" y="566" text-anchor="end" class="mono dim">
+      sub-5ms
+    </text>
+
+    <!-- Content Area (Clipped) -->
+    <g clip-path="url(#window-clip)">
+      
+      <!-- SCENE 1: statusline & check -->
+      <g class="scene-1">
+        <!-- Command Prompt -->
+        <text x="110" y="146" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="text bold">agents statusline claude</tspan>
+        </text>
+
+        <!-- Command Output -->
+        <text x="110" y="184" class="mono">
+          <tspan class="dim">┌─</tspan> <tspan class="dim">[</tspan><tspan class="blue"> claude-3-7-sonnet</tspan><tspan class="dim">]</tspan> <tspan class="dim">[</tspan><tspan class="green">󰚥 Tier 4 · $42.50/mo</tspan><tspan class="dim">]</tspan> <tspan class="dim">[</tspan><tspan class="peach">󰈚 12 tools</tspan><tspan class="dim">]</tspan>
+        </text>
+        <text x="110" y="212" class="mono">
+          <tspan class="dim">└─</tspan> <tspan class="dim">[</tspan><tspan class="mauve">󰊢 main</tspan><tspan class="dim">]</tspan> <tspan class="dim">[</tspan><tspan class="teal"> ~/code/app</tspan><tspan class="dim">]</tspan> <tspan class="dim">render: 2.1ms</tspan>
+        </text>
+
+        <text x="110" y="270" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="text bold">agents check</tspan>
+        </text>
+        <text x="110" y="308" class="mono green">✓ policy &amp; harness parity (agents.toml)</text>
+        <text x="110" y="336" class="mono green">✓ client configs: claude, copilot, antigravity, codex, opencode, pi</text>
+        <text x="110" y="364" class="mono green">✓ 14 plugins up to date across 6 harnesses</text>
+        <text x="110" y="392" class="mono green">✓ workspace .mcp.json synchronized (3 servers)</text>
+
+        <text x="110" y="450" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="cursor text">▌</tspan>
+        </text>
+      </g>
+
+      <!-- SCENE 2: usage -live -->
+      <g class="scene-2">
+        <text x="110" y="146" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="text bold">agents usage -live</tspan>
+        </text>
+
+        <!-- Table Header -->
+        <text x="110" y="186" class="mono bold dim">
+          PROVIDER     ACCOUNT          STATUS     QUOTA / SPEND    TIER / MODEL
+        </text>
+        <line x1="110" y1="198" x2="890" y2="198" stroke="#313244" stroke-width="1" />
+
+        <!-- Table Rows -->
+        <text x="110" y="228" class="mono">
+          <tspan class="blue bold">Anthropic</tspan>    <tspan class="text">octocat@work</tspan>     <tspan class="green">✓ active</tspan>   <tspan class="peach">$42.50 / $100</tspan>   <tspan class="text">Tier 4 (Sonnet 3.7)</tspan>
+        </text>
+        <text x="110" y="258" class="mono">
+          <tspan class="teal bold">OpenAI</tspan>       <tspan class="text">octocat@work</tspan>     <tspan class="green">✓ active</tspan>   <tspan class="peach">$18.20 / $50</tspan>    <tspan class="text">Tier 2 (o3-mini, GPT-4.5)</tspan>
+        </text>
+        <text x="110" y="288" class="mono">
+          <tspan class="yellow bold">Google</tspan>       <tspan class="text">octocat@gmail</tspan>    <tspan class="green">✓ active</tspan>   <tspan class="peach">Free / Pay-Go</tspan>   <tspan class="text">Gemini 2.5 Flash</tspan>
+        </text>
+        <text x="110" y="318" class="mono">
+          <tspan class="mauve bold">GitHub</tspan>       <tspan class="text">octocat</tspan>          <tspan class="green">✓ active</tspan>   <tspan class="peach">Flat Rate</tspan>       <tspan class="text">Copilot Pro (Unlimited)</tspan>
+        </text>
+
+        <line x1="110" y1="340" x2="890" y2="340" stroke="#313244" stroke-width="1" />
+        <text x="110" y="372" class="mono green">✓ 4 providers connected · All credentials validated in OS keychain</text>
+        <text x="110" y="402" class="mono dim">Next billing reset: Anthropic in 12d · OpenAI in 4d</text>
+
+        <text x="110" y="450" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="cursor text">▌</tspan>
+        </text>
+      </g>
+
+      <!-- SCENE 3: doctor & plugins -->
+      <g class="scene-3">
+        <text x="110" y="146" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="text bold">agents doctor</tspan>
+        </text>
+
+        <text x="110" y="184" class="mono bold blue">agents doctor — models, drift and capacity</text>
+
+        <text x="110" y="222" class="mono">
+          <tspan class="yellow">↑ scout</tspan>    <tspan class="dim">GPT-6 Luna →</tspan> <tspan class="green bold">Gemini 2.5 Flash</tspan>   <tspan class="dim">better-ranked · agent #23 → #18</tspan>
+        </text>
+        <text x="110" y="248" class="mono dim">           $0.10/$0.50 → $0.075/$0.30 per Mtok · within your flat plan</text>
+
+        <text x="110" y="286" class="mono">
+          <tspan class="yellow">↑ worker</tspan>   <tspan class="dim">GPT-6 Luna →</tspan> <tspan class="green bold">Claude 3.5 Haiku</tspan>   <tspan class="dim">better-ranked · agent #18 → #14</tspan>
+        </text>
+        <text x="110" y="312" class="mono dim">           copilot, claude, antigravity</text>
+
+        <text x="110" y="360" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="text bold">agents plugins list</tspan>
+        </text>
+        <text x="110" y="396" class="mono green">✓ all 14 plugins up to date across 6 configured harnesses</text>
+        <text x="110" y="422" class="mono dim">* 2 standalone external plugins verified</text>
+
+        <text x="110" y="470" class="mono">
+          <tspan class="mauve">❯</tspan> <tspan class="cursor text">▌</tspan>
+        </text>
+      </g>
+
+    </g>
+  </g>
+</svg>

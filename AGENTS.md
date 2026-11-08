@@ -1,19 +1,38 @@
-# <repo name>
+# agents
 
-<One line: what this repo is for.>
+Universal AI Agent Harness Manager (`agents` standalone CLI and `chezmoi-agents` parity engine).
 
-- Commands: `make help`, `make lint`, `make test`, `make check` (= lint + test; CI job `check` runs it), `make prepush` (the local gate before marking a PR ready).
-- Docs live in [docs/](docs/); this file links to them and never duplicates them.
-- GitHub setup follows the [GitHub standard](https://github.com/giocaizzi/.github/blob/main/docs/standard.md).
-- `SECURITY.md` and issue templates are inherited from `giocaizzi/.github`; do not add copies.
+## Purpose & Architecture
 
-## Onboarding
-Checklist for a new repo; rules and tiers are in the [standard](https://github.com/giocaizzi/.github/blob/main/docs/standard.md), procedure in its [rollout runbook](https://github.com/giocaizzi/.github/blob/main/docs/runbook-rollout.md).
-- Add the repo to `standard/repos.yaml` in `giocaizzi/.github` (`type`, `released`, `pypi`, `deploys`), then `make onboard REPO=<name>` there.
-- Python: ruff `select = ["ALL"]` with Google docstrings from the start (snippet in the harness `python-development` skill and the standard).
-- Released: release-please. PyPI: trusted publishing from environment `pypi`, and register the trusted publisher on pypi.org.
-- Publish or deploy jobs: run in a GitHub environment, secrets as environment secrets.
-- README badges grow by tier (standard, README).
+`agents` provides a declarative, cross-client management tool for AI coding agents across multiple harnesses: Claude Code, GitHub Copilot CLI, Google Antigravity, OpenAI Codex, OpenCode, and Pi.
 
-## Gotchas
-- <Add repo-specific gotchas here.>
+- `cmd/agents/` — Main entrypoint (dispatched as `agents` or `chezmoi-agents`).
+- `internal/config/` — Declarative policy and harness configuration parser (`agents.toml`, `harness.toml`).
+- `internal/parity/` — Client parity compiler and rule verification across 6 harnesses.
+- `internal/translate/` — Translates declarative rules and settings into native client formats.
+- `internal/mcpsync/` — Bidirectional workspace MCP synchronization (`.mcp.json`).
+- `internal/usage/` — Multi-provider token quota and billing monitor (Anthropic, OpenAI, Google, GitHub).
+- `internal/provider/` — Credential discovery and quota API adapters.
+- `internal/catalog/` — Model catalog, LMArena ranks, Epoch AI benchmarks, and pricing index.
+- `internal/doctor/` — Diagnostic engine for model drift, stale plugins, and account health.
+- `internal/pluginreg/` — Multi-registry and standalone plugin declarations and validator.
+- `internal/pluginmgmt/` — Cross-harness plugin lifecycle (inspect, update, prune).
+- `internal/term/` — Sub-5ms status line formatter, Catppuccin styles, and table rendering.
+
+## Principles & Public Repository Integrity
+
+- **Strict Generality**: This is an open-source, universal tool meant for the entire developer community.
+- **No Personal Configurations**: Never hardcode personal usernames, private machine hostnames, internal corporate paths, or proprietary repository names in code, tests, documentation, or templates.
+- **Generic Placeholders**: Always use standard generic placeholders in examples and tests: `example/harness`, `octocat`, standard CLI tools (`git`, `make`, `uv`), and standard directories.
+- **Domain Independence**: Harness registries and plugin sources must remain fully abstract and configurable (`[plugins.registries]`, `[plugins.standalone]`).
+
+## Development
+
+- `make check` — Run linter and tests with race detection (`check: lint test`).
+- `make lint` — Run `golangci-lint run`.
+- `make test` — Run unit and integration tests with `go test -race -shuffle=on ./...`.
+- `make build` — Build cross-platform binaries into `bin/`.
+
+## Conventional Commits
+
+Commits must follow Conventional Commits (`feat:`, `fix:`, `chore:`, `docs:`, `test:`). Pull requests are auto-merged using squash commits once CI checks pass.
