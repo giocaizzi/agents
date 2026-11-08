@@ -14,7 +14,6 @@ permissions:
 jobs:
   guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
     steps:
       - name: Delete non-standard label
         env:
