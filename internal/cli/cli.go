@@ -209,7 +209,7 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 		filepath.Join(".agents", "config.toml"),
 		filepath.Join(".agents", "agents.toml"),
 	)
-	if home, err := os.UserHomeDir(); err == nil {
+	if home := d.homeDir(); home != "" {
 		candidates = append(candidates,
 			filepath.Join(home, ".config", "agents", "agents.toml"),
 			filepath.Join(home, ".config", "agents", "config.toml"),
@@ -231,6 +231,16 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 		filepath.Join("..", "home", ".chezmoidata", "harness-policy.toml"),
 		filepath.Join("..", "..", "home", ".chezmoidata", "harness-policy.toml"),
 	)
+	if d.Getenv("CHEZMOI_SOURCE_DIR") == "" {
+		if home := d.homeDir(); home != "" {
+			candidates = append(candidates,
+				filepath.Join(home, ".local", "share", "chezmoi", "home", ".chezmoidata", "agents.toml"),
+				filepath.Join(home, ".local", "share", "chezmoi", ".chezmoidata", "agents.toml"),
+				filepath.Join(home, ".local", "share", "chezmoi", "home", ".chezmoidata", "harness-policy.toml"),
+				filepath.Join(home, ".local", "share", "chezmoi", ".chezmoidata", "harness-policy.toml"),
+			)
+		}
+	}
 
 	for _, cand := range candidates {
 		cleaned := filepath.Clean(cand)
@@ -256,9 +266,17 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 func (d Deps) findPolicySourceDir() (string, error) {
 	var candidates []string
 	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
-		candidates = append(candidates, src)
+		candidates = append(candidates, src, filepath.Join(src, "home"))
 	}
 	candidates = append(candidates, "home", ".", filepath.Join("..", "home"), filepath.Join("..", "..", "home"))
+	if d.Getenv("CHEZMOI_SOURCE_DIR") == "" {
+		if home := d.homeDir(); home != "" {
+			candidates = append(candidates,
+				filepath.Join(home, ".local", "share", "chezmoi", "home"),
+				filepath.Join(home, ".local", "share", "chezmoi"),
+			)
+		}
+	}
 	for _, cand := range candidates {
 		cleaned := filepath.Clean(cand)
 		if _, err := os.Stat(filepath.Join(cleaned, ".chezmoidata", "agents.toml")); err == nil {
@@ -282,7 +300,10 @@ func (d Deps) findHarnessToml(explicitPath string) (string, error) {
 
 	candidates := []string{}
 	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
-		candidates = append(candidates, filepath.Join(src, ".chezmoidata", "harness.toml"))
+		candidates = append(candidates,
+			filepath.Join(src, "home", ".chezmoidata", "harness.toml"),
+			filepath.Join(src, ".chezmoidata", "harness.toml"),
+		)
 	}
 	candidates = append(candidates,
 		filepath.Join("home", ".chezmoidata", "harness.toml"),
@@ -290,6 +311,14 @@ func (d Deps) findHarnessToml(explicitPath string) (string, error) {
 		filepath.Join("..", "home", ".chezmoidata", "harness.toml"),
 		filepath.Join("..", "..", "home", ".chezmoidata", "harness.toml"),
 	)
+	if d.Getenv("CHEZMOI_SOURCE_DIR") == "" {
+		if home := d.homeDir(); home != "" {
+			candidates = append(candidates,
+				filepath.Join(home, ".local", "share", "chezmoi", "home", ".chezmoidata", "harness.toml"),
+				filepath.Join(home, ".local", "share", "chezmoi", ".chezmoidata", "harness.toml"),
+			)
+		}
+	}
 
 	for _, cand := range candidates {
 		cleaned := filepath.Clean(cand)

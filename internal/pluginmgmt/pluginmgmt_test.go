@@ -192,3 +192,171 @@ func TestSortHarnesses(t *testing.T) {
 		t.Errorf("SortHarnesses mismatch (-want +got):\n%s", diff)
 	}
 }
+
+func TestManagerNamespace(t *testing.T) {
+	t.Parallel()
+
+	t.Run("explicit-namespace", func(t *testing.T) {
+		t.Parallel()
+		mgr := pluginmgmt.Manager{Namespace: "custom-ns"}
+		if got := mgr.EffectiveNamespace(); got != "custom-ns" {
+			t.Errorf("EffectiveNamespace() = %q, want custom-ns", got)
+		}
+	})
+
+	t.Run("from-registry", func(t *testing.T) {
+		t.Parallel()
+		mgr := pluginmgmt.Manager{Registry: "octocat/my-harness"}
+		if got := mgr.EffectiveNamespace(); got != "octocat-my-harness" {
+			t.Errorf("EffectiveNamespace() = %q, want octocat-my-harness", got)
+		}
+	})
+
+	t.Run("discovered-from-marketplace-json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		claudePluginDir := filepath.Join(dir, ".claude-plugin")
+		if err := os.MkdirAll(claudePluginDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(claudePluginDir, "marketplace.json"), []byte(`{"name": "discovered-ns"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		mgr := pluginmgmt.Manager{HarnessDir: dir}
+		if got := mgr.EffectiveNamespace(); got != "discovered-ns" {
+			t.Errorf("EffectiveNamespace() = %q, want discovered-ns", got)
+		}
+	})
+
+	t.Run("fallback-default", func(t *testing.T) {
+		t.Parallel()
+		mgr := pluginmgmt.Manager{}
+		if got := mgr.EffectiveNamespace(); got != "example-harness" {
+			t.Errorf("EffectiveNamespace() = %q, want example-harness", got)
+		}
+	})
+}
+
+func TestCopilotVersion_InstalledPluginsDir(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+	tmpHarness := t.TempDir()
+	ns := "test-ns"
+	plugin := "dev-tools"
+	if err := os.MkdirAll(filepath.Join(tmpHarness, "plugins", plugin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pDir := filepath.Join(tmpHome, ".copilot", "installed-plugins", ns, plugin)
+	if err := os.MkdirAll(pDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pDir, "plugin.json"), []byte(`{"version": "1.2.3"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := pluginmgmt.Manager{
+		HarnessDir: tmpHarness,
+		HomeDir:    tmpHome,
+		Namespace:  ns,
+		HarnessConfig: pluginreg.HarnessConfig{
+			Plugins: map[string][]string{plugin: {"copilot"}},
+		},
+	}
+
+	list, err := mgr.ListPlugins(context.Background())
+	if err != nil {
+		t.Fatalf("ListPlugins: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(list))
+	}
+	if got := list[0].Installed["copilot"]; got != "1.2.3" {
+		t.Errorf("copilot version = %q, want 1.2.3", got)
+	}
+}
+
+func TestCopilotVersion_ConfigJSON(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+	tmpHarness := t.TempDir()
+	ns := "test-ns"
+	plugin := "guard"
+	if err := os.MkdirAll(filepath.Join(tmpHarness, "plugins", plugin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	copilotDir := filepath.Join(tmpHome, ".copilot")
+	if err := os.MkdirAll(copilotDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	cfgJSON := `{
+  "installedPlugins": [
+    {
+      "name": "guard",
+      "version": "2.4.0",
+      "marketplace": "test-ns",
+      "enabled": true
+    }
+  ]
+}`
+	if err := os.WriteFile(filepath.Join(copilotDir, "config.json"), []byte(cfgJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := pluginmgmt.Manager{
+		HarnessDir: tmpHarness,
+		HomeDir:    tmpHome,
+		Namespace:  ns,
+		HarnessConfig: pluginreg.HarnessConfig{
+			Plugins: map[string][]string{plugin: {"copilot"}},
+		},
+	}
+
+	list, err := mgr.ListPlugins(context.Background())
+	if err != nil {
+		t.Fatalf("ListPlugins: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(list))
+	}
+	if got := list[0].Installed["copilot"]; got != "2.4.0" {
+		t.Errorf("copilot version = %q, want 2.4.0", got)
+	}
+}
+
+func TestCopilotVersion_VSCodeFallback(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+	tmpHarness := t.TempDir()
+	ns := "test-ns"
+	plugin := "sounds"
+	if err := os.MkdirAll(filepath.Join(tmpHarness, "plugins", plugin), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	pDir := filepath.Join(tmpHome, ".vscode", "agent-plugins", ns+"-"+plugin)
+	if err := os.MkdirAll(pDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pDir, "plugin.json"), []byte(`{"version": "0.9.1"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	mgr := pluginmgmt.Manager{
+		HarnessDir: tmpHarness,
+		HomeDir:    tmpHome,
+		Namespace:  ns,
+		HarnessConfig: pluginreg.HarnessConfig{
+			Plugins: map[string][]string{plugin: {"copilot"}},
+		},
+	}
+
+	list, err := mgr.ListPlugins(context.Background())
+	if err != nil {
+		t.Fatalf("ListPlugins: %v", err)
+	}
+	if len(list) != 1 {
+		t.Fatalf("expected 1 plugin, got %d", len(list))
+	}
+	if got := list[0].Installed["copilot"]; got != "0.9.1" {
+		t.Errorf("copilot version = %q, want 0.9.1", got)
+	}
+}

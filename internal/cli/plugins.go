@@ -109,12 +109,7 @@ func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (plugi
 
 	harnessDir := explicitHarnessDir
 	if harnessDir == "" {
-		candidates := []string{
-			d.Getenv("HARNESS_DIR"),
-			filepath.Join(d.homeDir(), "Documents", "github", "harness"),
-			filepath.Join(d.homeDir(), ".local", "share", pluginreg.ResolveNamespace(cfg.Registry)),
-			filepath.Join(d.homeDir(), ".local", "share", "giocaizzi-harness"),
-		}
+		candidates := pluginreg.CandidateDirs(d.Getenv("HARNESS_DIR"), cfg.Registry, d.homeDir())
 		for _, c := range candidates {
 			if c != "" {
 				if _, statErr := os.Stat(filepath.Join(c, "plugins")); statErr == nil {
@@ -125,11 +120,24 @@ func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (plugi
 		}
 	}
 
+	ns := ""
+	if cfg.Registry != "" {
+		ns = pluginreg.ResolveNamespace(cfg.Registry)
+	} else if harnessDir != "" {
+		ns = pluginreg.DiscoverMarketplaceNamespace(harnessDir)
+		if cfg.Registry == "" {
+			cfg.Registry = pluginreg.DiscoverRegistry(harnessDir)
+		}
+	}
+	if ns == "" {
+		ns = "harness"
+	}
+
 	return pluginmgmt.Manager{
 		HarnessDir:    harnessDir,
 		HomeDir:       d.homeDir(),
 		Registry:      cfg.Registry,
-		Namespace:     pluginreg.ResolveNamespace(cfg.Registry),
+		Namespace:     ns,
 		HarnessConfig: cfg,
 	}, nil
 }
@@ -377,10 +385,7 @@ func (d Deps) updateCodex(ctx context.Context, st term.Style, mgr pluginmgmt.Man
 	if _, err := exec.LookPath("codex"); err != nil {
 		return
 	}
-	ns := mgr.Namespace
-	if ns == "" {
-		ns = fallbackHarnessNamespace
-	}
+	ns := mgr.EffectiveNamespace()
 	if dryRun {
 		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s codex plugin marketplace upgrade %s\n", st.D, st.O, ns)
 		return
@@ -401,16 +406,11 @@ func (d Deps) updateCodex(ctx context.Context, st term.Style, mgr pluginmgmt.Man
 	fmt.Fprintf(d.Stdout, "  %s✓%s codex: updated marketplace and %d plugin(s)\n", st.G, st.O, count)
 }
 
-const fallbackHarnessNamespace = "giocaizzi-harness"
-
 func (d Deps) updateMarketplaceHarness(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, harnessName, command string, dryRun bool) {
 	if _, err := exec.LookPath(command); err != nil {
 		return
 	}
-	ns := mgr.Namespace
-	if ns == "" {
-		ns = fallbackHarnessNamespace
-	}
+	ns := mgr.EffectiveNamespace()
 	if dryRun {
 		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s %s plugin marketplace update %s\n", st.D, st.O, command, ns)
 		return
