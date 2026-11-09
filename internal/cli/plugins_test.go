@@ -198,6 +198,7 @@ func TestPluginsPruneDryRun(t *testing.T) {
 }
 
 func TestPluginsListPrefersManagedCustomRegistryAndHonorsOverrides(t *testing.T) {
+	t.Parallel()
 	tmpDir := t.TempDir()
 	homeDir := filepath.Join(tmpDir, "home")
 	harnessToml := filepath.Join(tmpDir, "harness.toml")
@@ -242,6 +243,7 @@ dev-tools = ["claude"]
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
 			var stdout, stderr bytes.Buffer
 			d := cli.Deps{
 				Stdout: &stdout,
