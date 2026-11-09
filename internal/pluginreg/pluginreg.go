@@ -172,15 +172,15 @@ func CandidateDirs(explicitDir, registry, home string) []string {
 	}
 
 	if home == "" {
-		h, err := os.UserHomeDir()
-		if err != nil {
-			return candidates
-		}
-		home = h
+		home, _ = os.UserHomeDir()
 	}
-	add(filepath.Join(home, ".local", "share", ResolveNamespace(registry)))
+	if home != "" {
+		add(filepath.Join(home, ".local", "share", ResolveNamespace(registry)))
+	}
 	addWorkingDirCandidates(add)
-	addHomeCandidates(add, home, repoName)
+	if home != "" {
+		addHomeCandidates(add, home, repoName)
+	}
 
 	return candidates
 }
