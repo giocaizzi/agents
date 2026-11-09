@@ -131,19 +131,11 @@ func addDocumentsSubdirs(add func(string), docsDir, repoName string) {
 	}
 }
 
-func addHomeCandidates(add func(string), home, repoName, registry string) {
-	if home == "" {
-		h, err := os.UserHomeDir()
-		if err != nil {
-			return
-		}
-		home = h
-	}
+func addHomeCandidates(add func(string), home, repoName string) {
 	docsDir := filepath.Join(home, "Documents")
 	add(filepath.Join(docsDir, repoName))
 	addDocumentsSubdirs(add, docsDir, repoName)
 	add(filepath.Join(home, "src", repoName))
-	add(filepath.Join(home, ".local", "share", ResolveNamespace(registry)))
 	if repoName != defaultHarnessName {
 		add(filepath.Join(docsDir, defaultHarnessName))
 		addDocumentsSubdirs(add, docsDir, defaultHarnessName)
@@ -179,8 +171,16 @@ func CandidateDirs(explicitDir, registry, home string) []string {
 		add(env)
 	}
 
+	if home == "" {
+		home, _ = os.UserHomeDir()
+	}
+	if home != "" {
+		add(filepath.Join(home, ".local", "share", ResolveNamespace(registry)))
+	}
 	addWorkingDirCandidates(add)
-	addHomeCandidates(add, home, repoName, registry)
+	if home != "" {
+		addHomeCandidates(add, home, repoName)
+	}
 
 	return candidates
 }

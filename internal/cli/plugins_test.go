@@ -197,6 +197,80 @@ func TestPluginsPruneDryRun(t *testing.T) {
 	}
 }
 
+func TestPluginsListPrefersManagedCustomRegistryAndHonorsOverrides(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	homeDir := filepath.Join(tmpDir, "home")
+	harnessToml := filepath.Join(tmpDir, "harness.toml")
+	if err := os.WriteFile(harnessToml, []byte(`
+harnessRegistry = "octocat/custom-registry"
+
+[harnessPlugins]
+dev-tools = ["claude"]
+`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	writePlugin := func(dir, version string) {
+		t.Helper()
+		pluginDir := filepath.Join(dir, "plugins", "dev-tools")
+		if err := os.MkdirAll(pluginDir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(pluginDir, "plugin.json"), []byte(`{"version":"`+version+`"}`), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	managed := filepath.Join(homeDir, ".local", "share", "octocat-custom-registry")
+	developer := filepath.Join(homeDir, "Documents", "custom-registry")
+	environment := filepath.Join(tmpDir, "environment")
+	explicit := filepath.Join(tmpDir, "explicit")
+	writePlugin(managed, "1.0.0")
+	writePlugin(developer, "2.0.0")
+	writePlugin(environment, "3.0.0")
+	writePlugin(explicit, "4.0.0")
+
+	tests := []struct {
+		name       string
+		args       []string
+		harnessDir string
+		want       string
+	}{
+		{"managed custom registry precedes Documents checkout", nil, "", "1.0.0"},
+		{"HARNESS_DIR precedes managed registry", nil, environment, "3.0.0"},
+		{"harness-dir precedes HARNESS_DIR", []string{"-harness-dir", explicit}, environment, "4.0.0"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var stdout, stderr bytes.Buffer
+			d := cli.Deps{
+				Stdout: &stdout,
+				Stderr: &stderr,
+				Getenv: func(k string) string {
+					switch k {
+					case "HOME":
+						return homeDir
+					case "HARNESS_DIR":
+						return tt.harnessDir
+					default:
+						return ""
+					}
+				},
+			}
+
+			args := append([]string{"plugins", "list", "-file", harnessToml}, tt.args...)
+			if code := d.Run(context.Background(), args); code != 0 {
+				t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+			}
+			if !strings.Contains(stdout.String(), tt.want) {
+				t.Errorf("plugins list output = %q, want version %q", stdout.String(), tt.want)
+			}
+		})
+	}
+}
+
 func TestPluginsListAutoDiscoverHarnessDirAndNamespace(t *testing.T) {
 	t.Parallel()
 	tmpDir := t.TempDir()

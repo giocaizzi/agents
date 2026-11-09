@@ -98,9 +98,10 @@ func TestCandidateDirs(t *testing.T) {
 	t.Parallel()
 	tmpHome := t.TempDir()
 
-	// Create ~/Documents/projects/my-harness and ~/src/my-harness
+	// Create ~/Documents/projects/my-harness and ~/src/my-harness.
 	docsProject := filepath.Join(tmpHome, "Documents", "projects", "my-harness")
 	srcRepo := filepath.Join(tmpHome, "src", "my-harness")
+	managed := filepath.Join(tmpHome, ".local", "share", "example-my-harness")
 	if err := os.MkdirAll(docsProject, 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -109,21 +110,38 @@ func TestCandidateDirs(t *testing.T) {
 	}
 
 	cands := pluginreg.CandidateDirs("", "example/my-harness", tmpHome)
+	indexes := make(map[string]int)
+	for i, c := range cands {
+		indexes[c] = i
+	}
+	for _, dir := range []string{managed, docsProject, srcRepo} {
+		if _, ok := indexes[dir]; !ok {
+			t.Errorf("CandidateDirs missing %s; got %v", dir, cands)
+		}
+	}
+	if indexes[managed] > indexes[docsProject] || indexes[managed] > indexes[srcRepo] {
+		t.Errorf("CandidateDirs() = %v, managed directory must precede developer checkouts", cands)
+	}
+}
 
-	var foundDocs, foundSrc bool
-	for _, c := range cands {
-		if c == docsProject {
-			foundDocs = true
-		}
-		if c == srcRepo {
-			foundSrc = true
-		}
+func TestCandidateDirsOverridesManagedAndImplicitLocations(t *testing.T) {
+	tmpHome := t.TempDir()
+	explicit := filepath.Join(t.TempDir(), "explicit")
+	environment := filepath.Join(t.TempDir(), "environment")
+	t.Setenv("HARNESS_DIR", environment)
+
+	cands := pluginreg.CandidateDirs(explicit, "example/my-harness", tmpHome)
+	if len(cands) < 3 {
+		t.Fatalf("CandidateDirs() = %v, want explicit, environment, and managed candidates", cands)
 	}
-	if !foundDocs {
-		t.Errorf("CandidateDirs missing %s; got %v", docsProject, cands)
+	if got, want := cands[0], explicit; got != want {
+		t.Errorf("CandidateDirs()[0] = %q, want explicit override %q", got, want)
 	}
-	if !foundSrc {
-		t.Errorf("CandidateDirs missing %s; got %v", srcRepo, cands)
+	if got, want := cands[1], environment; got != want {
+		t.Errorf("CandidateDirs()[1] = %q, want HARNESS_DIR override %q", got, want)
+	}
+	if got, want := cands[2], filepath.Join(tmpHome, ".local", "share", "example-my-harness"); got != want {
+		t.Errorf("CandidateDirs()[2] = %q, want managed installation %q", got, want)
 	}
 }
 
