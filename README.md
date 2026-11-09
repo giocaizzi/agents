@@ -149,6 +149,8 @@ When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi aut
 | `doctor` | `[-live] [-q]` | Advisory on model capacity, drift, and accounts |
 | `plugins` | `[list│update│prune]` | Cross-harness plugin lifecycle management |
 
+When no plugin directory is specified, automatic discovery prefers the managed installation at `~/.local/share/<registry-namespace>` before working-directory, `~/Documents`, and `~/src` developer checkouts. Pass `-harness-dir <path>` or set `HARNESS_DIR` to use a specific directory instead.
+
 ---
 
 ## License
