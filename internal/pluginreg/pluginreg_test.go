@@ -95,6 +95,7 @@ guard = ["claude"]
 }
 
 func TestCandidateDirs(t *testing.T) {
+	t.Parallel()
 	tmpHome := t.TempDir()
 
 	// Create ~/Documents/projects/my-harness and ~/src/my-harness.
