@@ -60,7 +60,9 @@ func (d Deps) checkTarget(ctx context.Context, file, harnessDir, profile string)
 	findings := p.Validate(path)
 	findings = append(findings, parity.CheckParity(p)...)
 	msgs := []string{fmt.Sprintf("✓ policy & harness parity (%s)", path)}
-	findings, msgs = d.appendSourceFiles(p, findings, msgs)
+	if strings.Contains(path, ".chezmoidata") || d.Getenv("CHEZMOI_SOURCE_DIR") != "" {
+		findings, msgs = d.appendSourceFiles(p, findings, msgs)
+	}
 	return findings, msgs, nil
 }
 

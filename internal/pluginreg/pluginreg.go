@@ -4,6 +4,7 @@ package pluginreg
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"maps"
@@ -22,6 +23,8 @@ import (
 
 // DefaultHarnessRegistry is the default upstream plugin repository placeholder.
 const DefaultHarnessRegistry = "example/harness"
+
+const defaultHarnessName = "harness"
 
 // StandalonePlugin describes an individual plugin external to any registry.
 type StandalonePlugin struct {
@@ -44,7 +47,7 @@ type HarnessConfig struct {
 // ResolveNamespace converts a registry repo or URL into a filesystem/cache-safe namespace string.
 func ResolveNamespace(registry string) string {
 	if registry == "" {
-		return "harness"
+		return defaultHarnessName
 	}
 	r := strings.TrimPrefix(registry, "https://github.com/")
 	r = strings.TrimPrefix(r, "http://github.com/")
@@ -75,27 +78,248 @@ func ResolveUpstream(ctx context.Context, explicitHarnessDir string) ([]string, 
 	return ResolveUpstreamRegistry(ctx, explicitHarnessDir, "")
 }
 
-func candidateDirs(explicitDir, registry string) []string {
+func isHarnessDir(dir string) bool {
+	if dir == "" {
+		return false
+	}
+	pDir := filepath.Join(dir, "plugins")
+	if fi, err := os.Stat(pDir); err != nil || !fi.IsDir() {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(dir, ".claude-plugin", "marketplace.json")); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(dir, "AGENTS.md")); err == nil {
+		return true
+	}
+	return false
+}
+
+func addWorkingDirCandidates(add func(string)) {
+	if isHarnessDir(".") {
+		add(".")
+	}
+	wd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+	if isHarnessDir(wd) {
+		add(wd)
+	}
+	curr := wd
+	for {
+		parent := filepath.Dir(curr)
+		if parent == curr {
+			break
+		}
+		if isHarnessDir(parent) {
+			add(parent)
+		}
+		curr = parent
+	}
+}
+
+func addDocumentsSubdirs(add func(string), docsDir, repoName string) {
+	entries, err := os.ReadDir(docsDir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		if e.IsDir() && !strings.HasPrefix(e.Name(), ".") {
+			add(filepath.Join(docsDir, e.Name(), repoName))
+		}
+	}
+}
+
+func addHomeCandidates(add func(string), home, repoName, registry string) {
+	if home == "" {
+		h, err := os.UserHomeDir()
+		if err != nil {
+			return
+		}
+		home = h
+	}
+	docsDir := filepath.Join(home, "Documents")
+	add(filepath.Join(docsDir, repoName))
+	addDocumentsSubdirs(add, docsDir, repoName)
+	add(filepath.Join(home, "src", repoName))
+	add(filepath.Join(home, ".local", "share", ResolveNamespace(registry)))
+	if repoName != defaultHarnessName {
+		add(filepath.Join(docsDir, defaultHarnessName))
+		addDocumentsSubdirs(add, docsDir, defaultHarnessName)
+		add(filepath.Join(home, "src", defaultHarnessName))
+	}
+}
+
+// CandidateDirs returns possible filesystem locations for the plugin repository.
+func CandidateDirs(explicitDir, registry, home string) []string {
 	repoName := registry
 	if idx := strings.LastIndex(repoName, "/"); idx >= 0 {
 		repoName = repoName[idx+1:]
 	}
+	if repoName == "" {
+		repoName = defaultHarnessName
+	}
 
 	var candidates []string
+	add := func(c string) {
+		if c == "" {
+			return
+		}
+		c = filepath.Clean(c)
+		if !slices.Contains(candidates, c) {
+			candidates = append(candidates, c)
+		}
+	}
+
 	if explicitDir != "" {
-		candidates = append(candidates, explicitDir)
+		add(explicitDir)
 	}
 	if env := os.Getenv("HARNESS_DIR"); env != "" {
-		candidates = append(candidates, env)
+		add(env)
 	}
-	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		candidates = append(candidates,
-			filepath.Join(home, "Documents", "github", repoName),
-			filepath.Join(home, ".local", "share", ResolveNamespace(registry)),
-			filepath.Join(home, "Documents", "github", "harness"),
-		)
-	}
+
+	addWorkingDirCandidates(add)
+	addHomeCandidates(add, home, repoName, registry)
+
 	return candidates
+}
+
+func candidateDirs(explicitDir, registry string) []string {
+	return CandidateDirs(explicitDir, registry, "")
+}
+
+func parseGitRemoteRepo(remoteURL string) string {
+	s := strings.TrimSpace(remoteURL)
+	if s == "" {
+		return ""
+	}
+	// Handle scp-like syntax: git@github.com:owner/repo.git or user@host:owner/repo.git
+	if idxAt := strings.Index(s, "@"); idxAt >= 0 && !strings.Contains(s, "://") {
+		if idxColon := strings.Index(s[idxAt+1:], ":"); idxColon >= 0 {
+			path := s[idxAt+1+idxColon+1:]
+			path = strings.TrimSuffix(path, ".git")
+			return strings.Trim(path, "/")
+		}
+	}
+	// Strip schemes: https://, http://, ssh://, git://
+	for _, scheme := range []string{"https://", "http://", "ssh://", "git://"} {
+		if cut, ok := strings.CutPrefix(s, scheme); ok {
+			s = cut
+			break
+		}
+	}
+	// For ssh://user@host/owner/repo or ssh://user@host:owner/repo
+	if idxColon := strings.Index(s, ":"); idxColon >= 0 {
+		s = s[idxColon+1:]
+	} else if idxSlash := strings.Index(s, "/"); idxSlash >= 0 {
+		s = s[idxSlash+1:]
+	}
+	s = strings.TrimSuffix(s, ".git")
+	return strings.Trim(s, "/")
+}
+
+var (
+	gitRemoteSection = regexp.MustCompile(`(?i)\[remote\s+"origin"\]`)
+	gitURLRegex      = regexp.MustCompile(`(?m)^\s*url\s*=\s*([^\s#;]+)`)
+)
+
+func parseGitConfigRemoteOrigin(cfg string) string {
+	loc := gitRemoteSection.FindStringIndex(cfg)
+	if loc == nil {
+		return ""
+	}
+	sub := cfg[loc[1]:]
+	if next := regexp.MustCompile(`(?m)^\[`).FindStringIndex(sub); next != nil {
+		sub = sub[:next[0]]
+	}
+	m := gitURLRegex.FindStringSubmatch(sub)
+	if len(m) > 1 {
+		return parseGitRemoteRepo(m[1])
+	}
+	return ""
+}
+
+func resolveGitConfigFile(dir string) string {
+	gitPath := filepath.Join(dir, ".git")
+	fi, err := os.Stat(gitPath)
+	if err != nil {
+		return ""
+	}
+	if fi.IsDir() {
+		return filepath.Join(gitPath, "config")
+	}
+	data, err := os.ReadFile(filepath.Clean(gitPath))
+	if err != nil {
+		return ""
+	}
+	line := strings.TrimSpace(string(data))
+	if !strings.HasPrefix(line, "gitdir:") {
+		return ""
+	}
+	gitDir := strings.TrimSpace(strings.TrimPrefix(line, "gitdir:"))
+	if !filepath.IsAbs(gitDir) {
+		gitDir = filepath.Join(dir, gitDir)
+	}
+	commonFile := filepath.Join(gitDir, "commondir")
+	if cdata, err := os.ReadFile(filepath.Clean(commonFile)); err == nil { //nolint:gosec // path constructed from git repository metadata
+		commonDir := strings.TrimSpace(string(cdata))
+		if !filepath.IsAbs(commonDir) {
+			commonDir = filepath.Join(gitDir, commonDir)
+		}
+		cfgPath := filepath.Join(commonDir, "config")
+		if _, err := os.Stat(cfgPath); err == nil { //nolint:gosec // path constructed from git repository metadata
+			return cfgPath
+		}
+	}
+	cfgPath := filepath.Join(gitDir, "config")
+	if _, err := os.Stat(cfgPath); err == nil { //nolint:gosec // path constructed from git repository metadata
+		return cfgPath
+	}
+	return ""
+}
+
+func gitRemoteRepo(dir string) string {
+	cfgFile := resolveGitConfigFile(dir)
+	if cfgFile == "" {
+		return ""
+	}
+	data, err := os.ReadFile(filepath.Clean(cfgFile))
+	if err != nil {
+		return ""
+	}
+	return parseGitConfigRemoteOrigin(string(data))
+}
+
+// DiscoverMarketplaceNamespace finds the marketplace namespace:
+// 1. If harnessDir/.claude-plugin/marketplace.json exists, reads its "name" field.
+// 2. If harnessDir is a git repository, parses git remote origin to get owner/repo and resolves namespace.
+// Returns "" if neither can be determined.
+func DiscoverMarketplaceNamespace(harnessDir string) string {
+	if harnessDir == "" {
+		return ""
+	}
+	marketFile := filepath.Join(harnessDir, ".claude-plugin", "marketplace.json")
+	if data, err := os.ReadFile(filepath.Clean(marketFile)); err == nil {
+		var m struct {
+			Name string `json:"name"`
+		}
+		if err := json.Unmarshal(data, &m); err == nil && strings.TrimSpace(m.Name) != "" {
+			return strings.TrimSpace(m.Name)
+		}
+	}
+	if repo := gitRemoteRepo(harnessDir); repo != "" {
+		return ResolveNamespace(repo)
+	}
+	return ""
+}
+
+// DiscoverRegistry returns the repository owner/repo if harnessDir is a git repository.
+func DiscoverRegistry(harnessDir string) string {
+	if harnessDir == "" {
+		return ""
+	}
+	return gitRemoteRepo(harnessDir)
 }
 
 // ResolveUpstreamRegistry finds plugin directory names for the specified registry repository.

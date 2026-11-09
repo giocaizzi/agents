@@ -196,3 +196,65 @@ func TestPluginsPruneDryRun(t *testing.T) {
 		t.Errorf("expected prune header, got:\n%s", out)
 	}
 }
+
+func TestPluginsListAutoDiscoverHarnessDirAndNamespace(t *testing.T) {
+	t.Parallel()
+	tmpDir := t.TempDir()
+	homeDir := filepath.Join(tmpDir, "home")
+
+	// Create harness.toml without harnessRegistry
+	harnessToml := filepath.Join(tmpDir, "harness.toml")
+	content := `
+[harnessPlugins]
+dev-tools = ["claude", "copilot"]
+`
+	if err := os.WriteFile(harnessToml, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create harness repo in ~/src/harness
+	harnessDir := filepath.Join(homeDir, "src", "harness")
+	pDir := filepath.Join(harnessDir, "plugins", "dev-tools")
+	if err := os.MkdirAll(pDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pDir, "plugin.json"), []byte(`{"version": "1.0.0"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	// Create .claude-plugin/marketplace.json with custom name
+	claudePluginDir := filepath.Join(harnessDir, ".claude-plugin")
+	if err := os.MkdirAll(claudePluginDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	marketplaceJSON := `{"name": "discovered-marketplace"}`
+	if err := os.WriteFile(filepath.Join(claudePluginDir, "marketplace.json"), []byte(marketplaceJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Getenv: func(k string) string {
+			if k == "HOME" {
+				return homeDir
+			}
+			return ""
+		},
+	}
+
+	// Do NOT pass -harness-dir: discovery should find ~/src/harness and discovered-marketplace namespace
+	code := d.Run(context.Background(), []string{
+		"plugins", "list",
+		"-file", harnessToml,
+	})
+	if code != 0 {
+		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+	}
+
+	out := stdout.String()
+	if !strings.Contains(out, "dev-tools") {
+		t.Errorf("expected dev-tools in output, got:\n%s", out)
+	}
+}

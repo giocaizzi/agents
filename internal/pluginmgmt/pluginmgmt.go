@@ -93,10 +93,23 @@ func (m Manager) namespace() string {
 	if reg == "" {
 		reg = m.HarnessConfig.Registry
 	}
+	if reg != "" {
+		return pluginreg.ResolveNamespace(reg)
+	}
+	if m.HarnessDir != "" {
+		if discovered := pluginreg.DiscoverMarketplaceNamespace(m.HarnessDir); discovered != "" {
+			return discovered
+		}
+	}
 	if reg == "" {
 		reg = pluginreg.DefaultHarnessRegistry
 	}
 	return pluginreg.ResolveNamespace(reg)
+}
+
+// EffectiveNamespace returns the active namespace for the manager.
+func (m Manager) EffectiveNamespace() string {
+	return m.namespace()
 }
 
 // CompareVersions compares two semver strings (with or without 'v' prefix).
@@ -207,6 +220,8 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 	return out, nil
 }
 
+const statusInstalled = "installed"
+
 func (m Manager) antigravityVersion(plugin string) string {
 	pDir := filepath.Join(m.HomeDir, ".gemini", "config", "plugins", plugin)
 	if _, err := os.Stat(pDir); err != nil {
@@ -216,7 +231,7 @@ func (m Manager) antigravityVersion(plugin string) string {
 	if v != "" {
 		return v
 	}
-	return "installed"
+	return statusInstalled
 }
 
 func (m Manager) claudeVersion(plugin string) string {
@@ -249,34 +264,100 @@ func newestDirVersion(dir string) string {
 	return versions[0]
 }
 
-func (m Manager) copilotVersion(plugin string) string {
-	base := filepath.Join(m.HomeDir, ".vscode", "agent-plugins")
-	entries, err := os.ReadDir(base)
-	ns := m.namespace()
-	if err == nil {
-		needle := ns + "-" + plugin
-		for _, e := range entries {
-			if e.IsDir() && strings.Contains(e.Name(), needle) {
-				v := ReadPluginVersion(filepath.Join(base, e.Name()))
-				if v != "" {
-					return v
-				}
-				return "installed"
-			}
-		}
+func (m Manager) copilotInstalledDirVersion(ns, plugin string) (string, bool) {
+	installedDir := filepath.Join(m.HomeDir, ".copilot", "installed-plugins", ns, plugin)
+	if _, err := os.Stat(installedDir); err == nil {
+		return ReadPluginVersion(installedDir), true
 	}
-	settingsFile := filepath.Join(m.HomeDir, ".copilot", "settings.json")
-	if data, err := os.ReadFile(filepath.Clean(settingsFile)); err == nil {
-		var s struct {
-			EnabledPlugins map[string]bool `json:"enabledPlugins"`
-		}
-		if err := json.Unmarshal(data, &s); err == nil {
-			if s.EnabledPlugins[plugin+"@"+ns] {
+	return "", false
+}
+
+func (m Manager) copilotConfigFileVersion(ns, plugin string) string {
+	configFile := filepath.Join(m.HomeDir, ".copilot", "config.json")
+	data, err := os.ReadFile(filepath.Clean(configFile))
+	if err != nil {
+		return ""
+	}
+	var cfg struct {
+		InstalledPlugins []struct {
+			Name        string `json:"name"`
+			Version     string `json:"version"`
+			Marketplace string `json:"marketplace"`
+			Enabled     bool   `json:"enabled"`
+		} `json:"installedPlugins"`
+	}
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return ""
+	}
+	for _, p := range cfg.InstalledPlugins {
+		if (p.Name == plugin || p.Name == plugin+"@"+ns) && (p.Marketplace == "" || p.Marketplace == ns) {
+			if p.Version != "" {
+				return p.Version
+			}
+			if p.Enabled {
 				return "enabled"
 			}
+			return statusInstalled
 		}
 	}
 	return ""
+}
+
+func (m Manager) vscodeAgentPluginsVersion(ns, plugin string) string {
+	base := filepath.Join(m.HomeDir, ".vscode", "agent-plugins")
+	entries, err := os.ReadDir(base)
+	if err != nil {
+		return ""
+	}
+	needle := ns + "-" + plugin
+	for _, e := range entries {
+		if e.IsDir() && strings.Contains(e.Name(), needle) {
+			v := ReadPluginVersion(filepath.Join(base, e.Name()))
+			if v != "" {
+				return v
+			}
+			return statusInstalled
+		}
+	}
+	return ""
+}
+
+func (m Manager) copilotSettingsVersion(ns, plugin string) string {
+	settingsFile := filepath.Join(m.HomeDir, ".copilot", "settings.json")
+	data, err := os.ReadFile(filepath.Clean(settingsFile))
+	if err != nil {
+		return ""
+	}
+	var s struct {
+		EnabledPlugins map[string]bool `json:"enabledPlugins"`
+	}
+	if err := json.Unmarshal(data, &s); err == nil && s.EnabledPlugins[plugin+"@"+ns] {
+		return "enabled"
+	}
+	return ""
+}
+
+func (m Manager) copilotVersion(plugin string) string {
+	ns := m.namespace()
+
+	dirVer, dirExists := m.copilotInstalledDirVersion(ns, plugin)
+	if dirVer != "" {
+		return dirVer
+	}
+
+	if cfgVer := m.copilotConfigFileVersion(ns, plugin); cfgVer != "" {
+		return cfgVer
+	}
+
+	if dirExists {
+		return statusInstalled
+	}
+
+	if vsVer := m.vscodeAgentPluginsVersion(ns, plugin); vsVer != "" {
+		return vsVer
+	}
+
+	return m.copilotSettingsVersion(ns, plugin)
 }
 
 func (m Manager) opencodeVersion(_ string) string {

@@ -93,3 +93,120 @@ guard = ["claude"]
 		t.Errorf("expected 0 findings, got %v", findings)
 	}
 }
+
+func TestCandidateDirs(t *testing.T) {
+	t.Parallel()
+	tmpHome := t.TempDir()
+
+	// Create ~/Documents/projects/my-harness and ~/src/my-harness
+	docsProject := filepath.Join(tmpHome, "Documents", "projects", "my-harness")
+	srcRepo := filepath.Join(tmpHome, "src", "my-harness")
+	if err := os.MkdirAll(docsProject, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(srcRepo, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	cands := pluginreg.CandidateDirs("", "example/my-harness", tmpHome)
+
+	var foundDocs, foundSrc bool
+	for _, c := range cands {
+		if c == docsProject {
+			foundDocs = true
+		}
+		if c == srcRepo {
+			foundSrc = true
+		}
+	}
+	if !foundDocs {
+		t.Errorf("CandidateDirs missing %s; got %v", docsProject, cands)
+	}
+	if !foundSrc {
+		t.Errorf("CandidateDirs missing %s; got %v", srcRepo, cands)
+	}
+}
+
+func TestCandidateDirsCurrentWorkingDir(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(tmp, "plugins"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "AGENTS.md"), []byte("# Agents\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Chdir(tmp)
+
+	cands := pluginreg.CandidateDirs("", "example/harness", "")
+	var found bool
+	for _, c := range cands {
+		if c == "." || c == tmp {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("expected . or %s in candidates, got %v", tmp, cands)
+	}
+}
+
+func TestDiscoverMarketplaceNamespace(t *testing.T) {
+	t.Parallel()
+
+	t.Run("from-marketplace-json", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		claudePluginDir := filepath.Join(dir, ".claude-plugin")
+		if err := os.MkdirAll(claudePluginDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		marketplaceJSON := `{"name": "octocat-harness", "owner": {"name": "octocat"}}`
+		if err := os.WriteFile(filepath.Join(claudePluginDir, "marketplace.json"), []byte(marketplaceJSON), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		ns := pluginreg.DiscoverMarketplaceNamespace(dir)
+		if ns != "octocat-harness" {
+			t.Errorf("got %q, want octocat-harness", ns)
+		}
+	})
+
+	t.Run("from-git-config", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		gitDir := filepath.Join(dir, ".git")
+		if err := os.MkdirAll(gitDir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		gitConfig := `
+[core]
+	repositoryformatversion = 0
+[remote "origin"]
+	url = git@github.com:octocat/custom-repo.git
+	fetch = +refs/heads/*:refs/remotes/origin/*
+`
+		if err := os.WriteFile(filepath.Join(gitDir, "config"), []byte(gitConfig), 0o600); err != nil {
+			t.Fatal(err)
+		}
+
+		ns := pluginreg.DiscoverMarketplaceNamespace(dir)
+		if ns != "octocat-custom-repo" {
+			t.Errorf("got namespace %q, want octocat-custom-repo", ns)
+		}
+
+		reg := pluginreg.DiscoverRegistry(dir)
+		if reg != "octocat/custom-repo" {
+			t.Errorf("got registry %q, want octocat/custom-repo", reg)
+		}
+	})
+
+	t.Run("empty-dir", func(t *testing.T) {
+		t.Parallel()
+		dir := t.TempDir()
+		ns := pluginreg.DiscoverMarketplaceNamespace(dir)
+		if ns != "" {
+			t.Errorf("expected empty namespace, got %q", ns)
+		}
+	})
+}
