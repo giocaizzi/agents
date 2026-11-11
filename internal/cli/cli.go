@@ -89,8 +89,6 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 		return d.runDoctor(rest)
 	case commandPlugins:
 		return d.runPlugins(ctx, rest)
-	case commandStatusline:
-		return d.runStatusline(ctx, rest)
 	case "init":
 		return d.runInit(ctx, rest)
 	case commandVersion, "--version", "-v":
