@@ -161,8 +161,8 @@ func TestPluginsUpdateDryRun(t *testing.T) {
 	if !strings.Contains(out, "plugins update") {
 		t.Errorf("expected update header in output, got:\n%s", out)
 	}
-	if !strings.Contains(out, "plugin update complete") {
-		t.Errorf("expected completion message, got:\n%s", out)
+	if !strings.Contains(out, "harness(es)") {
+		t.Errorf("expected update summary, got:\n%s", out)
 	}
 }
 

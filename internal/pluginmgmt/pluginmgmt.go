@@ -65,13 +65,29 @@ func (p PluginInfo) State(harness string) PluginState {
 	if !ok || v == "" {
 		return StateMissing
 	}
-	if p.UpstreamVersion == "" {
+	// An install without a version ("linked", "installed", "enabled") cannot
+	// be older than upstream.
+	if p.UpstreamVersion == "" || !isVersion(v) {
 		return StateOK
 	}
 	if CompareVersions(v, p.UpstreamVersion) < 0 {
 		return StateStale
 	}
 	return StateOK
+}
+
+// Behind reports whether the plugin is stale or missing on harness.
+func (p PluginInfo) Behind(harness string) bool {
+	s := p.State(harness)
+	return s == StateStale || s == StateMissing
+}
+
+// isVersion reports whether v is a semantic version, with or without a "v" prefix.
+func isVersion(v string) bool {
+	if !strings.HasPrefix(v, "v") {
+		v = "v" + v
+	}
+	return semver.IsValid(v)
 }
 
 // PruneCandidate identifies a directory that can be safely pruned.

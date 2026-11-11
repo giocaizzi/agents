@@ -33,6 +33,47 @@ func TestCompareVersions(t *testing.T) {
 	}
 }
 
+func TestStateAndBehind(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		enabled   bool
+		installed string
+		upstream  string
+		want      pluginmgmt.PluginState
+		behind    bool
+	}{
+		{"older is stale", true, "1.0.0", "1.1.0", pluginmgmt.StateStale, true},
+		{"older with v prefix is stale", true, "v1.0.0", "1.1.0", pluginmgmt.StateStale, true},
+		{"equal is ok", true, "1.1.0", "1.1.0", pluginmgmt.StateOK, false},
+		{"newer is ok", true, "1.2.0", "1.1.0", pluginmgmt.StateOK, false},
+		{"not installed is missing", true, "", "1.1.0", pluginmgmt.StateMissing, true},
+		{"linked is ok", true, "linked", "1.1.0", pluginmgmt.StateOK, false},
+		{"installed is ok", true, "installed", "9.9.9", pluginmgmt.StateOK, false},
+		{"enabled is ok", true, "enabled", "9.9.9", pluginmgmt.StateOK, false},
+		{"no upstream is ok", true, "1.0.0", "", pluginmgmt.StateOK, false},
+		{"disabled is not behind", false, "1.0.0", "1.1.0", pluginmgmt.StateDisabled, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			p := pluginmgmt.PluginInfo{
+				Name:            "dev-tools",
+				UpstreamVersion: tt.upstream,
+				Enabled:         map[string]bool{"claude": tt.enabled},
+				Installed:       map[string]string{"claude": tt.installed},
+			}
+			if got := p.State("claude"); got != tt.want {
+				t.Errorf("State = %v, want %v", got, tt.want)
+			}
+			if got := p.Behind("claude"); got != tt.behind {
+				t.Errorf("Behind = %v, want %v", got, tt.behind)
+			}
+		})
+	}
+}
+
 func TestReadPluginVersion(t *testing.T) {
 	t.Parallel()
 	tmp := t.TempDir()
