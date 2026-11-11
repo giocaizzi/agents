@@ -164,6 +164,27 @@ func TestVSCodeSettings_Voice(t *testing.T) {
 	}
 }
 
+func TestCopilotSettings_Voice(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name    string
+		enabled bool
+	}{
+		{"enabled", true},
+		{"disabled", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			got := translate.CopilotSettings(&config.Policy{Voice: config.Voice{Enabled: tt.enabled}})
+			want := map[string]any{"enabled": tt.enabled}
+			if diff := cmp.Diff(want, got["voice"]); diff != "" {
+				t.Errorf("voice mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestClaudeSettings_VoiceModeDefault(t *testing.T) {
 	t.Parallel()
 	got := translate.ClaudeSettings(&config.Policy{Voice: config.Voice{Enabled: true}}, "linux")
