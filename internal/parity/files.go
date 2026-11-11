@@ -16,18 +16,20 @@ import (
 )
 
 const (
-	vscodeSettingsRel = "dot_config/Code/User/settings.json"
-	claudeTemplateRel = ".chezmoitemplates/claude-settings.json"
-	packagesRel       = ".chezmoidata/packages.toml"
+	vscodeSettingsRel  = "dot_config/Code/User/settings.json"
+	claudeTemplateRel  = ".chezmoitemplates/claude-settings.json"
+	copilotTemplateRel = ".chezmoitemplates/copilot-settings.json"
+	packagesRel        = ".chezmoidata/packages.toml"
 )
 
 // CheckSourceFiles compares the chezmoi source directory with the policy: the
 // static VS Code settings file must hold the native voice values, the Claude
-// template must read them from the policy, and every LSP server must name a
+// and Copilot templates must read them from the policy, and every LSP server must name a
 // package row in packages.toml.
 func CheckSourceFiles(p *config.Policy, sourceDir string) []finding.Finding {
 	fs := checkVSCodeFile(p, filepath.Join(sourceDir, filepath.FromSlash(vscodeSettingsRel)))
 	fs = append(fs, checkClaudeTemplate(filepath.Join(sourceDir, filepath.FromSlash(claudeTemplateRel)))...)
+	fs = append(fs, checkCopilotTemplate(filepath.Join(sourceDir, filepath.FromSlash(copilotTemplateRel)))...)
 	return append(fs, checkLSPPackages(p, filepath.Join(sourceDir, filepath.FromSlash(packagesRel)))...)
 }
 
@@ -122,6 +124,21 @@ func checkClaudeTemplate(path string) []finding.Finding {
 			"%s sets a \"language\" key; it also sets Claude's reply language, so it is deliberately unmanaged", path))
 	}
 	return fs
+}
+
+func checkCopilotTemplate(path string) []finding.Finding {
+	const where = "copilot"
+	data, err := os.ReadFile(filepath.Clean(path))
+	if err != nil {
+		return []finding.Finding{finding.New(where, "cannot read %s: %v", path, err)}
+	}
+	text := string(data)
+	const refAgents = ".agents.voice.enabled"
+	const refPolicy = ".harnessPolicy.voice.enabled"
+	if !strings.Contains(text, refAgents) && !strings.Contains(text, refPolicy) {
+		return []finding.Finding{finding.New(where, "%s must read %s (or %s) from the configuration", path, refAgents, refPolicy)}
+	}
+	return nil
 }
 
 // stripJSONC turns JSONC into JSON: it drops // and /* */ comments outside
