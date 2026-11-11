@@ -84,5 +84,5 @@ After a tag has been pushed or a GitHub Release has been published, do not
 delete or retag it as routine rollback. Reconcile the release state and issue a
 corrected forward release through the approved recovery process.
 
-**Last verified:** 2026-06-12 by reviewing `release-please-config.json` and the
+**Last verified:** 2026-11-11 by reviewing `release-please-config.json` and the
 emergency fallback workflow in `.github/workflows/release.yml`.
