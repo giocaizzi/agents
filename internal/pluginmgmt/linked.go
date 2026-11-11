@@ -236,7 +236,7 @@ func treeFiles(root string) ([]string, error) {
 		}
 		rel, relErr := filepath.Rel(root, p)
 		if relErr != nil {
-			return relErr
+			return fmt.Errorf("relative path of %s: %w", p, relErr)
 		}
 		files = append(files, rel)
 		return nil

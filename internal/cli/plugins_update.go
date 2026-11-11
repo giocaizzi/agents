@@ -150,15 +150,20 @@ func harnessSteps(mgr pluginmgmt.Manager, harness, bin string, changes []pluginC
 		}
 		return installer, ""
 	default: // harnessPi
-		if mgr.HarnessDir == "" {
-			return nil, "no checkout"
-		}
-		// Stale plugins are live in the checkout, which the pull already updated.
-		if !slices.ContainsFunc(changes, func(c pluginChange) bool { return c.from == "" }) {
-			return nil, ""
-		}
-		return []cmdStep{{bin, []string{verbInstall, mgr.HarnessDir}}}, ""
+		return piSteps(mgr, bin, changes)
 	}
+}
+
+// piSteps installs the checkout when a plugin is missing. Stale plugins are live
+// in the checkout, which the pull already updated, so they need no command.
+func piSteps(mgr pluginmgmt.Manager, bin string, changes []pluginChange) ([]cmdStep, string) {
+	if mgr.HarnessDir == "" {
+		return nil, "no checkout"
+	}
+	if !slices.ContainsFunc(changes, func(c pluginChange) bool { return c.from == "" }) {
+		return nil, ""
+	}
+	return []cmdStep{{bin, []string{verbInstall, mgr.HarnessDir}}}, ""
 }
 
 // installerStep returns the checkout's install script step for harness, or nothing
