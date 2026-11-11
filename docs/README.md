@@ -3,3 +3,4 @@
 Source of truth for decisions, architecture and runbooks of this repo.
 
 - [Harness parity matrix](parity.md): what `agents` renders, checks, syncs and reads per policy dimension and harness, with the open gaps.
+- [Voice input parity](voice.md): what `agents` maps, checks and leaves manual for dictation, per harness.
