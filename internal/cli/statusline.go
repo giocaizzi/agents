@@ -14,9 +14,13 @@ import (
 )
 
 func (d Deps) runStatusline(ctx context.Context, args []string) int {
+	fs := d.newFlags("statusline")
+	if err := fs.Parse(args); err != nil {
+		return d.parseFailure(fs, err)
+	}
 	target := "generic"
-	if len(args) > 0 {
-		target = args[0]
+	if fs.NArg() > 0 {
+		target = fs.Arg(0)
 	}
 
 	st := term.NewStyle(d.Stdout, d.Getenv)

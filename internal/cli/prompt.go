@@ -9,15 +9,14 @@ import (
 )
 
 func (d Deps) runPrompt(_ context.Context, args []string) int {
-	fs := newFlags("prompt")
+	fs := d.newFlags("prompt")
 	profileFlag := fs.String("profile", "default", "target profile name (e.g. default, personal, work, light)")
 	harnessFlag := fs.String("harness", "", "target client harness (claude, antigravity, copilot, codex, pi, opencode)")
 	checkOnly := fs.Bool("check", false, "only check that prompt layers exist and assemble cleanly")
 	fileFlag := fs.String("file", "", "optional path to policy or layer file")
 
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	profile := strings.ToLower(strings.TrimSpace(*profileFlag))
