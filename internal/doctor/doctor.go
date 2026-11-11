@@ -30,7 +30,7 @@ const (
 const (
 	// StaleAfter is the catalog age (now - syncedAt) above which it is stale.
 	// syncedAt moves only when synced data changes, so this is well above
-	// the weekly sync.
+	// a regular sync.
 	StaleAfter = 30 * 24 * time.Hour
 	// MinRankGain is how many arena places better a candidate must rank to be
 	// "better-ranked".
@@ -232,7 +232,7 @@ func Check(in Input) []Finding {
 // staleCatalog is check (3): the catalog was never synced, or longer ago
 // than StaleAfter.
 func staleCatalog(c catalog.Catalog, now time.Time) (Finding, bool) {
-	const fix = "agents models sync, or merge the weekly models-sync PR"
+	const fix = "agents models sync"
 	if c.SyncedAt == "" {
 		return Finding{Level: LevelWarn, Kind: KindStaleCatalog, Text: "model catalog never synced", Fix: fix}, true
 	}
