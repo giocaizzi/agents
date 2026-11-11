@@ -26,7 +26,7 @@ func (d Deps) runMCP(ctx context.Context, args []string) int {
 	if len(args) == 0 {
 		st := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%smissing mcp subcommand (e.g. sync, add)%s\n\n", st.R, st.O)
-		fmt.Fprint(d.Stderr, usage(st))
+		d.printHelp(d.Stderr, "mcp", nil)
 		return 2
 	}
 
@@ -39,25 +39,22 @@ func (d Deps) runMCP(ctx context.Context, args []string) int {
 	case "add":
 		return d.runMCPAdd(ctx, rest)
 	case "help", "--help", "-h":
-		st := term.NewStyle(d.Stdout, d.Getenv)
-		fmt.Fprint(d.Stdout, usage(st))
-		return 0
+		return d.explicitHelp(ctx, append([]string{"mcp"}, rest...))
 	default:
 		st := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%sunknown mcp subcommand: %s%s\n\n", st.R, sub, st.O)
-		fmt.Fprint(d.Stderr, usage(st))
+		d.printHelp(d.Stderr, "mcp", nil)
 		return 2
 	}
 }
 
 func (d Deps) runMCPSync(_ context.Context, args []string) int {
-	fs := newFlags("mcp sync")
+	fs := d.newFlags("mcp sync")
 	checkFlag := fs.Bool("check", false, "validate workspace MCP configuration without writing files")
 	accountFlag := fs.String("account", "", "hostname account identifier; defaults to MCP_CONNECTOR_ACCOUNT")
 
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	root := "."
@@ -156,7 +153,7 @@ func buildAddOptions(name, cmdOrURL, typeFlag string, extraArgs []string, envMap
 }
 
 func (d Deps) runMCPAdd(_ context.Context, args []string) int {
-	fs := newFlags("mcp add")
+	fs := d.newFlags("mcp add")
 	typeFlag := fs.String("type", "", "transport type: stdio or http (auto-detected if omitted)")
 	fs.StringVar(typeFlag, "t", "", "transport type alias")
 
@@ -173,14 +170,13 @@ func (d Deps) runMCPAdd(_ context.Context, args []string) int {
 	accountFlag := fs.String("account", "", "account identifier for placeholder replacement")
 
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	if fs.NArg() < 2 {
 		st := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%smcp add requires <name> and <commandOrUrl>%s\n\n", st.R, st.O)
-		fmt.Fprint(d.Stderr, usage(st))
+		d.printHelp(d.Stderr, "mcp add", fs)
 		return 2
 	}
 

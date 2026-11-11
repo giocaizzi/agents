@@ -1,0 +1,25 @@
+agents prompt — Display or validate the effective system prompt
+
+USAGE
+  agents prompt [options]
+
+OPTIONS
+  -check
+    	only check that prompt layers exist and assemble cleanly
+  -file string
+    	optional path to policy or layer file
+  -harness string
+    	target client harness (claude, antigravity, copilot, codex, pi, opencode)
+  -profile string
+    	target profile name (e.g. default, personal, work, light) (default "default")
+  -h, --help
+    Show this help and exit.
+
+DEFAULTS
+  Uses the default profile and discovers configuration and prompt layers.
+
+ENVIRONMENT
+  AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: configuration and prompt discovery.
+
+EXAMPLES
+  agents prompt -harness claude -check

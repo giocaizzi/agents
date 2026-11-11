@@ -1,0 +1,31 @@
+agents plugins update — Update plugins across harnesses
+
+USAGE
+  agents plugins update [options]
+
+OPTIONS
+  -dry-run
+    	dry-run mode
+  -f	force mode
+  -file string
+    	path to harness.toml
+  -force
+    	force mode
+  -harness string
+    	target harness (antigravity, claude, codex, etc.)
+  -harness-dir string
+    	path to plugin registry repository checkout
+  -json
+    	output JSON format
+  -n	dry-run mode (inspect only, do not modify)
+  -h, --help
+    Show this help and exit.
+
+DEFAULTS
+  Discovers harness.toml; -n previews changes; -f forces updates.
+
+ENVIRONMENT
+  HARNESS_DIR: registry checkout; CHEZMOI_SOURCE_DIR, HOME: configuration discovery.
+
+EXAMPLES
+  agents plugins update -n

@@ -13,7 +13,7 @@ import (
 )
 
 func (d Deps) runRender(_ context.Context, args []string) int {
-	fs := newFlags("render")
+	fs := d.newFlags("render")
 	harnessFlag := fs.String("harness", "", "target client harness (claude, antigravity, copilot, codex, pi, opencode)")
 	partFlag := fs.String("part", "", "output granularity (permissions, settings, prompt, all)")
 	osFlag := fs.String("os", "", "target operating system (darwin, linux, windows)")
@@ -21,8 +21,7 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
 
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	if strings.ToLower(strings.TrimSpace(*partFlag)) == "prompt" {

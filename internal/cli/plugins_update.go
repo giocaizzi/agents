@@ -181,10 +181,9 @@ func installerStep(mgr pluginmgmt.Manager, harness string) []cmdStep {
 
 func (d Deps) runPluginsUpdate(ctx context.Context, args []string) int {
 	st := term.NewStyle(d.Stdout, d.Getenv)
-	flags, err := parsePluginsFlags("plugins update", args, d.Getenv)
+	flags, err := d.parsePluginsFlags("plugins update", args)
 	if err != nil {
-		fmt.Fprintf(d.Stderr, "flags: %v\n", err)
-		return 2
+		return d.flagFail(err)
 	}
 
 	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)

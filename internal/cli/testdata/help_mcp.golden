@@ -1,0 +1,10 @@
+agents mcp — Manage workspace MCP configuration
+
+USAGE
+  agents mcp [command]
+
+COMMANDS
+  sync         Sync workspace MCP configuration to native clients
+  add          Add or update a workspace MCP server and sync
+
+Use agents help <command> for command-specific help.

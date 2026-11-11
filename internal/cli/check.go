@@ -14,13 +14,12 @@ import (
 )
 
 func (d Deps) runCheck(ctx context.Context, args []string) int {
-	fs := newFlags("check")
+	fs := d.newFlags("check")
 	fileFlag := fs.String("file", "", "path to harness-policy.toml, agents.toml or harness.toml")
 	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
 	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
 	if err := fs.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	findings, msgs, err := d.checkTarget(ctx, *fileFlag, *harnessDirFlag, *profileFlag)
