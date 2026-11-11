@@ -37,15 +37,14 @@ func TestRunDoctorFIFOCacheDoesNotHang(t *testing.T) {
 		t.Fatal(err)
 	}
 	mkfifo(t, path)
-	f := testFetcher(t, nil)
 	done := make(chan int, 1)
-	go func() { done <- d.runDoctorWith(t.Context(), nil, fakeStore{home: f.home}, f) }()
+	go func() { done <- runDoctorFixed(t, d) }()
 	select {
 	case code := <-done:
 		if code != 0 {
 			t.Errorf("exit = %d, want 0", code)
 		}
-		if !strings.Contains(errb.String(), "ignoring usage cache") || !strings.Contains(out.String(), "(no usage cache; -live to refresh)") {
+		if !strings.Contains(errb.String(), "ignoring usage cache") || !strings.Contains(out.String(), "(no usage data; run agents usage)") {
 			t.Errorf("stdout %q, stderr %q", out, errb)
 		}
 	case <-time.After(5 * time.Second):

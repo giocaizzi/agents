@@ -221,7 +221,7 @@ func TestGlobalFindings(t *testing.T) {
 			},
 			{
 				Level: LevelInfo, Kind: KindNoUsage,
-				Text: "no usage data yet: account, capacity and model checks skipped", Fix: "agents usage -live",
+				Text: "no usage data yet: account, capacity and model checks skipped", Fix: "agents usage",
 			},
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
@@ -299,7 +299,7 @@ func TestAccountFindings(t *testing.T) {
 		want := []Finding{{
 			Level: LevelWarn, Kind: KindNoAccount, Harness: "copilot",
 			Text: "no github-copilot account found for scout, worker, driver (claude-haiku-5, gpt-6)",
-			Fix:  "log in to copilot, then agents usage -live",
+			Fix:  "log in to copilot, then agents usage",
 		}}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)

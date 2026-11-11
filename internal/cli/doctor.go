@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,40 +13,18 @@ import (
 
 	"github.com/giocaizzi/agents/internal/cache"
 	"github.com/giocaizzi/agents/internal/doctor"
-	"github.com/giocaizzi/agents/internal/provider"
 	"github.com/giocaizzi/agents/internal/term"
 	usg "github.com/giocaizzi/agents/internal/usage"
 )
 
-// doctorBudget bounds one doctor run: the whole run (offline or live), and
-// inside a live run each provider query and the identity resolution.
-type doctorBudget struct {
-	offline, live, perProvider, identity time.Duration
-}
-
-// doctorGrace is how long an overrun run waits for its worker after cancel.
-const doctorGrace = 250 * time.Millisecond
+// doctorBudget bounds one doctor run.
+const doctorBudget = 2 * time.Second
 
 // quietLines caps the loud lines of -q output (the apply hook).
 const quietLines = 5
 
-func defaultDoctorBudget() doctorBudget {
-	return doctorBudget{
-		offline:     2 * time.Second,
-		live:        6 * time.Second,
-		perProvider: 2 * time.Second,
-		identity:    2 * time.Second,
-	}
-}
-
-func (d Deps) runDoctor(ctx context.Context, args []string) int {
-	store := newOSStore(d)
-	return d.runDoctorWith(ctx, args, store, newFetcher(store.home))
-}
-
-// runDoctorWith is runDoctor with the credential store and the fetcher injected.
-func (d Deps) runDoctorWith(ctx context.Context, args []string, store provider.Store, f usageFetcher) int {
-	return d.runDoctorBudget(ctx, args, store, f, defaultDoctorBudget())
+func (d Deps) runDoctor(args []string) int {
+	return d.runDoctorBudget(args, time.Now, doctorBudget)
 }
 
 // doctorRun is what one doctor run wrote: it prints only if it finished in time.
@@ -56,10 +33,9 @@ type doctorRun struct {
 	code     int
 }
 
-// runDoctorBudget is runDoctorWith with the time budget injected.
-func (d Deps) runDoctorBudget(ctx context.Context, args []string, store provider.Store, f usageFetcher, b doctorBudget) int {
+// runDoctorBudget is runDoctor with the clock and the time budget injected.
+func (d Deps) runDoctorBudget(args []string, now func() time.Time, budget time.Duration) int {
 	flags := newFlags("doctor")
-	live := flags.Bool("live", false, "query every provider and rewrite the usage cache")
 	quiet := flags.Bool("q", false, "print nothing when there is nothing to report")
 	asJSON := flags.Bool("json", false, "print the findings as JSON")
 	harnessList := flags.String("harness", "", "comma-separated harnesses")
@@ -67,20 +43,13 @@ func (d Deps) runDoctorBudget(ctx context.Context, args []string, store provider
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
 		return 2
 	}
-	budget := b.offline
-	if *live {
-		budget = b.live
-	}
 
 	// The worker owns its buffers and hands them over on done; after an
-	// overrun nothing reads them. It stops with ctx (cancelled on overrun),
-	// except in a file read that cannot block (readRegular), so it ends on
-	// its own; a worker stuck in a call that ignores ctx dies with the process.
-	ctx, cancel := context.WithCancel(ctx)
-	defer cancel()
+	// overrun nothing reads them. It only reads files that cannot block
+	// (readRegular), so it ends on its own.
 	done := make(chan *doctorRun, 1)
 	go func() {
-		done <- d.doctorWork(ctx, store, f, b, *live, *quiet, *asJSON, *harnessList)
+		done <- d.doctorWork(now, *quiet, *asJSON, *harnessList)
 	}()
 	timer := time.NewTimer(budget)
 	defer timer.Stop()
@@ -90,14 +59,6 @@ func (d Deps) runDoctorBudget(ctx context.Context, args []string, store provider
 		_, _ = io.Copy(d.Stderr, &r.err)
 		return r.code
 	case <-timer.C:
-		cancel()
-		// Give a worker that is writing the cache a moment to finish or bail out.
-		grace := time.NewTimer(doctorGrace)
-		defer grace.Stop()
-		select {
-		case <-done:
-		case <-grace.C:
-		}
 		if !*quiet {
 			fmt.Fprintf(d.Stderr, "doctor: timed out after %s\n", budget)
 		}
@@ -106,7 +67,7 @@ func (d Deps) runDoctorBudget(ctx context.Context, args []string, store provider
 }
 
 // doctorWork loads the inputs, runs the checks and renders into a doctorRun.
-func (d Deps) doctorWork(ctx context.Context, store provider.Store, f usageFetcher, b doctorBudget, live, quiet, asJSON bool, harnessList string) *doctorRun {
+func (d Deps) doctorWork(now func() time.Time, quiet, asJSON bool, harnessList string) *doctorRun {
 	r := &doctorRun{}
 	fail := func(err error) *doctorRun {
 		fmt.Fprintf(&r.err, "doctor: %v\n", err)
@@ -132,30 +93,17 @@ func (d Deps) doctorWork(ctx context.Context, store provider.Store, f usageFetch
 		return fail(err)
 	}
 	path := filepath.Join(dir, usageCacheFile)
-	now := f.now()
+	at := now()
 
 	cached, cacheErr := readUsageCache(path)
 	if cacheErr != nil {
 		note("doctor: ignoring usage cache: %v\n", cacheErr)
 	}
-	var (
-		snaps []usg.Snapshot
-		meta  string
-	)
+	snaps := cached.Snapshots
 	haveUsage := !cached.WrittenAt.IsZero()
-	switch {
-	case live:
-		var werr error
-		snaps, werr = refreshUsage(ctx, store, f, path, cached, b.perProvider, b.identity)
-		if werr != nil {
-			note("doctor: usage cache not written: %v\n", werr)
-		}
-		haveUsage, meta = true, "(live)"
-	case haveUsage:
-		snaps = cached.Snapshots
-		meta = "(cached " + usg.HumanDuration(now.Sub(cached.WrittenAt)) + " ago; -live to refresh)"
-	default:
-		meta = "(no usage cache; -live to refresh)"
+	meta := "(no usage data; run agents usage)"
+	if haveUsage {
+		meta = "(usage from " + usg.HumanDuration(at.Sub(cached.WrittenAt)) + " ago; run agents usage to refresh)"
 	}
 	clean := make([]usg.Snapshot, len(snaps))
 	for i, s := range snaps {
@@ -173,7 +121,7 @@ func (d Deps) doctorWork(ctx context.Context, store provider.Store, f usageFetch
 		Harnesses: harnesses,
 		Snapshots: clean,
 		HaveUsage: haveUsage,
-		Now:       now,
+		Now:       at,
 	})
 
 	switch {

@@ -33,7 +33,7 @@ func sampleFindings() []doctor.Finding {
 		suggestFinding("claude"),
 		warn("codex"),
 		suggestFinding("codex"),
-		{Level: doctor.LevelSuggest, Kind: doctor.KindNoAccount, Harness: "pi", Text: "pi: no account for provider acme", Fix: "agents usage -live"},
+		{Level: doctor.LevelSuggest, Kind: doctor.KindNoAccount, Harness: "pi", Text: "pi: no account for provider acme", Fix: "agents usage"},
 	}
 }
 
@@ -48,7 +48,7 @@ claude · codex
   ! scout: model ghost is not in the catalog  · harnessPolicy.models.tiers.scout
 
 pi
-  ↑ pi: no account for provider acme  · agents usage -live
+  ↑ pi: no account for provider acme  · agents usage
 `
 
 func TestRenderDoctorPlain(t *testing.T) {
@@ -76,7 +76,7 @@ func TestRenderDoctorStyled(t *testing.T) {
   <Y>!<O> scout: model ghost is not in the catalog  <D>· harnessPolicy.models.tiers.scout<O>
 
 <B>pi<O>
-  <G>↑<O> pi: no account for provider acme  <D>· agents usage -live<O>
+  <G>↑<O> pi: no account for provider acme  <D>· agents usage<O>
 `
 	if diff := cmp.Diff(want, buf.String()); diff != "" {
 		t.Errorf("styled render mismatch (-want +got):\n%s", diff)
@@ -86,8 +86,8 @@ func TestRenderDoctorStyled(t *testing.T) {
 func TestRenderDoctorNothingToReport(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
-	renderDoctor(&buf, term.Style{}, nil, "(no usage cache; -live to refresh)", 0)
-	want := "agents doctor — models, accounts and capacity   (no usage cache; -live to refresh)\n\n  ✓ nothing to report\n"
+	renderDoctor(&buf, term.Style{}, nil, "(no usage data; run agents usage)", 0)
+	want := "agents doctor — models, accounts and capacity   (no usage data; run agents usage)\n\n  ✓ nothing to report\n"
 	if diff := cmp.Diff(want, buf.String()); diff != "" {
 		t.Errorf("render mismatch (-want +got):\n%s", diff)
 	}
