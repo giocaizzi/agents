@@ -24,11 +24,10 @@ func (d Deps) runUsage(ctx context.Context, args []string) int {
 
 // runUsageWith is runUsage with the credential store and the fetcher injected.
 func (d Deps) runUsageWith(ctx context.Context, args []string, store provider.Store, f usageFetcher) int {
-	flags := newFlags("usage")
+	flags := d.newFlags("usage")
 	only := flags.String("provider", "", "limit the output to one provider id")
 	if err := flags.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(flags, err)
 	}
 
 	dir, err := cache.Dir(d.Getenv)

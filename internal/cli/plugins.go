@@ -28,6 +28,9 @@ const (
 )
 
 func (d Deps) runPlugins(ctx context.Context, args []string) int {
+	if len(args) > 0 && (args[0] == "-h" || args[0] == helpFlag || args[0] == helpCmd) {
+		return d.explicitHelp(ctx, append([]string{"plugins"}, args[1:]...))
+	}
 	subcmd := "list"
 	rest := args
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
@@ -42,16 +45,10 @@ func (d Deps) runPlugins(ctx context.Context, args []string) int {
 		return d.runPluginsUpdate(ctx, rest)
 	case "prune":
 		return d.runPluginsPrune(ctx, rest)
-	case helpCmd, helpFlag, "-h":
-		st := term.NewStyle(d.Stdout, d.Getenv)
-		fmt.Fprintf(d.Stdout, "%sUSAGE%s\n", st.B, st.O)
-		fmt.Fprintf(d.Stdout, "  agents plugins [list] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
-		fmt.Fprintf(d.Stdout, "  agents plugins update [-n] [-f] [-file <path>] [-harness-dir <path>] [-harness <name>]\n")
-		fmt.Fprintf(d.Stdout, "  agents plugins prune  [-n] [-file <path>]\n")
-		return 0
 	default:
 		st := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%sunknown plugins subcommand: %s%s\n", st.R, subcmd, st.O)
+		d.printHelp(d.Stderr, "plugins", nil)
 		return 2
 	}
 }
@@ -65,10 +62,10 @@ type pluginsCommonFlags struct {
 	jsonOutput bool
 }
 
-func parsePluginsFlags(name string, args []string, getenv func(string) string) (pluginsCommonFlags, error) {
-	fs := newFlags(name)
+func (d Deps) parsePluginsFlags(name string, args []string) (pluginsCommonFlags, error) {
+	fs := d.newFlags(name)
 	fileFlag := fs.String("file", "", "path to harness.toml")
-	harnessDirFlag := fs.String("harness-dir", getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
+	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
 	harnessFlag := fs.String("harness", "", "target harness (antigravity, claude, codex, etc.)")
 	dryRunFlag := fs.Bool("n", false, "dry-run mode (inspect only, do not modify)")
 	dryRunLong := fs.Bool("dry-run", false, "dry-run mode")
@@ -77,6 +74,7 @@ func parsePluginsFlags(name string, args []string, getenv func(string) string) (
 	jsonFlag := fs.Bool("json", false, "output JSON format")
 
 	if err := fs.Parse(args); err != nil {
+		d.parseFailure(fs, err)
 		return pluginsCommonFlags{}, fmt.Errorf("parse %s flags: %w", name, err)
 	}
 	return pluginsCommonFlags{
@@ -191,10 +189,9 @@ func buildPluginRow(p pluginmgmt.PluginInfo, harnesses []string, st term.Style) 
 
 func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 	st := term.NewStyle(d.Stdout, d.Getenv)
-	flags, err := parsePluginsFlags("plugins list", args, d.Getenv)
+	flags, err := d.parsePluginsFlags("plugins list", args)
 	if err != nil {
-		fmt.Fprintf(d.Stderr, "flags: %v\n", err)
-		return 2
+		return d.flagFail(err)
 	}
 
 	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)
@@ -318,10 +315,9 @@ func (d Deps) pruneCaches(st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
 
 func (d Deps) runPluginsPrune(_ context.Context, args []string) int {
 	st := term.NewStyle(d.Stdout, d.Getenv)
-	flags, err := parsePluginsFlags("plugins prune", args, d.Getenv)
+	flags, err := d.parsePluginsFlags("plugins prune", args)
 	if err != nil {
-		fmt.Fprintf(d.Stderr, "flags: %v\n", err)
-		return 2
+		return d.flagFail(err)
 	}
 
 	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)

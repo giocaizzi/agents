@@ -1,0 +1,38 @@
+agents mcp add — Add or update a workspace MCP server and sync
+
+USAGE
+  agents mcp add <name> <commandOrUrl> [args...] [options]
+
+ARGUMENTS
+  <name> <commandOrUrl> [args...]  Server name, executable or URL, and forwarded server arguments.
+
+OPTIONS
+  -H value
+    	header alias
+  -account string
+    	account identifier for placeholder replacement
+  -dir string
+    	workspace directory containing .mcp.json (default ".")
+  -e value
+    	env alias
+  -env value
+    	environment variable in KEY=value format (repeatable)
+  -header value
+    	HTTP header in 'Header: Value' format (repeatable)
+  -no-sync
+    	skip synchronizing native harness configuration files
+  -t string
+    	transport type alias
+  -type string
+    	transport type: stdio or http (auto-detected if omitted)
+  -h, --help
+    Show this help and exit.
+
+DEFAULTS
+  Transport is inferred from the command or URL. Options must precede name; following arguments are forwarded unchanged.
+
+ENVIRONMENT
+  MCP_CONNECTOR_ACCOUNT: fallback for -account when synchronizing.
+
+EXAMPLES
+  agents mcp add -e MODE=local example npx -y example-server

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
 	"maps"
@@ -54,6 +55,9 @@ type modelsOpts struct {
 }
 
 func (d Deps) runModels(ctx context.Context, args []string) int {
+	if len(args) > 0 && (args[0] == "-h" || args[0] == helpFlag) {
+		return d.explicitHelp(ctx, []string{"models"})
+	}
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		switch args[0] {
 		case "sync":
@@ -61,13 +65,11 @@ func (d Deps) runModels(ctx context.Context, args []string) int {
 		case "render":
 			return d.runModelsRender(args[1:])
 		case helpCmd:
-			st := term.NewStyle(d.Stdout, d.Getenv)
-			fmt.Fprint(d.Stdout, usage(st))
-			return 0
+			return d.explicitHelp(ctx, append([]string{"models"}, args[1:]...))
 		default:
 			st := term.NewStyle(d.Stderr, d.Getenv)
 			fmt.Fprintf(d.Stderr, "%sunknown models subcommand: %s%s\n\n", st.R, args[0], st.O)
-			fmt.Fprint(d.Stderr, usage(st))
+			d.printHelp(d.Stderr, "models", nil)
 			return 2
 		}
 	}
@@ -81,7 +83,9 @@ func (d Deps) modelsFail(format string, a ...any) int {
 }
 
 func (d Deps) flagFail(err error) int {
-	fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
+	if errors.Is(err, flag.ErrHelp) {
+		return 0
+	}
 	return 2
 }
 
@@ -243,10 +247,10 @@ func docPath(file, explicit string) string {
 }
 
 func (d Deps) runModelsShow(args []string) int {
-	fs := newFlags("models")
+	fs := d.newFlags("models")
 	file := fs.String("file", "", "path to models.json")
 	if err := fs.Parse(args); err != nil {
-		return d.flagFail(err)
+		return d.parseFailure(fs, err)
 	}
 	c, _, err := d.loadCatalog(*file, true)
 	if err != nil {
@@ -257,12 +261,12 @@ func (d Deps) runModelsShow(args []string) int {
 }
 
 func (d Deps) runModelsRender(args []string) int {
-	fs := newFlags("models render")
+	fs := d.newFlags("models render")
 	check := fs.Bool("check", false, "compare the doc instead of writing it")
 	file := fs.String("file", "", "path to models.json")
 	doc := fs.String("doc", "", "path to docs/MODELS.md")
 	if err := fs.Parse(args); err != nil {
-		return d.flagFail(err)
+		return d.parseFailure(fs, err)
 	}
 	c, path, err := d.loadCatalog(*file, true)
 	if err != nil {
@@ -306,11 +310,11 @@ func (d Deps) runModelsRender(args []string) int {
 }
 
 func (d Deps) runModelsSync(ctx context.Context, args []string) int {
-	fs := newFlags("models sync")
+	fs := d.newFlags("models sync")
 	file := fs.String("file", "", "path to models.json")
 	doc := fs.String("doc", "", "path to docs/MODELS.md")
 	if err := fs.Parse(args); err != nil {
-		return d.flagFail(err)
+		return d.parseFailure(fs, err)
 	}
 	return d.syncModels(ctx, modelsOpts{file: *file, doc: *doc}, defaultEndpoints(), time.Now)
 }

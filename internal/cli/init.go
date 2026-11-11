@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -45,12 +44,11 @@ enabled  = ["core", "dev-tools"]
 `
 
 func (d Deps) runInit(_ context.Context, args []string) int {
-	fs := flag.NewFlagSet("init", flag.ContinueOnError)
-	fs.SetOutput(d.Stderr)
+	fs := d.newFlags("init")
 	global := fs.Bool("global", false, "Write config to ~/.config/agents/agents.toml")
 	dirFlag := fs.String("dir", "", "Target directory to write agents.toml")
 	if err := fs.Parse(args); err != nil {
-		return 2
+		return d.parseFailure(fs, err)
 	}
 
 	st := term.NewStyle(d.Stdout, d.Getenv)

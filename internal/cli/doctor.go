@@ -35,13 +35,12 @@ type doctorRun struct {
 
 // runDoctorBudget is runDoctor with the clock and the time budget injected.
 func (d Deps) runDoctorBudget(args []string, now func() time.Time, budget time.Duration) int {
-	flags := newFlags("doctor")
+	flags := d.newFlags("doctor")
 	quiet := flags.Bool("q", false, "print nothing when there is nothing to report")
 	asJSON := flags.Bool("json", false, "print the findings as JSON")
 	harnessList := flags.String("harness", "", "comma-separated harnesses")
 	if err := flags.Parse(args); err != nil {
-		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
-		return 2
+		return d.parseFailure(flags, err)
 	}
 
 	// The worker owns its buffers and hands them over on done; after an

@@ -134,33 +134,21 @@ When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi aut
 
 ---
 
-## Commands Reference
+## Command help
 
-| Command | Arguments | Description |
-|---|---|---|
-| `init` | `[-global] [-dir <path>]` | Probe installed harnesses and scaffold `agents.toml` |
-| `statusline` | `[claude│copilot│tmux│omp]` | High-speed (<5ms) Catppuccin status bar output |
-| `check` | `[-file <path>]` | Validate configuration, parity, and plugin health |
-| `render` | `-harness <name> [-part <type>]` | Compile native configuration JSON/TOML or harness prompt |
-| `prompt` | `[-harness <name>] [-profile <name>]` | Display or validate effective harness system prompt |
-| `mcp sync` | `[path]` | Synchronize workspace `.mcp.json` to harnesses |
-| `models` | `[sync│render]` | Inspect LMArena ranks, Epoch ECI, and pricing |
-| `usage` | `[-provider <id>]` | Live subscription usage per provider account; writes the usage cache |
-| `doctor` | `[-q] [-json] [-harness <list>]` | Advisory on model capacity, drift, and accounts; reads the usage cache only |
-| `plugins` | `[list│update│prune]` | Cross-harness plugin status; update acts only on harnesses that are behind |
+Discover commands from the terminal, then drill down to a group or leaf:
 
-When no plugin directory is specified, automatic discovery prefers the managed installation at `~/.local/share/<registry-namespace>` before working-directory, `~/Documents`, and `~/src` developer checkouts. Pass `-harness-dir <path>` or set `HARNESS_DIR` to use a specific directory instead.
+```sh
+agents --help
+agents help mcp
+agents help mcp add
+agents render --help
+agents help plugins update
+```
 
-`agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
+Use `-h` or `--help` at a command's option boundary. Put options before positional arguments; MCP server arguments are forwarded unchanged.
 
-`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. A harness that is behind but whose CLI is not on `PATH` is skipped with a warning. Installs reported without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
-
-Two harnesses take plugins from the checkout itself instead of a marketplace:
-
-- **pi** counts as installed only when a `packages` entry of `~/.pi/agent/settings.json` resolves to the checkout. It then runs whatever the checkout holds, so it shows the checkout's plugin versions, and `update` brings it current through the checkout pull (`by the checkout pull`); a missing link is installed with `pi install <checkout>`.
-- **opencode** gets copies made by the checkout's `scripts/install.mjs opencode` in `$XDG_CONFIG_HOME/opencode` (default `~/.config/opencode`). A plugin whose copies match the checkout shows the checkout's version; copies that differ show `↑ outdated`, and `update` re-runs the script.
-
-`agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline.
+See the [CLI reference and runbook](docs/cli.md) for command flags, defaults, examples, exit statuses, plugin update/prune procedures and usage-cache behavior. The [documentation index](docs/README.md) links to the other guides.
 
 ---
 
