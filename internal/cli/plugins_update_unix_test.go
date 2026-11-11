@@ -172,3 +172,83 @@ func TestPluginsUpdateFailingCommand(t *testing.T) { //nolint:paralleltest // t.
 		}
 	}
 }
+
+// setupOpencodePiEnv extends the update fixture: opencode and pi are enabled, the
+// checkout has an installer and an opencode skill, the opencode copy is stale,
+// pi is linked to the checkout, and fake node, opencode and pi log their calls.
+func setupOpencodePiEnv(t *testing.T) (env updateEnv, xdg string) {
+	t.Helper()
+	env = setupUpdateEnv(t, "1.1.0", "0")
+	if err := os.WriteFile(env.harnessToml, []byte("[harnessPlugins]\ndev-tools = [\"opencode\", \"pi\"]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	write := func(p, content string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write(filepath.Join(env.checkout, "scripts", "install.mjs"), "")
+	write(filepath.Join(env.checkout, "plugins", "dev-tools", "skills", "a", "SKILL.md"), "new")
+	xdg = filepath.Join(filepath.Dir(env.homeDir), "xdg")
+	write(filepath.Join(xdg, "opencode", "skills", "a", "SKILL.md"), "old")
+	write(filepath.Join(env.homeDir, ".pi", "agent", "settings.json"), `{"packages": ["`+env.checkout+`"]}`)
+
+	binDir := t.TempDir()
+	for _, name := range []string{"node", "opencode", "pi"} {
+		writeFake(t, binDir, name, env.log, "0")
+	}
+	t.Setenv("PATH", binDir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return env, xdg
+}
+
+func TestPluginsUpdateOpencodeOutdatedRunsInstaller(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
+	env, xdg := setupOpencodePiEnv(t)
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: func(k string) string {
+		switch k {
+		case "HOME":
+			return env.homeDir
+		case "XDG_CONFIG_HOME":
+			return xdg
+		}
+		return ""
+	}}
+	args := []string{"plugins", "update", "-file", env.harnessToml, "-harness-dir", env.checkout, "-harness", "opencode"}
+	if code := d.Run(t.Context(), args); code != 0 {
+		t.Fatalf("code = %d, output:\n%s%s", code, stdout.String(), stderr.String())
+	}
+	data, err := os.ReadFile(env.log)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := "node " + filepath.Join(env.checkout, "scripts", "install.mjs") + " opencode\n"
+	if string(data) != want {
+		t.Errorf("calls = %q, want %q", data, want)
+	}
+	if !strings.Contains(stdout.String(), "opencode: dev-tools outdated → 1.1.0") {
+		t.Errorf("output missing outdated change:\n%s", stdout.String())
+	}
+}
+
+func TestPluginsUpdateDryRunPiLinkedToCheckout(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
+	env, _ := setupOpencodePiEnv(t)
+	code, out, calls := env.run(t, "-n", "-harness", "pi")
+	if code != 0 {
+		t.Fatalf("code = %d, output:\n%s", code, out)
+	}
+	if calls != "" {
+		t.Errorf("dry-run must not run commands, got %q", calls)
+	}
+	// The checkout is at 1.0.0 while origin has 1.1.0; the update pulls first, so
+	// pi is reported against the checkout version and needs no command.
+	if !strings.Contains(out, "pi: would update dev-tools 1.0.0 → 1.1.0 (by the checkout pull)") {
+		t.Errorf("output missing pi note:\n%s", out)
+	}
+	if strings.Contains(out, "pi install") {
+		t.Errorf("pi needs no install step:\n%s", out)
+	}
+}

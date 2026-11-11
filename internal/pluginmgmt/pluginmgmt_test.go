@@ -50,6 +50,7 @@ func TestStateAndBehind(t *testing.T) {
 		{"newer is ok", true, "1.2.0", "1.1.0", pluginmgmt.StateOK, false},
 		{"not installed is missing", true, "", "1.1.0", pluginmgmt.StateMissing, true},
 		{"linked is ok", true, "linked", "1.1.0", pluginmgmt.StateOK, false},
+		{"outdated is stale", true, "outdated", "1.1.0", pluginmgmt.StateStale, true},
 		{"installed is ok", true, "installed", "9.9.9", pluginmgmt.StateOK, false},
 		{"enabled is ok", true, "enabled", "9.9.9", pluginmgmt.StateOK, false},
 		{"no upstream is ok", true, "1.0.0", "", pluginmgmt.StateOK, false},
