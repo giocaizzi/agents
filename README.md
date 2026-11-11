@@ -153,7 +153,12 @@ When no plugin directory is specified, automatic discovery prefers the managed i
 
 `agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
 
-`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. A harness that is behind but whose CLI is not on `PATH` is skipped with a warning. Harnesses linked to the checkout without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
+`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. A harness that is behind but whose CLI is not on `PATH` is skipped with a warning. Installs reported without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
+
+Two harnesses take plugins from the checkout itself instead of a marketplace:
+
+- **pi** counts as installed only when a `packages` entry of `~/.pi/agent/settings.json` resolves to the checkout. It then runs whatever the checkout holds, so it shows the checkout's plugin versions, and `update` brings it current through the checkout pull (`by the checkout pull`); a missing link is installed with `pi install <checkout>`.
+- **opencode** gets copies made by the checkout's `scripts/install.mjs opencode` in `$XDG_CONFIG_HOME/opencode` (default `~/.config/opencode`). A plugin whose copies match the checkout shows the checkout's version; copies that differ show `↑ outdated`, and `update` re-runs the script.
 
 `agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline.
 
