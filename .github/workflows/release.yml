@@ -1,4 +1,5 @@
-name: release
+# Emergency-only manual-tag recovery; ordinary releases use release-please.
+name: Emergency manual-tag release fallback
 
 on:
   push:
@@ -15,8 +16,8 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
       - name: Build cross-platform binaries
@@ -33,7 +34,7 @@ jobs:
               -o "dist/agents_${v}_${os}_${arch}${ext}" ./cmd/agents
           done
           cd dist && sha256sum * > checksums.txt
-      - uses: actions/attest@v4
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-checksums: dist/checksums.txt
       - name: Publish Release
