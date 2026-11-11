@@ -152,7 +152,7 @@ func renderUsage(w io.Writer, st term.Style, snaps []usg.Snapshot, meta string, 
 	for _, s := range snaps {
 		line := term.Pad(st.B+s.Provider+st.O, providerCol) +
 			term.Pad(st.M+plan(s)+st.O, planWidth+2) +
-			st.D + strings.Join(s.Harnesses, ", ") + st.O
+			st.Y + strings.Join(s.Harnesses, ", ") + st.O
 		if s.Status == usg.StatusStale {
 			line += "  " + st.D + staleText(s, now) + st.O
 		}

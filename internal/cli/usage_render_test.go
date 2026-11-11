@@ -106,7 +106,7 @@ func TestRenderUsageColour(t *testing.T) {
 	var buf bytes.Buffer
 	renderUsage(&buf, st, sampleSnapshots(), "(live)", renderNow)
 	out := buf.String()
-	for _, want := range []string{"<B>anthropic<O>", "<M>Enterprise seat · me@example.com<O>", "<Y>!<O> token expired, open pi", "<D>(live)<O>"} {
+	for _, want := range []string{"<B>anthropic<O>", "<M>Enterprise seat · me@example.com<O>", "<Y>codex, opencode, pi<O>", "<Y>!<O> token expired, open pi", "<D>(live)<O>"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("coloured output lacks %q:\n%s", want, out)
 		}
