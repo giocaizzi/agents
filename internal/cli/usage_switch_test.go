@@ -77,29 +77,10 @@ func TestCachedSnapshotMissesOnAccountOrAuthChange(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			f := testFetcher(t, nil)
-			checkSwitchView(t, cachedView([]provider.Account{tc.acct}, []usg.Snapshot{tc.cached}, f), tc.acct, tc.hit)
-
 			failed := unavailable(f.base(tc.acct), "HTTP 500")
 			got := keepStale([]usg.Snapshot{failed}, []usg.Snapshot{tc.cached})
 			checkSwitchStale(t, got, tc.acct, tc.hit)
 		})
-	}
-}
-
-func checkSwitchView(t *testing.T, view []usg.Snapshot, acct provider.Account, hit bool) {
-	t.Helper()
-	if len(view) != 1 {
-		t.Fatalf("rows = %d, want 1: %+v", len(view), view)
-	}
-	s := view[0]
-	if hit {
-		if len(s.Limits) != 1 || s.Status != usg.StatusOK {
-			t.Errorf("cachedView lost the cached limits: %+v", s)
-		}
-		return
-	}
-	if len(s.Limits) != 0 || s.Status != usg.StatusUnavailable || s.Note != noDataNote || s.Account != acct.Label {
-		t.Errorf("cachedView = %+v, want no data yet for %q", s, acct.Label)
 	}
 }
 
@@ -120,7 +101,7 @@ func checkSwitchStale(t *testing.T, got []usg.Snapshot, acct provider.Account, h
 	}
 }
 
-// TestLiveFailureDoesNotRewriteOtherAccountIntoCache runs the -live failure
+// TestLiveFailureDoesNotRewriteOtherAccountIntoCache runs the failure
 // path after Codex switched from alice to bob.
 func TestLiveFailureDoesNotRewriteOtherAccountIntoCache(t *testing.T) {
 	t.Parallel()

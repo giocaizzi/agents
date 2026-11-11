@@ -37,7 +37,7 @@ func TestTwoClaudeProfilesNeverLeakTokens(t *testing.T) {
 	srv := usageServer()
 	defer srv.Close()
 	d, out, errb, path := usageDeps(t)
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, testFetcher(t, srv)); code != 0 {
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, srv)); code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
 	cache, err := os.ReadFile(path)
@@ -68,7 +68,7 @@ func TestOnlyEnterpriseProfileShowsSeatWithoutWindows(t *testing.T) {
 		"/h/.claude-corp/.credentials.json": claudeCredsFile(tokA, "enterprise"),
 	}}
 	d, out, errb, path := usageDeps(t)
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, testFetcher(t, srv)); code != 0 {
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, srv)); code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
 	cached, err := readUsageCache(path)

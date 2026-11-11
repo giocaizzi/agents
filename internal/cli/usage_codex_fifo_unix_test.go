@@ -11,11 +11,11 @@ import (
 	"github.com/giocaizzi/agents/internal/provider"
 )
 
-// A FIFO rollout in a listed ~/.codex-x profile never blocks cachedView, and
+// A FIFO rollout in a listed ~/.codex-x profile never blocks a failed live fetch, and
 // the regular rollout behind it is still used.
-func TestCachedViewSkipsFIFORollout(t *testing.T) {
+func TestLiveFallbackSkipsFIFORollout(t *testing.T) {
 	t.Parallel()
-	f := testFetcher(t, nil)
+	f := testFetcher(t, failingServer(t))
 	home := f.home
 	codexHome := filepath.Join(home, ".codex-x")
 	writeCodexRollout(t, codexHome, 33)
@@ -30,7 +30,7 @@ func TestCachedViewSkipsFIFORollout(t *testing.T) {
 
 	done := make(chan map[string]float64, 1)
 	go func() {
-		done <- fiveHourByHarness(t, cachedView(provider.Discover(store), nil, f))
+		done <- fiveHourByHarness(t, liveSnapshots(t.Context(), provider.Discover(store), f, 5*time.Second))
 	}()
 	select {
 	case got := <-done:
@@ -38,6 +38,6 @@ func TestCachedViewSkipsFIFORollout(t *testing.T) {
 			t.Errorf("5h by row = %v, want codex 33 from the regular rollout", got)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("cachedView blocked on a FIFO rollout")
+		t.Fatal("live fallback blocked on a FIFO rollout")
 	}
 }

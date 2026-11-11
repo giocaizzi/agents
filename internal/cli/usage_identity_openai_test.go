@@ -146,12 +146,12 @@ func newOpenAIFlow(t *testing.T, srv *whamServer) openaiFlow {
 }
 
 // run is flow.run with the production HTTP client, which follows no redirect.
-func (fl openaiFlow) run(store provider.Store, args ...string) string {
+func (fl openaiFlow) run(store provider.Store) string {
 	fl.t.Helper()
 	f := testFetcher(fl.t, fl.srv.Server)
 	f.client = newFetcher(fl.t.TempDir()).client
 	fl.out.Reset()
-	if code := fl.d.runUsageWith(fl.t.Context(), args, store, f); code != 0 {
+	if code := fl.d.runUsageWith(fl.t.Context(), nil, store, f); code != 0 {
 		fl.t.Fatalf("usage exit = %d", code)
 	}
 	return fl.out.String()
@@ -175,7 +175,7 @@ func TestOpenAIIdentityPiOnly(t *testing.T) {
 	srv.answers[piTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
 
-	out := fl.run(newStore(piFile(entry)), "-live")
+	out := fl.run(newStore(piFile(entry)))
 
 	s := onlySnap(t, fl.snaps(), "openai")
 	if s.IdentityUnknown || s.Status != usg.StatusOK || !slices.Equal(s.Harnesses, []string{"pi"}) || s.Plan.Name != "Plus" {
@@ -206,7 +206,7 @@ func TestOpenAIIdentityMergesCodexAndPi(t *testing.T) {
 	srv.answers[codexTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
 
-	out := fl.run(newStore(withFiles(files, piFile(entry))), "-live")
+	out := fl.run(newStore(withFiles(files, piFile(entry))))
 
 	s := onlySnap(t, fl.snaps(), "openai")
 	if s.Account != "me@example.com" || !slices.Equal(s.Harnesses, []string{"codex", "pi"}) || s.IdentityUnknown {
@@ -225,7 +225,7 @@ func TestOpenAIIdentitySplitsAnotherPerson(t *testing.T) {
 	srv.answers[codexTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
 
-	out := fl.run(newStore(withFiles(files, piFile(entry))), "-live")
+	out := fl.run(newStore(withFiles(files, piFile(entry))))
 
 	snaps := fl.snaps()
 	if diff := cmp.Diff([][]string{{"codex"}, {"pi"}}, harnessSets(snaps, "openai")); diff != "" {
@@ -252,7 +252,7 @@ func TestOpenAIIdentityExpiredTokenNeverSent(t *testing.T) {
 	srv.answers[codexTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
 
-	out := fl.run(newStore(withFiles(files, piFile(entry))), "-live")
+	out := fl.run(newStore(withFiles(files, piFile(entry))))
 
 	if n := len(srv.sent(piTok)); n != 0 {
 		t.Errorf("the expired token was sent %d times", n)
@@ -278,7 +278,7 @@ func TestOpenAIIdentityCachedProofKeepsExpiredMerged(t *testing.T) {
 	srv.answers[piTok] = whamBody("acct-1", "user-1")
 	srv.answers[codexTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
-	fl.run(newStore(withFiles(files, piFile(entry))), "-live")
+	fl.run(newStore(withFiles(files, piFile(entry))))
 	if diff := cmp.Diff([][]string{{"codex", "pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 		t.Fatalf("first run did not merge (-want +got):\n%s", diff)
 	}
@@ -286,7 +286,7 @@ func TestOpenAIIdentityCachedProofKeepsExpiredMerged(t *testing.T) {
 	// Same token, now past its expiry: it is not sent, the cache vouches for it.
 	expired := strings.Replace(entry, fmt.Sprintf(`"expires":%d`, exp.UnixMilli()), fmt.Sprintf(`"expires":%d`, usageNow.Add(-time.Hour).UnixMilli()), 1)
 	before := len(srv.sent(piTok))
-	out := fl.run(newStore(withFiles(files, piFile(expired))), "-live")
+	out := fl.run(newStore(withFiles(files, piFile(expired))))
 
 	s := onlySnap(t, fl.snaps(), "openai")
 	if !slices.Equal(s.Harnesses, []string{"codex", "pi"}) || s.IdentityUnknown {
@@ -329,7 +329,7 @@ func TestOpenAIIdentityStaysUnproven(t *testing.T) {
 			tc.answer(piTok, srv, other)
 			fl := newOpenAIFlow(t, srv)
 
-			out := fl.run(newStore(withFiles(files, piFile(entry))), "-live")
+			out := fl.run(newStore(withFiles(files, piFile(entry))))
 
 			if diff := cmp.Diff([][]string{{"codex"}, {"pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 				t.Errorf("harness sets (-want +got):\n%s", diff)

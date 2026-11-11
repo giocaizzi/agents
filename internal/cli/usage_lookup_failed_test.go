@@ -33,7 +33,7 @@ func TestLiveFailedLookupIsNotBoundFromCache(t *testing.T) {
 	srv.answers[codexTok] = whamBody("acct-1", "user-1")
 	fl := newOpenAIFlow(t, srv)
 
-	fl.run(store, "-live")
+	fl.run(store)
 	if diff := cmp.Diff([][]string{{"codex", "pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 		t.Fatalf("run 1 did not merge (-want +got):\n%s", diff)
 	}
@@ -41,7 +41,7 @@ func TestLiveFailedLookupIsNotBoundFromCache(t *testing.T) {
 	// The pi token is revoked now: the server rejects it, the Codex one is fine.
 	srv.set(piTok, "")
 	piBefore, codexBefore := len(srv.sent(piTok)), len(srv.sent(codexTok))
-	out := fl.run(store, "-live")
+	out := fl.run(store)
 
 	if diff := cmp.Diff([][]string{{"codex"}, {"pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 		t.Fatalf("run 2 harness sets (-want +got):\n%s", diff)
@@ -88,7 +88,7 @@ func TestLiveLookupFailureStaysUnproven(t *testing.T) {
 			srv.answers[piTok] = whamBody("acct-1", "user-1")
 			srv.answers[codexTok] = whamBody("acct-1", "user-1")
 			fl := newOpenAIFlow(t, srv)
-			fl.run(store, "-live")
+			fl.run(store)
 			if diff := cmp.Diff([][]string{{"codex", "pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 				t.Fatalf("run 1 did not merge (-want +got):\n%s", diff)
 			}
@@ -97,7 +97,7 @@ func TestLiveLookupFailureStaysUnproven(t *testing.T) {
 			delete(srv.answers, piTok)
 			srv.fail[piTok] = tt.fail
 			srv.mu.Unlock()
-			out := fl.run(store, "-live")
+			out := fl.run(store)
 
 			if diff := cmp.Diff([][]string{{"codex"}, {"pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 				t.Errorf("harness sets (-want +got):\n%s", diff)
@@ -155,7 +155,7 @@ func TestOpenAIUsageSentOncePerCredential(t *testing.T) {
 			}
 			fl := newOpenAIFlow(t, srv)
 
-			out := fl.run(newStore(piFile(entry)), "-live")
+			out := fl.run(newStore(piFile(entry)))
 
 			if n := len(srv.requests()); n != 1 {
 				t.Errorf("requests = %d, want 1 across identity and usage", n)

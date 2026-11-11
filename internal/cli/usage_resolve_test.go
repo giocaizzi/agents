@@ -241,10 +241,10 @@ func newFlow(t *testing.T, srv *idServer) *flow {
 }
 
 // run executes one usage run and returns its output.
-func (fl *flow) run(store provider.Store, args ...string) string {
+func (fl *flow) run(store provider.Store) string {
 	fl.t.Helper()
 	fl.out.Reset()
-	if code := fl.d.runUsageWith(fl.t.Context(), args, store, testFetcher(fl.t, fl.srv.Server)); code != 0 {
+	if code := fl.d.runUsageWith(fl.t.Context(), nil, store, testFetcher(fl.t, fl.srv.Server)); code != 0 {
 		fl.t.Fatalf("usage exit = %d", code)
 	}
 	return fl.out.String()
@@ -319,7 +319,7 @@ func TestPiOnlyOpenAILogin(t *testing.T) {
 	store := newStore(piFile(piOpenAI(access, exp, "acct-pi")))
 	fl := newFlow(t, srv)
 
-	out := fl.run(store, "-live")
+	out := fl.run(store)
 
 	s := onlySnap(t, fl.snaps(), "openai")
 	if s.Account != "me@example.com" || !slices.Equal(s.Harnesses, []string{"pi"}) || s.Status != usg.StatusOK || s.IdentityUnknown {
@@ -361,7 +361,7 @@ func TestPiAndCodexOpenAI(t *testing.T) {
 			})
 			fl := newFlow(t, srv)
 
-			out := fl.run(newStore(files), "-live")
+			out := fl.run(newStore(files))
 
 			snaps := fl.snaps()
 			if diff := cmp.Diff(tc.want, harnessSets(snaps, "openai")); diff != "" {
@@ -408,7 +408,7 @@ func TestCopilotMergeByLogin(t *testing.T) {
 			srv.logins = map[string]string{ghOC: "octocat", ghPi: "octocat"}
 			fl := newFlow(t, srv)
 
-			out := fl.run(tc.store, "-live")
+			out := fl.run(tc.store)
 
 			s := onlySnap(t, fl.snaps(), "github-copilot")
 			if s.Account != "octocat" || !slices.Equal(s.Harnesses, tc.harness) || s.IdentityUnknown || s.Status != usg.StatusOK || len(s.Limits) == 0 {
@@ -445,7 +445,7 @@ func TestIdentityFailureKeepsAccountsApart(t *testing.T) {
 		store := newStore(piFile(piCopilotEntry(ghPi, ""))).withCopilotCLI()
 		fl := newFlow(t, srv)
 
-		out := fl.run(store, "-live")
+		out := fl.run(store)
 
 		if diff := cmp.Diff([][]string{{"copilot"}, {"pi"}}, harnessSets(fl.snaps(), "github-copilot")); diff != "" {
 			t.Errorf("rows (-want +got):\n%s", diff)
@@ -466,7 +466,7 @@ func TestIdentityFailureKeepsAccountsApart(t *testing.T) {
 		store := newStore(claudeCreds(antCC), ocAnthropicRow(antOC))
 		fl := newFlow(t, srv)
 
-		out := fl.run(store, "-live")
+		out := fl.run(store)
 
 		if diff := cmp.Diff([][]string{{"claude"}, {"opencode"}}, harnessSets(fl.snaps(), "anthropic")); diff != "" {
 			t.Errorf("rows (-want +got):\n%s", diff)
@@ -482,7 +482,7 @@ func TestIdentityFailureKeepsAccountsApart(t *testing.T) {
 		srv.failID = true
 		fl := newFlow(t, srv)
 
-		out := fl.run(newStore(piFile(piCopilotEntry(ghPi, ""))), "-live")
+		out := fl.run(newStore(piFile(piCopilotEntry(ghPi, ""))))
 
 		if !strings.Contains(out, "identity unknown") || strings.Contains(out, "same account?") {
 			t.Errorf("output = %s", out)
@@ -509,7 +509,7 @@ func TestAnthropicIdentityFromProfile(t *testing.T) {
 			store := newStore(withFiles(claudeCreds(antCC), claudeJSON), ocAnthropicRow(antOC))
 			fl := newFlow(t, srv)
 
-			out := fl.run(store, "-live")
+			out := fl.run(store)
 
 			if diff := cmp.Diff(tc.want, harnessSets(fl.snaps(), "anthropic")); diff != "" {
 				t.Errorf("rows (-want +got):\n%s", diff)
@@ -530,70 +530,6 @@ func TestAnthropicIdentityFromProfile(t *testing.T) {
 	}
 }
 
-func TestCachedViewKeepsLiveMergeAndSplitsOnTokenChange(t *testing.T) {
-	t.Parallel()
-	srv := newIDServer(t)
-	srv.logins = map[string]string{ghOC: "octocat", ghPi: "octocat", ghPi2: "hubot"}
-	fl := newFlow(t, srv)
-	rows := []provider.OpencodeRow{ocCopilotRow(ghOC)}
-	merged := newStore(piFile(piCopilotEntry(ghPi, "")), rows...).withCopilotCLI()
-
-	live := fl.run(merged, "-live")
-	if diff := cmp.Diff([][]string{{"copilot", "opencode", "pi"}}, harnessSets(fl.snaps(), "github-copilot")); diff != "" {
-		t.Fatalf("live rows (-want +got):\n%s", diff)
-	}
-	raw, err := os.ReadFile(fl.path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Contains(raw, []byte(`"fp:`)) {
-		t.Error("cache holds no fingerprints")
-	}
-	fl.noSecrets(live, ghCLI, ghOC, ghPi)
-	before := srv.total()
-
-	// Offline, same credentials: bound by fingerprint, one row with numbers.
-	out := fl.run(merged)
-	got := rowsOf(out, "github-copilot")
-	if len(got) != 1 || !strings.Contains(got[0], "copilot, opencode, pi") || !strings.Contains(got[0], "octocat") {
-		t.Errorf("cached rows = %q", got)
-	}
-	if !strings.Contains(out, "%") {
-		t.Errorf("cached row lost its numbers:\n%s", out)
-	}
-	fl.noSecrets(out, ghCLI, ghOC, ghPi)
-
-	// pi logs in again with another token: unproven, shown apart, no stale numbers.
-	switched := newStore(piFile(piCopilotEntry(ghPi2, "")), rows...).withCopilotCLI()
-	out = fl.run(switched)
-	got = rowsOf(out, "github-copilot")
-	if len(got) != 2 {
-		t.Fatalf("rows after the token change = %q\n%s", got, out)
-	}
-	var piRow, mergedRow string
-	for _, r := range got {
-		if strings.HasSuffix(strings.TrimSpace(r), "pi") {
-			piRow = r
-		} else {
-			mergedRow = r
-		}
-	}
-	if !strings.Contains(piRow, "same account? unknown") || strings.Contains(piRow, "octocat") || strings.Contains(piRow, "hubot") {
-		t.Errorf("pi row = %q", piRow)
-	}
-	if !strings.Contains(mergedRow, "copilot, opencode") || !strings.Contains(mergedRow, "octocat") {
-		t.Errorf("merged row = %q", mergedRow)
-	}
-	pi := out[max(strings.Index(out, piRow), 0):]
-	if strings.Contains(strings.SplitN(pi, "\n", 3)[1], "Premium") || !strings.Contains(pi, noDataNote) {
-		t.Errorf("pi row has stale numbers or no note:\n%s", pi)
-	}
-	fl.noSecrets(out, ghCLI, ghOC, ghPi, ghPi2)
-	if srv.total() != before {
-		t.Errorf("the cached view made %d requests", srv.total()-before)
-	}
-}
-
 func TestExpiredPiOpenAIMakesNoRequest(t *testing.T) {
 	t.Parallel()
 	srv := newIDServer(t)
@@ -602,17 +538,15 @@ func TestExpiredPiOpenAIMakesNoRequest(t *testing.T) {
 	store := newStore(piFile(piOpenAI(access, exp, "acct-pi")))
 	fl := newFlow(t, srv)
 
-	for _, args := range [][]string{{"-live"}, nil} {
-		out := fl.run(store, args...)
-		rows := rowsOf(out, "openai")
-		if len(rows) != 1 || !strings.Contains(rows[0], "me@example.com") || !strings.Contains(strings.ToLower(rows[0]), "plus") {
-			t.Errorf("rows = %q", rows)
-		}
-		if !strings.Contains(out, "token expired, open pi to refresh") {
-			t.Errorf("no expiry note:\n%s", out)
-		}
-		fl.noSecrets(out, access)
+	out := fl.run(store)
+	rows := rowsOf(out, "openai")
+	if len(rows) != 1 || !strings.Contains(rows[0], "me@example.com") || !strings.Contains(strings.ToLower(rows[0]), "plus") {
+		t.Errorf("rows = %q", rows)
 	}
+	if !strings.Contains(out, "token expired, open pi to refresh") {
+		t.Errorf("no expiry note:\n%s", out)
+	}
+	fl.noSecrets(out, access)
 	if n := srv.total(); n != 0 {
 		t.Errorf("requests = %d, want 0", n)
 	}
@@ -624,7 +558,7 @@ func TestEnterpriseCopilotHostNeverGetsIdentityRequest(t *testing.T) {
 	srv.logins = map[string]string{ghEnt: "octocat"}
 	fl := newFlow(t, srv)
 
-	out := fl.run(newStore(piFile(piCopilotEntry(ghEnt, "github.example.com"))), "-live")
+	out := fl.run(newStore(piFile(piCopilotEntry(ghEnt, "github.example.com"))))
 
 	if n := srv.total(); n != 0 {
 		t.Errorf("requests = %d, want 0 for an enterprise host (paths %v)", n, srv.hits)
@@ -646,30 +580,23 @@ func TestCodexSessionsAreNotUsedForPiOpenAI(t *testing.T) {
 		"/h/.codex/auth.json": fmt.Sprintf(`{"auth_mode":"chatgpt","tokens":{"access_token":%q,"account_id":"acct-pi"}}`, access),
 	}))
 
-	run := func(store kcStore, args ...string) (*flow, usg.Snapshot) {
+	run := func(store kcStore) usg.Snapshot {
 		fl := newFlow(t, srv)
 		f := testFetcher(t, srv.Server)
 		writeCodexSession(t, f.home)
 		store = rehome(store, f.home)
 		fl.out.Reset()
-		if code := fl.d.runUsageWith(t.Context(), args, store, f); code != 0 {
+		if code := fl.d.runUsageWith(t.Context(), nil, store, f); code != 0 {
 			t.Fatalf("exit = %d", code)
 		}
-		if len(args) == 0 {
-			return fl, usg.Snapshot{}
-		}
-		return fl, onlySnap(t, fl.snaps(), "openai")
+		return onlySnap(t, fl.snaps(), "openai")
 	}
 
-	if _, s := run(piOnly, "-live"); s.Source == "codex-session" || s.Status != usg.StatusUnavailable {
+	if s := run(piOnly); s.Source == "codex-session" || s.Status != usg.StatusUnavailable {
 		t.Errorf("live pi-only row = %+v, want unavailable without Codex numbers", s)
 	}
-	fl, _ := run(piOnly)
-	if strings.Contains(fl.out.String(), "12%") || !strings.Contains(fl.out.String(), noDataNote) {
-		t.Errorf("cached pi-only view used Codex's sessions:\n%s", fl.out.String())
-	}
 	// A Codex login (alone or merged with pi) may still fall back to them.
-	if _, s := run(withCodex, "-live"); s.Source != "codex-session" || s.Status != usg.StatusStale {
+	if s := run(withCodex); s.Source != "codex-session" || s.Status != usg.StatusStale {
 		t.Errorf("codex row = %+v, want the session fallback", s)
 	}
 }
