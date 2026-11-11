@@ -228,7 +228,7 @@ func TestModelsRouting(t *testing.T) {
 		if code := d.Run(ctx, []string{"models", "help"}); code != 0 {
 			t.Fatalf("exit %d, want 0", code)
 		}
-		for _, want := range []string{"agents models", "COMMANDS", "sync", "render", "Without a subcommand, displays the model tier list."} {
+		for _, want := range []string{"agents models", "COMMANDS", "sync", "Without a subcommand, displays the model tier list."} {
 			if !strings.Contains(stdout.String(), want) {
 				t.Errorf("usage lacks %q", want)
 			}
@@ -249,7 +249,7 @@ func TestModelsRouting(t *testing.T) {
 	t.Run("bad flag exits 2", func(t *testing.T) {
 		t.Parallel()
 		d, _, _ := testDeps()
-		if code := d.Run(ctx, []string{"models", "render", "-nope"}); code != 2 {
+		if code := d.Run(ctx, []string{"models", "sync", "-nope"}); code != 2 {
 			t.Fatalf("exit %d, want 2", code)
 		}
 	})
@@ -295,148 +295,6 @@ func TestModelsShow(t *testing.T) {
 			t.Errorf("exit %d, stderr %q", code, stderr.String())
 		}
 	})
-}
-
-func TestModelsRenderWritesTheDocThenCheckPasses(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, file, doc := repoDir(t, "models.json")
-	d, stdout, stderr := testDeps()
-	if code := d.Run(ctx, []string{"models", "render", "-file", file}); code != 0 {
-		t.Fatalf("render exit %d, stderr %q", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "✓ wrote "+doc) {
-		t.Errorf("stdout: %q", stdout.String())
-	}
-	// Needs catalog.Markdown (unit 2).
-	if !strings.Contains(string(mustRead(t, doc)), "Claude Opus 5.5") {
-		t.Errorf("doc lacks the tiered model")
-	}
-
-	stdout.Reset()
-	if code := d.Run(ctx, []string{"models", "render", "-check", "-file", file}); code != 0 {
-		t.Fatalf("check exit %d, stderr %q", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "✓ "+doc+" is up to date") {
-		t.Errorf("stdout: %q", stdout.String())
-	}
-}
-
-func TestModelsRenderCheckFailsAfterTheDocIsEdited(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, file, doc := repoDir(t, "models.json")
-	d, _, stderr := testDeps()
-	if code := d.Run(ctx, []string{"models", "render", "-file", file}); code != 0 {
-		t.Fatalf("render exit %d", code)
-	}
-	edited := append(mustRead(t, doc), "hand edit\n"...)
-	if err := os.WriteFile(doc, edited, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if code := d.Run(ctx, []string{"models", "render", "-check", "-file", file}); code != 1 {
-		t.Fatalf("exit %d, want 1", code)
-	}
-	want := "error: " + doc + " is out of date: run agents models render"
-	if !strings.Contains(stderr.String(), want) {
-		t.Errorf("stderr %q lacks %q", stderr.String(), want)
-	}
-	if !bytes.Equal(mustRead(t, doc), edited) {
-		t.Errorf("check modified the doc")
-	}
-}
-
-func TestModelsRenderCheckFailsWhenTheDocIsMissing(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, file, doc := repoDir(t, "models.json")
-	d, _, stderr := testDeps()
-	if code := d.Run(ctx, []string{"models", "render", "-check", "-file", file}); code != 1 {
-		t.Fatalf("exit %d, want 1", code)
-	}
-	if !strings.Contains(stderr.String(), "is out of date") {
-		t.Errorf("stderr: %q", stderr.String())
-	}
-	if _, err := os.Stat(doc); err == nil {
-		t.Errorf("check created the doc")
-	}
-}
-
-func TestModelsRenderExplicitDocWins(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, file, defaultDoc := repoDir(t, "models.json")
-	doc := filepath.Join(t.TempDir(), "out", "M.md")
-	d, _, stderr := testDeps()
-	if code := d.Run(ctx, []string{"models", "render", "-file", file, "-doc", doc}); code != 0 {
-		t.Fatalf("exit %d, stderr %q", code, stderr.String())
-	}
-	if _, err := os.Stat(doc); err != nil {
-		t.Errorf("doc not written: %v", err)
-	}
-	if _, err := os.Stat(defaultDoc); err == nil {
-		t.Errorf("default doc written despite -doc")
-	}
-}
-
-func TestModelsRenderCheckSkipsWhenCacheMissingAndDocExists(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	root := t.TempDir()
-	doc := filepath.Join(root, "docs", "MODELS.md")
-	if err := os.MkdirAll(filepath.Dir(doc), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(doc, []byte("# Models\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	d, stdout, stderr := testDeps()
-	// Run render -check with -doc pointing to doc and no models.json present
-	code := d.Run(ctx, []string{"models", "render", "-check", "-doc", doc})
-	if code != 0 {
-		t.Fatalf("exit %d, want 0, stderr %q", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "benchmark cache not present; skipped check") {
-		t.Errorf("stdout %q lacks skip message", stdout.String())
-	}
-}
-
-func TestModelsRenderCheckSkipsWhenPolicyExistsButCacheEmpty(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	root := t.TempDir()
-	doc := filepath.Join(root, "docs", "MODELS.md")
-	if err := os.MkdirAll(filepath.Dir(doc), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(doc, []byte("# Models\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	policyDir := filepath.Join(root, "home", ".chezmoidata")
-	if err := os.MkdirAll(policyDir, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	agentsTOML := `
-[models.catalog]
-providers = ["anthropic", "openai"]
-`
-	if err := os.WriteFile(filepath.Join(policyDir, "agents.toml"), []byte(agentsTOML), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	d, stdout, stderr := testDeps()
-	d.Getenv = func(k string) string {
-		if k == "CHEZMOI_SOURCE_DIR" {
-			return root
-		}
-		return ""
-	}
-	code := d.Run(ctx, []string{"models", "render", "-check", "-doc", doc})
-	if code != 0 {
-		t.Fatalf("exit %d, want 0, stderr %q", code, stderr.String())
-	}
-	if !strings.Contains(stdout.String(), "benchmark cache not present; skipped check") {
-		t.Errorf("stdout %q lacks skip message", stdout.String())
-	}
 }
 
 func TestModelsLoadCatalogFromPolicy(t *testing.T) {
@@ -485,20 +343,7 @@ since = "2026-02-01"
 	}
 }
 
-func TestModelsRenderInvalidFileExits1(t *testing.T) {
-	t.Parallel()
-	ctx := t.Context()
-	_, file, doc := repoDir(t, "models-invalid.json")
-	d, _, _ := testDeps()
-	if code := d.Run(ctx, []string{"models", "render", "-file", file}); code != 1 {
-		t.Fatalf("exit %d, want 1", code)
-	}
-	if _, err := os.Stat(doc); err == nil {
-		t.Errorf("doc written for an invalid file")
-	}
-}
-
-func TestModelsSyncFetchesEverySourceAndWritesBothFiles(t *testing.T) {
+func TestModelsSyncFetchesEverySourceAndWritesJSON(t *testing.T) {
 	t.Parallel()
 	ctx := t.Context()
 	srv := newFakeServer(t)
@@ -522,8 +367,8 @@ func TestModelsSyncFetchesEverySourceAndWritesBothFiles(t *testing.T) {
 		t.Errorf("arena requests = %v, want %v", got, want)
 	}
 
-	if _, err := os.Stat(doc); err != nil {
-		t.Errorf("doc not written: %v", err)
+	if _, err := os.Stat(doc); !os.IsNotExist(err) {
+		t.Errorf("doc created: %v", err)
 	}
 	var parsed map[string]any
 	if err := json.Unmarshal(mustRead(t, file), &parsed); err != nil {
@@ -532,7 +377,6 @@ func TestModelsSyncFetchesEverySourceAndWritesBothFiles(t *testing.T) {
 	if !strings.Contains(stdout.String(), "✓ synced") {
 		t.Errorf("stdout: %q", stdout.String())
 	}
-	// Need catalog.Apply and catalog.Markdown (units 1, 2).
 	if !strings.Contains(stdout.String(), "synced 3 models · arena text_style_control 2026-11-05") {
 		t.Errorf("stdout lacks the summary: %q", stdout.String())
 	}
@@ -541,9 +385,6 @@ func TestModelsSyncFetchesEverySourceAndWritesBothFiles(t *testing.T) {
 	}
 	if !strings.Contains(string(mustRead(t, file)), `"syncedAt": "2026-11-06"`) {
 		t.Errorf("models.json lacks the sync date")
-	}
-	if !strings.Contains(string(mustRead(t, doc)), "Claude Opus 5.5") {
-		t.Errorf("doc lacks the tiered model")
 	}
 }
 
@@ -633,8 +474,8 @@ func TestModelsSyncTwoFailuresThenSuccessRetriesAndSucceeds(t *testing.T) {
 	if got := srv.count("/api.json"); got != 3 {
 		t.Errorf("attempts = %d, want 3", got)
 	}
-	if _, err := os.Stat(doc); err != nil {
-		t.Errorf("doc not written: %v", err)
+	if _, err := os.Stat(doc); !os.IsNotExist(err) {
+		t.Errorf("doc created: %v", err)
 	}
 }
 
@@ -724,9 +565,6 @@ func TestFindModelsJSON(t *testing.T) { // serial: t.Setenv
 	}
 	if got != file {
 		t.Errorf("found %s, want %s", got, file)
-	}
-	if want := filepath.Join(root, "docs", "MODELS.md"); docPath(got, "") != want {
-		t.Errorf("docPath = %s, want %s", docPath(got, ""), want)
 	}
 
 	d.Getenv = func(string) string { return "" }

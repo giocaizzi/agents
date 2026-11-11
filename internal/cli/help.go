@@ -12,17 +12,16 @@ import (
 )
 
 const (
-	commandRender     = "render"
-	commandPrompt     = "prompt"
-	commandMCP        = "mcp"
-	commandModels     = "models"
-	commandPlugins    = "plugins"
-	commandStatusline = "statusline"
-	commandVersion    = "version"
-	commandSync       = "sync"
-	commandAdd        = "add"
-	commandList       = "list"
-	pluginHelpEnv     = "HARNESS_DIR: registry checkout; CHEZMOI_SOURCE_DIR, HOME: configuration discovery."
+	commandRender  = "render"
+	commandPrompt  = "prompt"
+	commandMCP     = "mcp"
+	commandModels  = "models"
+	commandPlugins = "plugins"
+	commandVersion = "version"
+	commandSync    = "sync"
+	commandAdd     = "add"
+	commandList    = "list"
+	pluginHelpEnv  = "HARNESS_DIR: registry checkout; CHEZMOI_SOURCE_DIR, HOME: configuration discovery."
 )
 
 // helpNode contains prose only. Options are rendered from the executing parser.
@@ -41,9 +40,8 @@ func helpTree() helpNode {
 			{name: commandSync, summary: "Sync workspace MCP configuration to native clients", arguments: "[path]  Workspace directory (default: current directory).", defaults: "Writes native client files unless -check is set. Options must precede path.", env: "MCP_CONNECTOR_ACCOUNT: fallback for -account.", example: "agents mcp sync -check ."},
 			{name: commandAdd, summary: "Add or update a workspace MCP server and sync", arguments: "<name> <commandOrUrl> [args...]  Server name, executable or URL, and forwarded server arguments.", defaults: "Transport is inferred from the command or URL. Options must precede name; following arguments are forwarded unchanged.", env: "MCP_CONNECTOR_ACCOUNT: fallback for -account when synchronizing.", example: "agents mcp add -e MODE=local example npx -y example-server"},
 		}},
-		{name: commandModels, summary: "Display model tiers (default), sync data, or render docs", defaults: "Without a subcommand, displays the model tier list.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog and configuration discovery.", example: "agents models -file models.json", children: []helpNode{
-			{name: commandSync, summary: "Refresh model data and recompute tiers", defaults: "Discovers models.json and docs/MODELS.md; fetches live model and benchmark data.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog discovery.", example: "agents models sync -file models.json"},
-			{name: commandRender, summary: "Regenerate model documentation offline", defaults: "Discovers models.json and docs/MODELS.md; -check checks freshness without writing.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog discovery.", example: "agents models render -check"},
+		{name: commandModels, summary: "Display model tiers (default) or sync data", defaults: "Without a subcommand, displays the model tier list.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog and configuration discovery.", example: "agents models -file models.json", children: []helpNode{
+			{name: commandSync, summary: "Refresh model data and recompute tiers", defaults: "Discovers models.json; fetches live model and benchmark data and writes JSON only.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog discovery.", example: "agents models sync -file models.json"},
 		}},
 		{name: commandPlugins, summary: "Inspect, update, or prune plugins", defaults: "Without a subcommand, lists plugins.", children: []helpNode{
 			{name: commandList, summary: "Inspect configured plugins", defaults: "Discovers harness.toml; shared plugin flags and aliases are accepted.", env: pluginHelpEnv, example: "agents plugins list -json"},
@@ -52,7 +50,6 @@ func helpTree() helpNode {
 		}},
 		{name: "usage", summary: "Show live provider account usage and refresh the cache", defaults: "Queries all discovered providers unless -provider is set.", env: "HOME, XDG_CONFIG_HOME: account discovery; XDG_CACHE_HOME: usage cache; provider credentials are discovered from native client stores and provider environment variables.", example: "agents usage -provider anthropic"},
 		{name: "doctor", summary: "Advise on models, accounts, and capacity from cached usage", defaults: "Reads configuration and the usage cache without refreshing provider usage.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: configuration discovery; XDG_CACHE_HOME: usage cache.", example: "agents doctor -json"},
-		{name: commandStatusline, summary: "Output a fast status line", arguments: "[claude|copilot|tmux|omp]  Output target, not a subcommand (default: generic).", defaults: "Reads the local policy, usage cache, and Git branch.", env: "AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: policy discovery; XDG_CACHE_HOME: usage cache.", example: "agents statusline claude"},
 		{name: commandVersion, summary: "Print version information", defaults: "Prints the build version, or dev when unavailable.", example: "agents version"},
 		{name: helpCmd, summary: "Show help for a command path", arguments: "[command...]  Command and optional nested subcommand.", defaults: "Without arguments, shows root help.", example: "agents help mcp add"},
 	}}
@@ -166,7 +163,7 @@ func (d Deps) explicitHelp(ctx context.Context, path []string) int {
 		d.printHelp(d.Stderr, local, nil)
 		return 2
 	}
-	if len(n.children) > 0 || name == "" || name == helpCmd || name == commandVersion || name == commandStatusline {
+	if len(n.children) > 0 || name == "" || name == helpCmd || name == commandVersion {
 		d.printHelp(d.Stdout, name, nil)
 		return 0
 	}

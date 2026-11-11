@@ -24,7 +24,7 @@ func helpDeps(out, err *bytes.Buffer) Deps {
 
 func TestHelpNodes(t *testing.T) {
 	t.Parallel()
-	paths := []string{"", "init", "check", "render", "prompt", "mcp", "mcp sync", "mcp add", "models", "models sync", "models render", "plugins", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "statusline", "version", "help"}
+	paths := []string{"", "init", "check", "render", "prompt", "mcp", "mcp sync", "mcp add", "models", "models sync", "plugins", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "version", "help"}
 	for _, path := range paths {
 		for _, spelling := range []string{"-h", "--help", "explicit"} {
 			t.Run(path+"/"+spelling, func(t *testing.T) {
@@ -69,7 +69,7 @@ func assertLocalHelp(t *testing.T, path string, args []string) {
 
 func TestHelpGoldens(t *testing.T) {
 	t.Parallel()
-	for _, path := range []string{"", "mcp", "models", "plugins", "render", "mcp add", "plugins update", "statusline", "prompt"} {
+	for _, path := range []string{"", "mcp", "models", "plugins", "render", "mcp add", "plugins update", "prompt"} {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 			var out, err bytes.Buffer
@@ -103,7 +103,6 @@ func TestHelpLocalErrors(t *testing.T) {
 	tests := []struct{ args, local, absent string }{
 		{"bogus", "agents", "EXAMPLES"},
 		{"help mcp bogus", "agents mcp", "agents doctor"},
-		{"help statusline claude", "agents statusline", "agents doctor"},
 		{"mcp", "agents mcp", "OPTIONS"},
 		{"mcp bogus", "agents mcp", "agents doctor"},
 		{"models bogus", "agents models", "agents doctor"},
@@ -113,7 +112,6 @@ func TestHelpLocalErrors(t *testing.T) {
 		{"plugins update -bogus", "agents plugins update", "agents doctor"},
 		{"init -bogus", "agents init", "agents doctor"},
 		{"check -file", "agents check", "agents doctor"},
-		{"statusline -bogus", "agents statusline", "agents doctor"},
 		{"version -bogus", "agents version", "agents doctor"},
 	}
 	for _, tt := range tests {
@@ -220,7 +218,7 @@ func TestHelpRootScope(t *testing.T) {
 			names = append(names, fields[0])
 		}
 	}
-	want := "init check render prompt mcp models plugins usage doctor statusline version help"
+	want := "init check render prompt mcp models plugins usage doctor version help"
 	if got := strings.Join(names, " "); got != want {
 		t.Errorf("command list=%q, want %q", got, want)
 	}
@@ -229,21 +227,9 @@ func TestHelpRootScope(t *testing.T) {
 	}
 }
 
-func TestHelpStatuslineTargets(t *testing.T) {
-	t.Parallel()
-	for _, target := range []string{"claude", "copilot", "tmux", "omp"} {
-		for _, spelling := range []string{"-h", "--help"} {
-			t.Run(target+"/"+spelling, func(t *testing.T) {
-				t.Parallel()
-				assertLocalHelp(t, "statusline", []string{"statusline", target, spelling})
-			})
-		}
-	}
-}
-
 func TestHelpLeafErrors(t *testing.T) {
 	t.Parallel()
-	for _, path := range []string{"init", "check", "render", "prompt", "mcp sync", "mcp add", "models sync", "models render", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "statusline", "version", "help"} {
+	for _, path := range []string{"init", "check", "render", "prompt", "mcp sync", "mcp add", "models sync", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "version", "help"} {
 		t.Run(path, func(t *testing.T) {
 			t.Parallel()
 			var out, err bytes.Buffer

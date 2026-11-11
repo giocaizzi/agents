@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"flag"
@@ -51,7 +50,7 @@ func defaultEndpoints() endpoints {
 }
 
 type modelsOpts struct {
-	file, doc string
+	file string
 }
 
 func (d Deps) runModels(ctx context.Context, args []string) int {
@@ -62,8 +61,6 @@ func (d Deps) runModels(ctx context.Context, args []string) int {
 		switch args[0] {
 		case "sync":
 			return d.runModelsSync(ctx, args[1:])
-		case "render":
-			return d.runModelsRender(args[1:])
 		case helpCmd:
 			return d.explicitHelp(ctx, append([]string{"models"}, args[1:]...))
 		default:
@@ -231,21 +228,6 @@ func (d Deps) modelsJSONCandidates() []string {
 	return candidates
 }
 
-// docPath is docs/MODELS.md of the repo, resolved from explicit flag,
-// file location, or current workspace.
-func docPath(file, explicit string) string {
-	if explicit != "" {
-		return filepath.Clean(explicit)
-	}
-	if file != "" && strings.Contains(file, filepath.Join("home", ".chezmoidata")) {
-		return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "..", "docs", "MODELS.md"))
-	}
-	if file != "" && strings.Contains(file, ".chezmoidata") {
-		return filepath.Clean(filepath.Join(filepath.Dir(file), "..", "docs", "MODELS.md"))
-	}
-	return filepath.Join("docs", "MODELS.md")
-}
-
 func (d Deps) runModelsShow(args []string) int {
 	fs := d.newFlags("models")
 	file := fs.String("file", "", "path to models.json")
@@ -260,67 +242,17 @@ func (d Deps) runModelsShow(args []string) int {
 	return 0
 }
 
-func (d Deps) runModelsRender(args []string) int {
-	fs := d.newFlags("models render")
-	check := fs.Bool("check", false, "compare the doc instead of writing it")
-	file := fs.String("file", "", "path to models.json")
-	doc := fs.String("doc", "", "path to docs/MODELS.md")
-	if err := fs.Parse(args); err != nil {
-		return d.parseFailure(fs, err)
-	}
-	c, path, err := d.loadCatalog(*file, true)
-	if err != nil {
-		if *check && (errors.Is(err, os.ErrNotExist) || strings.Contains(err.Error(), "models.json not found")) {
-			docFile := docPath("", *doc)
-			if _, statErr := os.Stat(filepath.Clean(docFile)); statErr == nil {
-				st := term.NewStyle(d.Stdout, d.Getenv)
-				fmt.Fprintf(d.Stdout, "%s✓%s %s (benchmark cache not present; skipped check)\n", st.G, st.O, docFile)
-				return 0
-			}
-		}
-		return d.modelsFail("%v", err)
-	}
-	docFile := docPath(path, *doc)
-	if len(c.Models) == 0 {
-		if *check {
-			if _, statErr := os.Stat(filepath.Clean(docFile)); statErr == nil {
-				st := term.NewStyle(d.Stdout, d.Getenv)
-				fmt.Fprintf(d.Stdout, "%s✓%s %s (benchmark cache not present; skipped check)\n", st.G, st.O, docFile)
-				return 0
-			}
-		}
-		return d.modelsFail("benchmark cache is empty: run agents models sync")
-	}
-	want := catalog.Markdown(c)
-	st := term.NewStyle(d.Stdout, d.Getenv)
-
-	if *check {
-		got, err := os.ReadFile(filepath.Clean(docFile))
-		if err != nil || !bytes.Equal(got, want) {
-			return d.modelsFail("%s is out of date: run agents models render", docFile)
-		}
-		fmt.Fprintf(d.Stdout, "%s✓%s %s is up to date\n", st.G, st.O, docFile)
-		return 0
-	}
-	if err := writeFilesAtomic([]fileWrite{{docFile, want}}); err != nil {
-		return d.modelsFail("%v", err)
-	}
-	fmt.Fprintf(d.Stdout, "%s✓%s wrote %s\n", st.G, st.O, docFile)
-	return 0
-}
-
 func (d Deps) runModelsSync(ctx context.Context, args []string) int {
 	fs := d.newFlags("models sync")
 	file := fs.String("file", "", "path to models.json")
-	doc := fs.String("doc", "", "path to docs/MODELS.md")
 	if err := fs.Parse(args); err != nil {
 		return d.parseFailure(fs, err)
 	}
-	return d.syncModels(ctx, modelsOpts{file: *file, doc: *doc}, defaultEndpoints(), time.Now)
+	return d.syncModels(ctx, modelsOpts{file: *file}, defaultEndpoints(), time.Now)
 }
 
-// syncModels fetches every source, then writes models.json and the doc; any
-// failure before the writes leaves both files untouched.
+// syncModels fetches every source, then writes models.json; any failure before
+// the write leaves the existing file untouched.
 func (d Deps) syncModels(ctx context.Context, opts modelsOpts, ep endpoints, now func() time.Time) int {
 	c, path, err := d.loadCatalog(opts.file, false)
 	if err != nil {
@@ -329,7 +261,6 @@ func (d Deps) syncModels(ctx context.Context, opts modelsOpts, ep endpoints, now
 	if c.Schema != catalog.Schema {
 		return d.modelsFail("%s: schema %d, want %d", path, c.Schema, catalog.Schema)
 	}
-	docFile := docPath(path, opts.doc)
 
 	f := fetcher{client: &http.Client{Timeout: 60 * time.Second}, backoff: ep.backoff}
 	src := catalog.Sources{Today: now().Format("2006-01-02")}
@@ -355,7 +286,7 @@ func (d Deps) syncModels(ctx context.Context, opts modelsOpts, ep endpoints, now
 	if err != nil {
 		return d.modelsFail("%v", err)
 	}
-	if err = writeFilesAtomic([]fileWrite{{path, jsonData}, {docFile, catalog.Markdown(next)}}); err != nil {
+	if err = writeFilesAtomic([]fileWrite{{path, jsonData}}); err != nil {
 		return d.modelsFail("%v", err)
 	}
 
@@ -381,8 +312,6 @@ type fileWrite struct {
 
 // writeFilesAtomic stages every file as a temp file next to its target, then
 // renames them all, so a failure while staging leaves every target untouched.
-// A failed later rename can leave the doc behind models.json: `models render
-// -check` in make lint catches that, and `models render` repairs it.
 func writeFilesAtomic(files []fileWrite) error {
 	staged := make([]string, 0, len(files))
 	defer func() {
