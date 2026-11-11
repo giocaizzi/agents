@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -330,5 +331,133 @@ dev-tools = ["claude", "copilot"]
 	out := stdout.String()
 	if !strings.Contains(out, "dev-tools") {
 		t.Errorf("expected dev-tools in output, got:\n%s", out)
+	}
+}
+
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func commitPluginVersion(t *testing.T, repo, version string) {
+	t.Helper()
+	manifest := filepath.Join(repo, "plugins", "dev-tools", ".claude-plugin", "plugin.json")
+	if err := os.MkdirAll(filepath.Dir(manifest), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifest, []byte(`{"version": "`+version+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	gitIn(t, repo, "add", "-A")
+	gitIn(t, repo, "commit", "-q", "-m", "release "+version)
+	gitIn(t, repo, "push", "-q", "origin", "HEAD:main")
+}
+
+// setupGitPluginsFixture returns harness.toml, a registry checkout whose working
+// tree says 1.0.0 while origin is at 1.1.0, and a HOME with claude at 1.0.0.
+func setupGitPluginsFixture(t *testing.T) (harnessToml, checkout, homeDir string) {
+	t.Helper()
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("GIT_AUTHOR_NAME", "octocat")
+	t.Setenv("GIT_AUTHOR_EMAIL", "octocat@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "octocat")
+	t.Setenv("GIT_COMMITTER_EMAIL", "octocat@example.com")
+
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	seed := filepath.Join(root, "seed")
+	checkout = filepath.Join(root, "checkout")
+	homeDir = filepath.Join(root, "home")
+
+	gitIn(t, root, "init", "-q", "--bare", "-b", "main", origin)
+	gitIn(t, root, "init", "-q", "-b", "main", seed)
+	gitIn(t, seed, "remote", "add", "origin", origin)
+	commitPluginVersion(t, seed, "1.0.0")
+	gitIn(t, root, "clone", "-q", origin, checkout)
+	commitPluginVersion(t, seed, "1.1.0")
+
+	// Pin the claude cache namespace through an untracked marketplace file.
+	marketDir := filepath.Join(checkout, ".claude-plugin")
+	if err := os.MkdirAll(marketDir, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(marketDir, "marketplace.json"), []byte(`{"name": "example-harness"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(homeDir, ".claude", "plugins", "cache", "example-harness", "dev-tools", "1.0.0"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	harnessToml = filepath.Join(root, "harness.toml")
+	if err := os.WriteFile(harnessToml, []byte("[harnessPlugins]\ndev-tools = [\"claude\"]\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return harnessToml, checkout, homeDir
+}
+
+func listGitPlugins(t *testing.T, harnessToml, checkout, homeDir string) string {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{
+		Stdout: &stdout,
+		Stderr: &stderr,
+		Getenv: func(k string) string {
+			if k == "HOME" {
+				return homeDir
+			}
+			return ""
+		},
+	}
+	code := d.Run(t.Context(), []string{
+		"plugins", "list",
+		"-file", harnessToml,
+		"-harness-dir", checkout,
+		"-harness", "claude",
+	})
+	if code != 0 {
+		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+	}
+	return stdout.String()
+}
+
+func TestPluginsListUsesFetchedRemoteTip(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
+	harnessToml, checkout, homeDir := setupGitPluginsFixture(t)
+	out := listGitPlugins(t, harnessToml, checkout, homeDir)
+
+	if !strings.Contains(out, "1.1.0") {
+		t.Errorf("expected fetched upstream 1.1.0 in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "↑") {
+		t.Errorf("expected stale marker in output, got:\n%s", out)
+	}
+	if !strings.Contains(out, "stale or missing") {
+		t.Errorf("expected stale-or-missing warning, got:\n%s", out)
+	}
+	if strings.Contains(out, "upstream unreachable") {
+		t.Errorf("unexpected unreachable warning, got:\n%s", out)
+	}
+}
+
+func TestPluginsListUpstreamUnreachable(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
+	harnessToml, checkout, homeDir := setupGitPluginsFixture(t)
+	gitIn(t, checkout, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
+	// Claude has 1.0.0, matching the stale working tree: no row is stale or missing.
+	out := listGitPlugins(t, harnessToml, checkout, homeDir)
+
+	if !strings.Contains(out, "upstream unreachable") {
+		t.Errorf("expected unreachable warning, got:\n%s", out)
+	}
+	if !strings.Contains(out, "1.0.0 ?") {
+		t.Errorf("expected ' ?' marker after upstream version, got:\n%s", out)
+	}
+	if strings.Contains(out, "up to date") {
+		t.Errorf("must not claim up to date when upstream is unreachable, got:\n%s", out)
+	}
+	if !strings.Contains(out, "no newer version found in the local checkout") {
+		t.Errorf("expected neutral line, got:\n%s", out)
 	}
 }
