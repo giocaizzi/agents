@@ -8,4 +8,4 @@ Source of truth for decisions, architecture and runbooks of this repo.
 - [Harness parity matrix](parity.md): what `agents apply` writes per config key and harness, MCP OAuth clients, model tiers.
 - [Voice input parity](voice.md): what `agents` maps, checks and leaves manual for dictation, per harness.
 - [Feature matrix](features.md): which config keys each harness supports, where `agents` writes them, and what is planned (generated from `internal/feature`).
-- [Release runbook](release.md): choosing the version and cutting a release with an annotated tag.
+- [Release runbook](release.md): the release-please flow, the manual tag fallback and how to verify a release.
