@@ -3,6 +3,7 @@ package pluginmgmt_test
 import (
 	"context"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -358,5 +359,124 @@ func TestCopilotVersion_VSCodeFallback(t *testing.T) {
 	}
 	if got := list[0].Installed["copilot"]; got != "0.9.1" {
 		t.Errorf("copilot version = %q, want 0.9.1", got)
+	}
+}
+
+func hermeticGit(t *testing.T) {
+	t.Helper()
+	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
+	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
+	t.Setenv("GIT_AUTHOR_NAME", "octocat")
+	t.Setenv("GIT_AUTHOR_EMAIL", "octocat@example.com")
+	t.Setenv("GIT_COMMITTER_NAME", "octocat")
+	t.Setenv("GIT_COMMITTER_EMAIL", "octocat@example.com")
+}
+
+func runGit(t *testing.T, dir string, args ...string) {
+	t.Helper()
+	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("git %v: %v\n%s", args, err, out)
+	}
+}
+
+func writeVersion(t *testing.T, repo, version string) {
+	t.Helper()
+	manifest := filepath.Join(repo, "plugins", "dev-tools", ".claude-plugin", "plugin.json")
+	if err := os.MkdirAll(filepath.Dir(manifest), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(manifest, []byte(`{"version": "`+version+`"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func commitVersion(t *testing.T, repo, version string) {
+	t.Helper()
+	writeVersion(t, repo, version)
+	runGit(t, repo, "add", "-A")
+	runGit(t, repo, "commit", "-q", "-m", "release "+version)
+	runGit(t, repo, "push", "-q", "origin", "HEAD:main")
+}
+
+// newGitRegistry builds a bare origin at 1.1.0 and a clone whose working tree
+// still says 1.0.0. It returns the checkout path.
+func newGitRegistry(t *testing.T) string {
+	t.Helper()
+	hermeticGit(t)
+	root := t.TempDir()
+	origin := filepath.Join(root, "origin.git")
+	seed := filepath.Join(root, "seed")
+	checkout := filepath.Join(root, "checkout")
+
+	runGit(t, root, "init", "-q", "--bare", "-b", "main", origin)
+	runGit(t, root, "init", "-q", "-b", "main", seed)
+	runGit(t, seed, "remote", "add", "origin", origin)
+	commitVersion(t, seed, "1.0.0")
+	runGit(t, root, "clone", "-q", origin, checkout)
+	commitVersion(t, seed, "1.1.0")
+	return checkout
+}
+
+func TestListPluginsUpstreamFromGit(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
+	tests := []struct {
+		name      string
+		setup     func(t *testing.T) string
+		wantVer   string
+		wantStale bool
+	}{
+		{
+			name:    "fetched remote tip",
+			setup:   newGitRegistry,
+			wantVer: "1.1.0",
+		},
+		{
+			name: "unreachable origin falls back to working tree",
+			setup: func(t *testing.T) string {
+				t.Helper()
+				checkout := newGitRegistry(t)
+				runGit(t, checkout, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
+				return checkout
+			},
+			wantVer:   "1.0.0",
+			wantStale: true,
+		},
+		{
+			name: "plain directory is not stale",
+			setup: func(t *testing.T) string {
+				t.Helper()
+				dir := t.TempDir()
+				writeVersion(t, dir, "1.0.0")
+				return dir
+			},
+			wantVer: "1.0.0",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := tt.setup(t)
+			mgr := pluginmgmt.Manager{
+				HarnessDir:    dir,
+				HomeDir:       t.TempDir(),
+				HarnessConfig: pluginreg.HarnessConfig{Plugins: map[string][]string{"dev-tools": {"claude"}}},
+			}
+			list, err := mgr.ListPlugins(t.Context())
+			if err != nil {
+				t.Fatalf("ListPlugins: %v", err)
+			}
+			if len(list) != 1 {
+				t.Fatalf("expected 1 plugin, got %d", len(list))
+			}
+			if got := list[0].UpstreamVersion; got != tt.wantVer {
+				t.Errorf("UpstreamVersion = %q, want %q", got, tt.wantVer)
+			}
+			if got := list[0].UpstreamStale; got != tt.wantStale {
+				t.Errorf("UpstreamStale = %v, want %v", got, tt.wantStale)
+			}
+			// The working tree must never be modified.
+			if got := pluginmgmt.ReadPluginVersion(filepath.Join(dir, "plugins", "dev-tools")); got != "1.0.0" {
+				t.Errorf("working tree version = %q, want 1.0.0", got)
+			}
+		})
 	}
 }

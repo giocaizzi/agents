@@ -6,10 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
+	"path"
 	"path/filepath"
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"golang.org/x/mod/semver"
 
@@ -39,10 +42,14 @@ const (
 	harnessPi          = "pi"
 )
 
+// fetchTimeout bounds the git fetch of a registry checkout's remote tip.
+const fetchTimeout = 10 * time.Second
+
 // PluginInfo records upstream and per-harness status for one plugin.
 type PluginInfo struct {
 	Name            string            `json:"name"`
 	UpstreamVersion string            `json:"upstream_version"`
+	UpstreamStale   bool              `json:"upstream_stale,omitempty"`
 	IsStandalone    bool              `json:"is_standalone,omitempty"`
 	Source          string            `json:"source,omitempty"`
 	Enabled         map[string]bool   `json:"enabled"`
@@ -128,26 +135,100 @@ func CompareVersions(v1, v2 string) int {
 	return strings.Compare(v1, v2)
 }
 
+// versionCandidates lists the manifest paths, relative to a plugin directory,
+// that may carry its version, in lookup order.
+func versionCandidates() []string {
+	return []string{
+		"plugin.json",
+		path.Join(".antigravity-plugin", "plugin.json"),
+		path.Join(".claude-plugin", "plugin.json"),
+	}
+}
+
+// parseVersion extracts the version field from plugin manifest JSON.
+func parseVersion(data []byte) string {
+	var meta struct {
+		Version string `json:"version"`
+	}
+	if err := json.Unmarshal(data, &meta); err != nil {
+		return ""
+	}
+	return meta.Version
+}
+
 // ReadPluginVersion reads the version field from a plugin directory.
 func ReadPluginVersion(dir string) string {
-	candidates := []string{
-		filepath.Join(dir, "plugin.json"),
-		filepath.Join(dir, ".antigravity-plugin", "plugin.json"),
-		filepath.Join(dir, ".claude-plugin", "plugin.json"),
-	}
-	for _, cand := range candidates {
-		data, err := os.ReadFile(filepath.Clean(cand))
+	for _, cand := range versionCandidates() {
+		data, err := os.ReadFile(filepath.Clean(filepath.Join(dir, filepath.FromSlash(cand))))
 		if err != nil {
 			continue
 		}
-		var meta struct {
-			Version string `json:"version"`
-		}
-		if err := json.Unmarshal(data, &meta); err == nil && meta.Version != "" {
-			return meta.Version
+		if v := parseVersion(data); v != "" {
+			return v
 		}
 	}
 	return ""
+}
+
+// gitEnv returns the process environment with interactive prompts disabled.
+func gitEnv() []string {
+	return append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+}
+
+// fetchRemoteTip fetches the remote HEAD of the git checkout at dir into
+// FETCH_HEAD without touching the working tree.
+func fetchRemoteTip(ctx context.Context, dir string) error {
+	ctx, cancel := context.WithTimeout(ctx, fetchTimeout)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "git", "-C", dir, "fetch", "--quiet", "origin", "HEAD")
+	cmd.Env = gitEnv()
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("git fetch in %s: %w: %s", dir, err, strings.TrimSpace(string(out)))
+	}
+	return nil
+}
+
+// readFetchedVersion reads a plugin version from FETCH_HEAD of the checkout at dir.
+func readFetchedVersion(ctx context.Context, dir, name string) string {
+	for _, cand := range versionCandidates() {
+		cmd := exec.CommandContext(ctx, "git", "-C", dir, "show", "FETCH_HEAD:"+path.Join("plugins", name, cand))
+		cmd.Env = gitEnv()
+		data, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+		if v := parseVersion(data); v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// upstreamVersions returns the upstream version of each named registry plugin.
+// When dir is a git checkout it fetches the remote tip and reads versions from
+// it, leaving the working tree untouched; if the fetch fails it falls back to
+// the working tree and reports fresh=false. A plain directory is read as is.
+func upstreamVersions(ctx context.Context, dir string, names []string) (map[string]string, bool) {
+	out := make(map[string]string, len(names))
+	fresh := true
+	useGit := false
+	if dir != "" {
+		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
+			if fetchRemoteTip(ctx, dir) == nil {
+				useGit = true
+			} else {
+				fresh = false
+			}
+		}
+	}
+	for _, name := range names {
+		if useGit {
+			out[name] = readFetchedVersion(ctx, dir, name)
+		} else {
+			out[name] = ReadPluginVersion(filepath.Join(dir, "plugins", name))
+		}
+	}
+	return out, fresh
 }
 
 // ListPlugins inspects all configured plugins and their status per harness.
@@ -161,13 +242,14 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 		sort.Strings(upstreamNames)
 	}
 
-	pluginsDir := filepath.Join(m.HarnessDir, "plugins")
+	versions, fresh := upstreamVersions(ctx, m.HarnessDir, upstreamNames)
 	out := make([]PluginInfo, 0, len(upstreamNames)+len(m.HarnessConfig.Standalone))
 
 	for _, name := range upstreamNames {
 		info := PluginInfo{
 			Name:            name,
-			UpstreamVersion: ReadPluginVersion(filepath.Join(pluginsDir, name)),
+			UpstreamVersion: versions[name],
+			UpstreamStale:   !fresh,
 			Enabled:         make(map[string]bool),
 			Installed:       make(map[string]string),
 		}
