@@ -117,8 +117,8 @@ agents prompt -harness antigravity -check
 # Sync workspace MCP servers
 agents mcp sync
 
-# Check account usage and quotas
-agents usage -live
+# Check account usage and quotas (always live; refreshes the usage cache)
+agents usage
 
 # Run health diagnostics
 agents doctor
@@ -145,11 +145,15 @@ When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi aut
 | `prompt` | `[-harness <name>] [-profile <name>]` | Display or validate effective harness system prompt |
 | `mcp sync` | `[path]` | Synchronize workspace `.mcp.json` to harnesses |
 | `models` | `[sync│render]` | Inspect LMArena ranks, Epoch ECI, and pricing |
-| `usage` | `[-live]` | Live subscription usage per provider account |
-| `doctor` | `[-live] [-q]` | Advisory on model capacity, drift, and accounts |
+| `usage` | `[-provider <id>]` | Live subscription usage per provider account; writes the usage cache |
+| `doctor` | `[-q] [-json] [-harness <list>]` | Advisory on model capacity, drift, and accounts; reads the usage cache only |
 | `plugins` | `[list│update│prune]` | Cross-harness plugin lifecycle management |
 
 When no plugin directory is specified, automatic discovery prefers the managed installation at `~/.local/share/<registry-namespace>` before working-directory, `~/Documents`, and `~/src` developer checkouts. Pass `-harness-dir <path>` or set `HARNESS_DIR` to use a specific directory instead.
+
+`agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
+
+`agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline.
 
 ---
 
