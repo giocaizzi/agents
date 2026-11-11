@@ -52,6 +52,7 @@ type harnessPlan struct {
 	changes []pluginChange
 	steps   []cmdStep
 	skip    string
+	note    string // shown after the changes when no command is needed
 }
 
 // harnessBinaries maps each supported harness to the CLI that updates it.
@@ -100,6 +101,9 @@ func planHarness(mgr pluginmgmt.Manager, harness string, changes []pluginChange,
 			plan.skip = fmt.Sprintf("`%s` not found on PATH", bin)
 		} else {
 			plan.steps, plan.skip = harnessSteps(mgr, harness, bin, changes)
+			if harness == harnessPi && plan.skip == "" && len(plan.steps) == 0 {
+				plan.note = "by the checkout pull"
+			}
 		}
 	}
 	return plan
@@ -148,6 +152,10 @@ func harnessSteps(mgr pluginmgmt.Manager, harness, bin string, changes []pluginC
 	default: // harnessPi
 		if mgr.HarnessDir == "" {
 			return nil, "no checkout"
+		}
+		// Stale plugins are live in the checkout, which the pull already updated.
+		if !slices.ContainsFunc(changes, func(c pluginChange) bool { return c.from == "" }) {
+			return nil, ""
 		}
 		return []cmdStep{{bin, []string{verbInstall, mgr.HarnessDir}}}, ""
 	}
@@ -226,6 +234,9 @@ func (d Deps) applyPlans(ctx context.Context, st term.Style, plans []harnessPlan
 			continue
 		}
 		changes := joinChanges(p.changes)
+		if p.note != "" {
+			changes += " (" + p.note + ")"
+		}
 		if dryRun {
 			fmt.Fprintf(d.Stdout, "  %s[dry-run]%s %s: would update %s\n", st.D, st.O, p.harness, changes)
 			for _, s := range p.steps {
