@@ -82,6 +82,7 @@ func TestPlanUpdates(t *testing.T) {
 		wantChg   []string
 		wantSteps []string
 		wantSkip  string
+		wantNote  string
 	}{
 		{
 			name: "claude installs missing and updates stale", mgr: mgr, list: behind, harness: "claude", lookPath: fakeLookPath(),
@@ -142,6 +143,40 @@ func TestPlanUpdates(t *testing.T) {
 			wantChg:  []string{"dev-tools missing → 1.56.0"},
 			wantSkip: "no checkout",
 		},
+		{
+			name: "pi all stale needs no command", mgr: mgr,
+			list: []pluginmgmt.PluginInfo{
+				planInfo("dev-tools", "1.56.0", map[string]string{"pi": "1.55.0"}),
+				planInfo("guard", "1.4.0", map[string]string{"pi": "1.3.0"}),
+			},
+			harness: "pi", lookPath: fakeLookPath(),
+			wantChg:  []string{"dev-tools 1.55.0 → 1.56.0", "guard 1.3.0 → 1.4.0"},
+			wantNote: "by the checkout pull",
+		},
+		{
+			name: "pi missing and stale installs the checkout", mgr: mgr,
+			list: []pluginmgmt.PluginInfo{
+				planInfo("dev-tools", "1.56.0", map[string]string{"pi": "1.55.0"}),
+				planInfo("guard", "1.4.0", map[string]string{"pi": ""}),
+			},
+			harness: "pi", lookPath: fakeLookPath(),
+			wantChg:   []string{"dev-tools 1.55.0 → 1.56.0", "guard missing → 1.4.0"},
+			wantSteps: []string{"pi install " + dir},
+		},
+		{
+			name: "opencode outdated runs installer", mgr: mgr,
+			list:    []pluginmgmt.PluginInfo{planInfo("dev-tools", "1.56.0", map[string]string{"opencode": "outdated"})},
+			harness: "opencode", lookPath: fakeLookPath(),
+			wantChg:   []string{"dev-tools outdated → 1.56.0"},
+			wantSteps: []string{"node " + install + " opencode"},
+		},
+		{
+			name: "opencode outdated without installer", mgr: bareMgr,
+			list:    []pluginmgmt.PluginInfo{planInfo("dev-tools", "1.56.0", map[string]string{"opencode": "outdated"})},
+			harness: "opencode", lookPath: fakeLookPath(),
+			wantChg:  []string{"dev-tools outdated → 1.56.0"},
+			wantSkip: "no installer in the checkout",
+		},
 		{name: "up to date harness is skipped", mgr: mgr, list: current, harness: "codex", lookPath: fakeLookPath(), wantSkip: "up to date"},
 		{
 			name: "missing binary", mgr: mgr, list: behind, harness: "claude", lookPath: fakeLookPath("claude"),
@@ -176,6 +211,9 @@ func TestPlanUpdates(t *testing.T) {
 			}
 			if skip != tt.wantSkip {
 				t.Errorf("skip = %q, want %q", skip, tt.wantSkip)
+			}
+			if plans[0].note != tt.wantNote {
+				t.Errorf("note = %q, want %q", plans[0].note, tt.wantNote)
 			}
 		})
 	}

@@ -136,6 +136,7 @@ func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (plugi
 	return pluginmgmt.Manager{
 		HarnessDir:    harnessDir,
 		HomeDir:       d.homeDir(),
+		ConfigHome:    d.Getenv("XDG_CONFIG_HOME"),
 		Registry:      cfg.Registry,
 		Namespace:     ns,
 		HarnessConfig: cfg,

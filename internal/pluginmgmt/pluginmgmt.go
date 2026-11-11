@@ -33,6 +33,10 @@ const (
 	StateOK
 )
 
+// VersionOutdated is the installed value of a harness whose copies of a plugin
+// differ from the registry checkout; it counts as stale.
+const VersionOutdated = "outdated"
+
 const (
 	harnessAntigravity = "antigravity"
 	harnessClaude      = "claude"
@@ -64,6 +68,9 @@ func (p PluginInfo) State(harness string) PluginState {
 	v, ok := p.Installed[harness]
 	if !ok || v == "" {
 		return StateMissing
+	}
+	if v == VersionOutdated {
+		return StateStale
 	}
 	// An install without a version ("linked", "installed", "enabled") cannot
 	// be older than upstream.
@@ -103,6 +110,7 @@ type PruneCandidate struct {
 type Manager struct {
 	HarnessDir    string
 	HomeDir       string
+	ConfigHome    string // XDG config home; empty means HomeDir/.config
 	Registry      string
 	Namespace     string
 	HarnessConfig pluginreg.HarnessConfig
@@ -456,22 +464,6 @@ func (m Manager) copilotVersion(plugin string) string {
 	}
 
 	return m.copilotSettingsVersion(ns, plugin)
-}
-
-func (m Manager) opencodeVersion(_ string) string {
-	skillsDir := filepath.Join(m.HomeDir, ".config", "opencode", "skills")
-	if _, err := os.Stat(skillsDir); err == nil {
-		return "linked"
-	}
-	return ""
-}
-
-func (m Manager) piVersion(_ string) string {
-	piDir := filepath.Join(m.HomeDir, ".pi")
-	if _, err := os.Stat(piDir); err == nil {
-		return "linked"
-	}
-	return ""
 }
 
 func findCachePruneCandidates(baseDir, harnessName string) []PruneCandidate {
