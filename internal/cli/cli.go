@@ -10,7 +10,6 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"strings"
 
 	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
@@ -59,129 +58,61 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	}
 
 	if len(args) == 0 {
-		st := term.NewStyle(d.Stdout, d.Getenv)
-		fmt.Fprint(d.Stdout, usage(st))
+		d.printHelp(d.Stdout, "", nil)
 		return 0
 	}
 
 	cmd := args[0]
 	rest := args[1:]
+	if cmd == helpCmd {
+		fs := d.newFlags("help")
+		if err := fs.Parse(rest); err != nil {
+			return d.parseFailure(fs, err)
+		}
+		return d.explicitHelp(ctx, fs.Args())
+	}
 
 	switch cmd {
 	case "check":
 		return d.runCheck(ctx, rest)
-	case "render":
+	case commandRender:
 		return d.runRender(ctx, rest)
-	case "prompt":
+	case commandPrompt:
 		return d.runPrompt(ctx, rest)
-	case "mcp":
+	case commandMCP:
 		return d.runMCP(ctx, rest)
-	case "models":
+	case commandModels:
 		return d.runModels(ctx, rest)
 	case "usage":
 		return d.runUsage(ctx, rest)
 	case "doctor":
 		return d.runDoctor(rest)
-	case "plugins":
+	case commandPlugins:
 		return d.runPlugins(ctx, rest)
-	case "statusline":
+	case commandStatusline:
 		return d.runStatusline(ctx, rest)
 	case "init":
 		return d.runInit(ctx, rest)
-	case "version", "--version", "-v":
+	case commandVersion, "--version", "-v":
+		fs := d.newFlags(commandVersion)
+		if err := fs.Parse(rest); err != nil {
+			return d.parseFailure(fs, err)
+		}
 		v := d.Version
 		if v == "" {
 			v = "dev"
 		}
 		fmt.Fprintf(d.Stdout, "agents %s\n", v)
 		return 0
-	case helpCmd, helpFlag, "-h":
-		st := term.NewStyle(d.Stdout, d.Getenv)
-		fmt.Fprint(d.Stdout, usage(st))
+	case helpFlag, "-h":
+		d.printHelp(d.Stdout, "", nil)
 		return 0
 	default:
 		st := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%sunknown command: %s%s\n\n", st.R, cmd, st.O)
-		fmt.Fprint(d.Stderr, usage(st))
+		d.printHelp(d.Stderr, "", nil)
 		return 2
 	}
-}
-
-func usage(s term.Style) string {
-	b := s.B // blue
-	m := s.M // mauve
-	y := s.Y // yellow
-	d := s.D // dim overlay0
-	o := s.O // reset
-
-	var sb strings.Builder
-	p := func(format string, a ...any) {
-		fmt.Fprintf(&sb, format, a...)
-	}
-
-	p("%sagents%s %s— Universal AI harness configuration, policy validation, parity and prompt engine%s\n\n", b, o, d, o)
-
-	p("%sUSAGE%s\n", b, o)
-	p("  %sagents%s %sinit%s %s[-global]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %sstatusline%s %s[claude|copilot|tmux|omp]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %scheck%s %s[-file <path>] [-profile <name>] [-harness-dir <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %srender%s %s[-file <path>]%s %s-harness <name>%s %s[-part <type>]%s %s[-profile <name>]%s %s[-target <file>]%s\n", m, o, m, o, d, o, y, o, d, o, d, o, d, o)
-	p("  %sagents%s %sprompt%s %s[-harness <name>]%s %s[-profile <name>]%s %s[-check]%s %s[-file <path>]%s\n", m, o, m, o, d, o, d, o, d, o, d, o)
-	p("  %sagents%s %smcp sync%s %s[path] [-check] [-account <id>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %smcp add%s %s[flags] <name> <commandOrUrl> [args...]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %smodels%s %s[-file <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %smodels sync%s %s[-file <path>] [-doc <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %smodels render%s %s[-check] [-file <path>] [-doc <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %susage%s %s[-provider <id>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %sdoctor%s %s[-q] [-json] [-harness <list>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %splugins%s %s[list│update│prune] [-n] [-f] [-file <path>] [-harness-dir <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %sversion%s %s│%s %shelp%s\n\n", m, o, m, o, d, o, m, o)
-
-	p("%sCOMMANDS%s\n", b, o)
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "init", o, d, "[-global]", o, "Detect harnesses and scaffold agents.toml")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "statusline", o, d, "[claude|copilot|tmux|omp]", o, "Output fast (<5ms) Catppuccin status line")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "check", o, d, "[-file <path>]", o, "Validate harness policy, 6-way client parity, and plugins")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "render", o, y, "-harness <name>", o, "Render client-native configuration (JSON/TOML) or prompt")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "prompt", o, d, "[-harness <name>]", o, "Display or validate effective harness system prompt")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "mcp sync", o, d, "[path]", o, "Sync workspace .mcp.json to native Codex, pi and Antigravity configs")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "mcp add", o, d, "<name> <cmd|url> [args]", o, "Add or update server in workspace .mcp.json and sync configs")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "models", o, d, "[-file <path>]", o, "Print the model tier list with costs and arena ranks")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "models sync", o, d, "[-file <path>]", o, "Refresh model data from models.dev, LMArena and Epoch AI; recompute the tiers")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "models render", o, d, "[-check]", o, "Regenerate docs/MODELS.md offline")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "usage", o, d, "[-provider <id>]", o, "Show subscription usage per provider account (always live; writes the cache)")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "doctor", o, d, "[-q] [-harness <list>]", o, "Advise on configured models, accounts and capacity (reads the usage cache)")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "plugins", o, d, "[list|update|prune]", o, "Inspect, update, or prune plugins across harnesses")
-	p("  %s%-13s%s %-30s %s\n", m, "version", o, "", "Print agents version information")
-	p("  %s%-13s%s %-30s %s\n\n", m, "help", o, "", "Display this help message")
-
-	p("%sFLAGS%s\n", b, o)
-	p("  %s-file%s %s<path>%s         Path to harness-policy.toml, harness.toml, models.json, or prompt layer\n", y, o, d, o)
-	p("  %s-harness%s %s<name>%s      Target harness (render, prompt) or comma-separated harnesses (doctor)\n", y, o, d, o)
-	p("  %s-harness-dir%s %s<path>%s  Checkout of plugin registry repository (defaults to HARNESS_DIR)\n", y, o, d, o)
-	p("  %s-profile%s %s<name>%s      Configuration or prompt profile (e.g. default, work, light)\n", y, o, d, o)
-	p("  %s-part%s %s<type>%s         Granularity for render: settings, permissions, prompt (default: settings)\n", y, o, d, o)
-	p("  %s-check%s               Validate layer presence or models doc freshness without printing output\n", y, o)
-	p("  %s-doc%s %s<path>%s          Path to docs/MODELS.md\n", y, o, d, o)
-	p("  %s-target%s %s<file>%s       Target file to write rendered configuration\n", y, o, d, o)
-	p("  %s-provider%s %s<id>%s       Limit usage output to one provider id\n", y, o, d, o)
-	p("  %s-q%s                   Print nothing when there is nothing to report (doctor)\n", y, o)
-	p("  %s-json%s                Print the doctor findings as JSON\n\n", y, o)
-
-	p("%sEXAMPLES%s\n", b, o)
-	p("  %sagents check%s                                   Validate policy, client parity, and harness plugins\n", m, o)
-	p("  %sagents render -harness pi%s                      Render Pi native agent configuration\n", m, o)
-	p("  %sagents render -harness antigravity -part permissions%s Render Antigravity CLI native permissions\n", m, o)
-	p("  %sagents render -harness claude -part prompt%s     Display effective system prompt for Claude Code\n", m, o)
-	p("  %sagents prompt -harness antigravity -check%s      Verify effective prompt presence for Antigravity\n", m, o)
-	p("  %sagents prompt -profile work%s                    Display composed instructions for work profile\n", m, o)
-	p("  %sagents doctor%s                                    Advise on models, accounts and capacity from the usage cache\n\n", m, o)
-
-	p("%sDOCUMENTATION%s\n", b, o)
-	p("  %shttps://github.com/giocaizzi/agents#readme%s\n", d, o)
-	p("  %shttps://github.com/giocaizzi/agents#commands-reference%s\n", d, o)
-	p("  %shttps://github.com/giocaizzi/agents/blob/main/docs/MODELS.md%s\n", d, o)
-
-	return sb.String()
 }
 
 func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {

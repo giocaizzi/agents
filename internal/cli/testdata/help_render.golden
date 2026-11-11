@@ -1,0 +1,27 @@
+agents render — Render client-native configuration or prompt
+
+USAGE
+  agents render [options]
+
+OPTIONS
+  -file string
+    	path to harness-policy.toml or agents.toml
+  -harness string
+    	target client harness (claude, antigravity, copilot, codex, pi, opencode)
+  -os string
+    	target operating system (darwin, linux, windows)
+  -part string
+    	output granularity (permissions, settings, prompt, all)
+  -profile string
+    	optional configuration profile to apply
+  -h, --help
+    Show this help and exit.
+
+DEFAULTS
+  -part defaults to settings; -os defaults to the host operating system. Output goes to stdout.
+
+ENVIRONMENT
+  AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: configuration discovery.
+
+EXAMPLES
+  agents render -harness pi -os linux
