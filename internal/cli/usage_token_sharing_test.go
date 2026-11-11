@@ -59,10 +59,10 @@ func TestTokenSharingRowAndNoRequest(t *testing.T) {
 	fl := newOpenAIFlow(t, srv)
 	store := newStore(piFile(piSharingEntry(tok, exp)))
 
-	out := fl.run(store, "-live")
+	out := fl.run(store)
 	sharingRowText(t, out)
 	if n := len(srv.requests()); n != 0 {
-		t.Errorf("-live sent %d requests to the usage server, want 0", n)
+		t.Errorf("usage sent %d requests to the usage server, want 0", n)
 	}
 	if got := fl.snaps(); len(got) != 1 || got[0].Plan.Name != usg.NameTokenSharing || got[0].Status != usg.StatusNotVisible || got[0].IdentityUnknown {
 		t.Errorf("cached snapshots = %+v", got)
@@ -83,7 +83,7 @@ func TestTokenSharingExpired(t *testing.T) {
 	srv := newWhamServer(t)
 	fl := newOpenAIFlow(t, srv)
 
-	out := fl.run(newStore(piFile(piSharingEntry(tok, exp))), "-live")
+	out := fl.run(newStore(piFile(piSharingEntry(tok, exp))))
 
 	if !strings.Contains(out, "ChatGPT sign-in (token sharing)") || !strings.Contains(out, "! token expired, open pi to refresh") {
 		t.Errorf("output:\n%s", out)
@@ -145,7 +145,7 @@ func TestTokenSharingNeverMergesWithCodex(t *testing.T) {
 			srv.answers[tok] = whamBody("acct-1", "user-1")
 			fl := newOpenAIFlow(t, srv)
 
-			out := fl.run(newStore(withFiles(files, piFile(piSharingEntry(tok, exp)))), "-live")
+			out := fl.run(newStore(withFiles(files, piFile(piSharingEntry(tok, exp)))))
 
 			if diff := cmp.Diff([][]string{{"codex"}, {"pi"}}, harnessSets(fl.snaps(), "openai")); diff != "" {
 				t.Errorf("harness sets (-want +got):\n%s", diff)
@@ -167,7 +167,7 @@ func TestTokenSharingIsNotASibling(t *testing.T) {
 	fl := newOpenAIFlow(t, srv)
 	files := map[string]string{"/h/.codex/auth.json": fmt.Sprintf(`{"auth_mode":"chatgpt","tokens":{"access_token":%q}}`, bare)}
 
-	out := fl.run(newStore(withFiles(files, piFile(piSharingEntry(tok, exp)))), "-live")
+	out := fl.run(newStore(withFiles(files, piFile(piSharingEntry(tok, exp)))))
 
 	if strings.Contains(out, "same account?") || !strings.Contains(out, "identity unknown") {
 		t.Errorf("the token-sharing row counts as a sibling:\n%s", out)
@@ -185,7 +185,7 @@ func TestRenderTokenSharingRow(t *testing.T) {
 		Status: usg.StatusUnavailable, Note: "unauthorized (401)",
 	}}
 	var out bytes.Buffer
-	renderUsage(&out, term.NewStyle(&out, func(string) string { return "" }), snaps, "(live)", usageNow)
+	renderUsage(&out, term.NewStyle(&out, func(string) string { return "" }), snaps, usageNow)
 	if strings.Contains(out.String(), "same account?") || !strings.Contains(out.String(), "unknown · identity unknown") {
 		t.Errorf("render:\n%s", out.String())
 	}

@@ -76,8 +76,8 @@ type Input struct {
 	Catalog   catalog.Catalog
 	Settings  []Setting
 	Harnesses []string         // the selected harnesses, in display order
-	Snapshots []usage.Snapshot // the usage cache or a live run; nil when HaveUsage is false
-	HaveUsage bool             // usage data exists (a cache was written or -live ran)
+	Snapshots []usage.Snapshot // the usage cache; nil when HaveUsage is false
+	HaveUsage bool             // the usage cache exists (agents usage wrote it)
 	Now       time.Time
 }
 
@@ -220,7 +220,7 @@ func Check(in Input) []Finding {
 		return append(out, Finding{
 			Level: LevelInfo, Kind: KindNoUsage,
 			Text: "no usage data yet: account, capacity and model checks skipped",
-			Fix:  "agents usage -live",
+			Fix:  "agents usage",
 		})
 	}
 	for _, h := range in.Harnesses {

@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -82,29 +83,15 @@ func TestRunUsageDispatch(t *testing.T) {
 	_ = out
 }
 
-func TestRunUsageCachedWithoutCache(t *testing.T) {
-	t.Parallel()
-	d, out, _, _ := usageDeps(t)
-	f := testFetcher(t, nil)
-	if code := d.runUsageWith(t.Context(), nil, fakeStore{home: f.home}, f); code != 0 {
-		t.Fatalf("exit = %d, want 0", code)
-	}
-	for _, want := range []string{"agents usage", "no cache yet; -live to refresh"} {
-		if !strings.Contains(out.String(), want) {
-			t.Errorf("output lacks %q:\n%s", want, out)
-		}
-	}
-}
-
-func TestRunUsageLiveWritesCache(t *testing.T) {
+func TestRunUsageWritesCache(t *testing.T) {
 	t.Parallel()
 	d, out, errb, path := usageDeps(t)
 	f := testFetcher(t, nil)
-	code := d.runUsageWith(t.Context(), []string{"-live"}, fakeStore{home: f.home}, f)
+	code := d.runUsageWith(t.Context(), nil, fakeStore{home: f.home}, f)
 	if code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
-	if !strings.Contains(out.String(), "(live)") {
+	if !strings.Contains(out.String(), "agents usage") {
 		t.Errorf("output = %q", out)
 	}
 	c, err := readUsageCache(path)
@@ -188,91 +175,6 @@ func TestFilterProvider(t *testing.T) {
 	}
 }
 
-func TestCachedViewListsMissingAccounts(t *testing.T) {
-	t.Parallel()
-	f := testFetcher(t, nil)
-	cached := []usg.Snapshot{{Provider: "anthropic", Account: "me@example.com", Harnesses: []string{"claude"}, Status: usg.StatusOK}}
-	accts := []provider.Account{
-		{Provider: "anthropic", Label: "me@example.com", Harnesses: []string{"claude"}, Auth: provider.AuthOAuth},
-		{Provider: "github-copilot", Label: "octocat", Harnesses: []string{"copilot"}, Auth: provider.AuthOAuth},
-		{Provider: "openrouter", Label: "", Harnesses: []string{"pi"}, Auth: provider.AuthAPIKey, Status: usg.StatusNoAPI, Note: "no usage API"},
-		{Provider: "openai", Label: "me@example.com", Harnesses: []string{"codex"}, Auth: provider.AuthOAuth, CodexHome: filepath.Join(f.home, ".codex")},
-		{Provider: "google", Harnesses: []string{"antigravity"}, Auth: provider.AuthCLI},
-	}
-
-	got := cachedView(accts, cached, f)
-
-	byProvider := map[string]usg.Snapshot{}
-	for _, s := range got {
-		byProvider[s.Provider] = s
-	}
-	if len(got) != 5 {
-		t.Fatalf("rows = %d, want 5", len(got))
-	}
-	if s := byProvider["github-copilot"]; s.Status != usg.StatusUnavailable || s.Note != noDataNote {
-		t.Errorf("copilot row = %+v", s)
-	}
-	if s := byProvider["openrouter"]; s.Status != usg.StatusNoAPI || s.Note != "no usage API" {
-		t.Errorf("openrouter row = %+v", s)
-	}
-	// openai and google have no offline data here, so they ask for -live.
-	for _, p := range []string{"openai", "google"} {
-		if s := byProvider[p]; s.Status != usg.StatusUnavailable || s.Note != noDataNote {
-			t.Errorf("%s row = %+v", p, s)
-		}
-	}
-}
-
-func TestCachedViewHarnessAddedKeepsOneRow(t *testing.T) {
-	t.Parallel()
-	f := testFetcher(t, nil)
-	cached := []usg.Snapshot{{ID: "claude", Provider: "anthropic", Account: "me@example.com", Harnesses: []string{"claude"}, Status: usg.StatusOK, Source: "api", Limits: []usg.Limit{{Name: "5h"}}}}
-	accts := []provider.Account{{ID: "claude", Provider: "anthropic", Label: "me@example.com", Harnesses: []string{"claude", "pi"}, Auth: provider.AuthOAuth, IdentityKnown: true}}
-
-	got := cachedView(accts, cached, f)
-
-	if len(got) != 1 {
-		t.Fatalf("rows = %d, want 1: %+v", len(got), got)
-	}
-	if diff := cmp.Diff([]string{"claude", "pi"}, got[0].Harnesses); diff != "" {
-		t.Errorf("harnesses (-want +got):\n%s", diff)
-	}
-	if got[0].Status != usg.StatusOK || len(got[0].Limits) != 1 {
-		t.Errorf("cached data lost: %+v", got[0])
-	}
-}
-
-func TestCachedViewDropsLoggedOutAccount(t *testing.T) {
-	t.Parallel()
-	f := testFetcher(t, nil)
-	cached := []usg.Snapshot{
-		{ID: "claude", Provider: "anthropic", Account: "me@example.com", Harnesses: []string{"claude"}, Status: usg.StatusOK},
-		{ID: "copilot", Provider: "github-copilot", Account: "octocat", Harnesses: []string{"copilot"}, Status: usg.StatusOK},
-	}
-	accts := []provider.Account{{ID: "claude", Provider: "anthropic", Label: "me@example.com", Harnesses: []string{"claude"}, Auth: provider.AuthOAuth}}
-
-	got := cachedView(accts, cached, f)
-
-	if len(got) != 1 || got[0].Provider != "anthropic" {
-		t.Errorf("rows = %+v, want only anthropic", got)
-	}
-}
-
-func TestCachedViewDuplicates(t *testing.T) {
-	t.Parallel()
-	f := testFetcher(t, nil)
-	snap := usg.Snapshot{ID: "claude", Provider: "anthropic", Account: "me@example.com", Harnesses: []string{"claude"}, Status: usg.StatusOK}
-	acct := provider.Account{ID: "claude", Provider: "anthropic", Label: "me@example.com", Harnesses: []string{"claude"}, Auth: provider.AuthOAuth}
-
-	if got := cachedView([]provider.Account{acct, acct}, []usg.Snapshot{snap, snap}, f); len(got) != 1 {
-		t.Errorf("cached duplicates: rows = %d, want 1", len(got))
-	}
-	gh := provider.Account{ID: "copilot", Provider: "github-copilot", Label: "octocat", Harnesses: []string{"copilot"}, Auth: provider.AuthOAuth}
-	if got := cachedView([]provider.Account{gh, gh}, nil, f); len(got) != 1 {
-		t.Errorf("duplicate accounts without cache: rows = %d, want 1", len(got))
-	}
-}
-
 func TestKeepStaleDropsUndiscoveredAndTakesHarnesses(t *testing.T) {
 	t.Parallel()
 	cached := []usg.Snapshot{
@@ -291,9 +193,9 @@ func TestKeepStaleDropsUndiscoveredAndTakesHarnesses(t *testing.T) {
 	}
 }
 
-func TestCachedViewUsesOfflineSources(t *testing.T) {
+func TestFailedLiveUsesOfflineSources(t *testing.T) {
 	t.Parallel()
-	f := testFetcher(t, nil)
+	f := testFetcher(t, failingServer(t))
 	writeCodexSession(t, f.home)
 	writeAgyLog(t, f.home, "cli-20261106_100000.log", "E1106 11:07:11.896026 2480 errorreport.go:224] RESOURCE_EXHAUSTED (code 429): quota. Resets in 4h58m35s.\n")
 	accts := []provider.Account{
@@ -301,7 +203,7 @@ func TestCachedViewUsesOfflineSources(t *testing.T) {
 		{Provider: "google", Harnesses: []string{"antigravity"}, Auth: provider.AuthCLI},
 	}
 
-	got := cachedView(accts, nil, f)
+	got := liveSnapshots(t.Context(), accts, f, 5*time.Second)
 
 	if len(got) != 2 {
 		t.Fatalf("rows = %d, want 2", len(got))
@@ -358,22 +260,13 @@ func TestRunUsageEndToEnd(t *testing.T) {
 	}}
 	d, out, errb, path := usageDeps(t)
 
-	// Cached, before any live run: the account is listed without data.
+	// Queried, shown and cached.
 	if code := d.runUsageWith(t.Context(), nil, store, f); code != 0 {
-		t.Fatalf("cached exit = %d, stderr %q", code, errb)
+		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
-	if !strings.Contains(out.String(), "anthropic") || !strings.Contains(out.String(), noDataNote) {
-		t.Errorf("cached output before -live:\n%s", out)
-	}
-
-	// Live: queried, shown and cached.
-	out.Reset()
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, f); code != 0 {
-		t.Fatalf("live exit = %d, stderr %q", code, errb)
-	}
-	for _, want := range []string{"(live)", "anthropic", "claude", "5h", " 31%", "resets in 2h 14m"} {
+	for _, want := range []string{"anthropic", "claude", "5h", " 31%", "resets in 2h 14m"} {
 		if !strings.Contains(out.String(), want) {
-			t.Errorf("live output lacks %q:\n%s", want, out)
+			t.Errorf("output lacks %q:\n%s", want, out)
 		}
 	}
 	raw, err := os.ReadFile(path)
@@ -384,15 +277,7 @@ func TestRunUsageEndToEnd(t *testing.T) {
 		t.Error("the token reached the cache or the output")
 	}
 
-	// Cached again: served from the cache with no network, filtered by provider.
-	srv.Close()
-	out.Reset()
-	if code := d.runUsageWith(t.Context(), []string{"-provider", "anthropic"}, store, f); code != 0 {
-		t.Fatalf("cached exit = %d", code)
-	}
-	if !strings.Contains(out.String(), "cached ") || !strings.Contains(out.String(), " 31%") {
-		t.Errorf("cached output after -live:\n%s", out)
-	}
+	// -provider filters the display; every provider is still queried.
 	out.Reset()
 	if code := d.runUsageWith(t.Context(), []string{"-provider", "openai"}, store, f); code != 0 {
 		t.Fatalf("filtered exit = %d", code)
@@ -400,14 +285,72 @@ func TestRunUsageEndToEnd(t *testing.T) {
 	if strings.Contains(out.String(), "anthropic") {
 		t.Errorf("-provider openai still shows anthropic:\n%s", out)
 	}
+	if c, err := readUsageCache(path); err != nil || len(c.Snapshots) != 1 || c.Snapshots[0].Status != usg.StatusOK {
+		t.Errorf("filtered run did not keep every provider in the cache: %+v, err %v", c, err)
+	}
 
-	// A later failing -live keeps the cached numbers, marked stale.
+	// A later failing run keeps the cached numbers, marked stale.
+	srv.Close()
 	out.Reset()
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, f); code != 0 {
-		t.Fatalf("failing live exit = %d", code)
+	if code := d.runUsageWith(t.Context(), nil, store, f); code != 0 {
+		t.Fatalf("failing exit = %d", code)
 	}
 	if !strings.Contains(out.String(), "(stale, api") || !strings.Contains(out.String(), " 31%") {
-		t.Errorf("failed -live did not keep the cached snapshot as stale:\n%s", out)
+		t.Errorf("failed run did not keep the cached snapshot as stale:\n%s", out)
+	}
+}
+
+// One provider fails and one answers: the failing account keeps its cached
+// numbers as stale with the failure as its note, the other is fresh, the cache
+// is rewritten and the exit code stays 0.
+func TestRunUsagePartialFailure(t *testing.T) {
+	t.Parallel()
+	var openaiDown atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case strings.HasPrefix(r.URL.Path, "/api/oauth/usage"):
+			_, _ = w.Write([]byte(`{"five_hour":{"utilization":31,"resets_at":"2026-11-06T14:14:00Z"}}`))
+		case openaiDown.Load():
+			w.WriteHeader(http.StatusInternalServerError)
+		default:
+			_, _ = w.Write([]byte(`{"plan_type":"plus","rate_limit":{"primary_window":{"used_percent":44,"limit_window_seconds":18000,"reset_at":1793000000}}}`))
+		}
+	}))
+	t.Cleanup(srv.Close)
+	store := fakeStore{home: "/h", files: map[string]string{
+		"/h/.claude/.credentials.json": claudeCredsFile(tokA, "max"),
+		"/h/.codex/auth.json":          codexAuthFile(tokB, "acct-1"),
+	}}
+	d, out, errb, path := usageDeps(t)
+
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, srv)); code != 0 {
+		t.Fatalf("first exit = %d, stderr %q", code, errb)
+	}
+	openaiDown.Store(true)
+	out.Reset()
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, srv)); code != 0 {
+		t.Fatalf("exit = %d, want 0 with a failing provider; stderr %q", code, errb)
+	}
+
+	c, err := readUsageCache(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	status := map[string]usg.Snapshot{}
+	for _, s := range c.Snapshots {
+		status[s.Provider] = s
+	}
+	if len(c.Snapshots) != 2 {
+		t.Fatalf("cache rows = %d, want 2: %+v", len(c.Snapshots), c.Snapshots)
+	}
+	if s := status["anthropic"]; s.Status != usg.StatusOK {
+		t.Errorf("anthropic = %+v, want ok", s)
+	}
+	if s := status["openai"]; s.Status != usg.StatusStale || s.Note == "" || len(s.Limits) == 0 {
+		t.Errorf("openai = %+v, want stale with its note and cached limits", s)
+	}
+	if !strings.Contains(out.String(), "(stale") || !strings.Contains(out.String(), " 44%") || !strings.Contains(out.String(), " 31%") {
+		t.Errorf("output:\n%s", out)
 	}
 }
 

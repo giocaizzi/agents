@@ -162,7 +162,11 @@ func buildPluginRow(p pluginmgmt.PluginInfo, harnesses []string, st term.Style) 
 	if p.IsStandalone {
 		nameStr += st.D + " *" + st.O
 	}
-	row := []string{nameStr, st.D + up + st.O}
+	upCell := st.D + up
+	if p.UpstreamStale {
+		upCell += " ?"
+	}
+	row := []string{nameStr, upCell + st.O}
 	isStale := false
 	isMissing := false
 	for _, h := range harnesses {
@@ -229,12 +233,10 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 	var rows [][]string
 	staleCount := 0
 	missingCount := 0
-	hasStandalone := false
+	hasStandalone := slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.IsStandalone })
+	upstreamStale := slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.UpstreamStale })
 
 	for _, p := range list {
-		if p.IsStandalone {
-			hasStandalone = true
-		}
 		row, isStale, isMissing := buildPluginRow(p, harnesses, st)
 		if isStale {
 			staleCount++
@@ -253,11 +255,25 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 
 	if staleCount > 0 || missingCount > 0 {
 		st.Warn(d.Stdout, fmt.Sprintf("%d plugin(s) stale or missing: run `agents plugins update`", staleCount+missingCount))
-	} else {
-		fmt.Fprintf(d.Stdout, "  %s✓%s all %d plugins up to date across %d configured harnesses\n", st.G, st.O, len(list), len(harnesses))
+	}
+	if upstreamStale {
+		st.Warn(d.Stdout, fmt.Sprintf("upstream unreachable: versions read from the local checkout at %s may be out of date", mgr.HarnessDir))
+	}
+	if staleCount == 0 && missingCount == 0 {
+		d.printUpToDate(st, len(list), len(harnesses), upstreamStale)
 	}
 
 	return 0
+}
+
+// printUpToDate reports that nothing is stale or missing. When upstream was
+// unreachable it cannot claim the plugins are current, so the line is neutral.
+func (d Deps) printUpToDate(st term.Style, plugins, harnesses int, upstreamStale bool) {
+	if upstreamStale {
+		fmt.Fprintf(d.Stdout, "  %sno newer version found in the local checkout%s\n", st.D, st.O)
+		return
+	}
+	fmt.Fprintf(d.Stdout, "  %s✓%s all %d plugins up to date across %d configured harnesses\n", st.G, st.O, plugins, harnesses)
 }
 
 func (d Deps) runPluginsUpdate(ctx context.Context, args []string) int {

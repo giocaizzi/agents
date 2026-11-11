@@ -45,7 +45,7 @@ func TestRenderStripsControlCharacters(t *testing.T) {
 	}
 	var out bytes.Buffer
 
-	renderUsage(&out, term.Style{}, []usg.Snapshot{snap}, "(live)", renderNow)
+	renderUsage(&out, term.Style{}, []usg.Snapshot{snap}, renderNow)
 
 	for _, r := range out.String() {
 		if r == '\x1b' || (r >= 0x80 && r <= 0x9f) {

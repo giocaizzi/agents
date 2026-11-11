@@ -3,20 +3,16 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/giocaizzi/agents/internal/doctor"
-	"github.com/giocaizzi/agents/internal/provider"
 )
 
 // doctorEnv is a Deps whose source dir holds the doctor testdata catalog
@@ -53,36 +49,16 @@ func doctorEnv(t *testing.T, catalog string) (Deps, *bytes.Buffer, *bytes.Buffer
 	return d, &out, &errb, filepath.Join(cacheHome, "agents", usageCacheFile)
 }
 
-// countingStore counts every access to the credential store.
-type countingStore struct {
-	provider.Store
-
-	calls atomic.Int64
-}
-
-func (s *countingStore) ReadFile(p string) ([]byte, error) {
-	s.calls.Add(1)
-	return s.Store.ReadFile(p)
-}
-
-func (s *countingStore) Secret(a, b string) (string, error) {
-	s.calls.Add(1)
-	return s.Store.Secret(a, b)
-}
-func (s *countingStore) Exists(p string) bool      { s.calls.Add(1); return s.Store.Exists(p) }
-func (s *countingStore) ListDir(p string) []string { s.calls.Add(1); return s.Store.ListDir(p) }
-func (s *countingStore) Getenv(k string) string    { s.calls.Add(1); return s.Store.Getenv(k) }
-func (s *countingStore) Canonical(p string) string { s.calls.Add(1); return s.Store.Canonical(p) }
-func (s *countingStore) SameFile(a, b string) bool { s.calls.Add(1); return s.Store.SameFile(a, b) }
-func (s *countingStore) OpencodeCredentials(p string) ([]provider.OpencodeRow, error) {
-	s.calls.Add(1)
-	return s.Store.OpencodeCredentials(p)
+// runDoctorFixed runs doctor with the fixed test clock and the default budget.
+func runDoctorFixed(t *testing.T, d Deps, args ...string) int {
+	t.Helper()
+	return d.runDoctorBudget(args, fixedNow, doctorBudget)
 }
 
 func TestRunDoctorFlagError(t *testing.T) {
 	t.Parallel()
 	d, _, errb, _ := doctorEnv(t, "models-fresh")
-	if code := d.runDoctorWith(t.Context(), []string{"-nope"}, fakeStore{}, testFetcher(t, nil)); code != 2 {
+	if code := runDoctorFixed(t, d, "-nope"); code != 2 {
 		t.Errorf("exit = %d, want 2", code)
 	}
 	if !strings.Contains(errb.String(), "flag parse error") {
@@ -102,11 +78,10 @@ func TestRunDoctorDispatch(t *testing.T) {
 func TestRunDoctorStaleCatalog(t *testing.T) {
 	t.Parallel()
 	d, out, errb, _ := doctorEnv(t, "models-stale")
-	f := testFetcher(t, nil)
-	if code := d.runDoctorWith(t.Context(), nil, fakeStore{home: f.home}, f); code != 0 {
+	if code := runDoctorFixed(t, d); code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
-	for _, want := range []string{"agents doctor", "(no usage cache; -live to refresh)", "model catalog synced 309 days ago (2026-01-01)"} {
+	for _, want := range []string{"agents doctor", "(no usage data; run agents usage)", "model catalog synced 309 days ago (2026-01-01)"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out)
 		}
@@ -124,8 +99,7 @@ func TestRunDoctorLoadError(t *testing.T) {
 		}
 		return base(k)
 	}
-	f := testFetcher(t, nil)
-	if code := d.runDoctorWith(t.Context(), nil, fakeStore{home: f.home}, f); code != 1 {
+	if code := runDoctorFixed(t, d); code != 1 {
 		t.Errorf("exit = %d, want 1", code)
 	}
 	if !strings.HasPrefix(errb.String(), "doctor: ") || out.Len() != 0 {
@@ -136,8 +110,7 @@ func TestRunDoctorLoadError(t *testing.T) {
 func TestRunDoctorQuiet(t *testing.T) {
 	t.Parallel()
 	d, out, errb, _ := doctorEnv(t, "models-fresh")
-	f := testFetcher(t, nil)
-	if code := d.runDoctorWith(t.Context(), []string{"-q"}, fakeStore{home: f.home}, f); code != 0 {
+	if code := runDoctorFixed(t, d, "-q"); code != 0 {
 		t.Fatalf("exit = %d", code)
 	}
 	if out.Len() != 0 || errb.Len() != 0 {
@@ -148,8 +121,7 @@ func TestRunDoctorQuiet(t *testing.T) {
 func TestRunDoctorQuietStillPrintsWarnings(t *testing.T) {
 	t.Parallel()
 	d, out, _, _ := doctorEnv(t, "models-stale")
-	f := testFetcher(t, nil)
-	if code := d.runDoctorWith(t.Context(), []string{"-q"}, fakeStore{home: f.home}, f); code != 0 {
+	if code := runDoctorFixed(t, d, "-q"); code != 0 {
 		t.Fatalf("exit = %d", code)
 	}
 	if !strings.Contains(out.String(), "model catalog synced") {
@@ -164,9 +136,8 @@ type jsonOut struct {
 func TestRunDoctorJSON(t *testing.T) {
 	t.Parallel()
 	d, out, _, _ := doctorEnv(t, "models-stale")
-	f := testFetcher(t, nil)
 	// -json ignores -q.
-	if code := d.runDoctorWith(t.Context(), []string{"-json", "-q"}, fakeStore{home: f.home}, f); code != 0 {
+	if code := runDoctorFixed(t, d, "-json", "-q"); code != 0 {
 		t.Fatalf("exit = %d", code)
 	}
 	var got jsonOut
@@ -192,64 +163,28 @@ func TestWriteDoctorJSONEmptyList(t *testing.T) {
 	}
 }
 
-// The default view reads the cache only: no store access, no request.
-func TestRunDoctorOfflineTouchesNothing(t *testing.T) {
+// Doctor reads the usage cache only: it states its age and never rewrites it.
+func TestRunDoctorReadsCacheOnly(t *testing.T) {
 	t.Parallel()
 	d, out, errb, path := doctorEnv(t, "models-fresh")
-	var reqs atomic.Int64
-	srv := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { reqs.Add(1) }))
-	t.Cleanup(srv.Close)
-	f := testFetcher(t, srv)
-	f.agyPath = func() (string, error) { reqs.Add(1); return "", os.ErrNotExist }
 	if err := writeUsageCache(path, sampleSnapshots(), usageNow.Add(-12*time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	store := &countingStore{Store: fakeStore{home: f.home}}
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
 
-	if code := d.runDoctorWith(t.Context(), nil, store, f); code != 0 {
+	if code := runDoctorFixed(t, d); code != 0 {
 		t.Fatalf("exit = %d, stderr %q", code, errb)
 	}
-	if n := store.calls.Load(); n != 0 {
-		t.Errorf("store accessed %d times, want 0", n)
+	after, err := os.ReadFile(path)
+	if err != nil || !bytes.Equal(before, after) {
+		t.Errorf("cache changed (err %v)", err)
 	}
-	if n := reqs.Load(); n != 0 {
-		t.Errorf("fetcher used %d times, want 0", n)
-	}
-	if !strings.Contains(out.String(), "(cached 12m ago; -live to refresh)") {
+	if !strings.Contains(out.String(), "(usage from 12m ago; run agents usage to refresh)") {
 		t.Errorf("output = %q", out)
 	}
-}
-
-func TestRunDoctorLiveRewritesCache(t *testing.T) {
-	t.Parallel()
-	d, out, errb, path := doctorEnv(t, "models-fresh")
-	f := testFetcher(t, nil)
-	if code := d.runDoctorWith(t.Context(), []string{"-live"}, fakeStore{home: f.home}, f); code != 0 {
-		t.Fatalf("exit = %d, stderr %q", code, errb)
-	}
-	if !strings.Contains(out.String(), "(live)") {
-		t.Errorf("output = %q", out)
-	}
-	c, err := readUsageCache(path)
-	if err != nil || !c.WrittenAt.Equal(usageNow) {
-		t.Errorf("cache = %+v, err %v; want written at %v", c, err, usageNow)
-	}
-}
-
-// blockingStore blocks every access until released: a provider lookup that hangs.
-type blockingStore struct {
-	fakeStore
-
-	release chan struct{}
-}
-
-func (s blockingStore) ReadFile(string) ([]byte, error) { <-s.release; return nil, os.ErrNotExist }
-func (s blockingStore) Exists(string) bool              { <-s.release; return false }
-func (s blockingStore) ListDir(string) []string         { <-s.release; return nil }
-func (s blockingStore) Getenv(string) string            { <-s.release; return "" }
-func (s blockingStore) Secret(string, string) (string, error) {
-	<-s.release
-	return "", os.ErrNotExist
 }
 
 func TestRunDoctorBudgetOverrun(t *testing.T) {
@@ -259,20 +194,17 @@ func TestRunDoctorBudgetOverrun(t *testing.T) {
 		args       []string
 		wantStderr string
 	}{
-		{"default", []string{"-live"}, "doctor: timed out after 50ms\n"},
-		{"quiet", []string{"-live", "-q"}, ""},
+		{"default", nil, "doctor: timed out after 50ms\n"},
+		{"quiet", []string{"-q"}, ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			d, out, errb, _ := doctorEnv(t, "models-stale")
-			f := testFetcher(t, nil)
 			release := make(chan struct{})
-			t.Cleanup(func() {
-				// Let the abandoned worker go before the temp dirs do.
-				close(release)
-			})
-			b := doctorBudget{offline: time.Hour, live: 50 * time.Millisecond, perProvider: time.Second, identity: time.Second}
-			code := d.runDoctorBudget(t.Context(), tc.args, blockingStore{fakeStore{home: f.home}, release}, f, b)
+			// Let the abandoned worker go before the temp dirs do.
+			t.Cleanup(func() { close(release) })
+			blockedNow := func() time.Time { <-release; return usageNow }
+			code := d.runDoctorBudget(tc.args, blockedNow, 50*time.Millisecond)
 			if code != 0 {
 				t.Errorf("exit = %d, want 0", code)
 			}
@@ -303,8 +235,7 @@ func TestRunDoctorNeverPrintsAccountEmail(t *testing.T) {
 			if err := writeUsageCache(path, snaps, usageNow.Add(-time.Minute)); err != nil {
 				t.Fatal(err)
 			}
-			f := testFetcher(t, nil)
-			if code := d.runDoctorWith(t.Context(), args, fakeStore{home: f.home}, f); code != 0 {
+			if code := runDoctorFixed(t, d, args...); code != 0 {
 				t.Fatalf("exit = %d, stderr %q", code, errb)
 			}
 			checkNoEmail(t, out.String()+errb.String())
@@ -319,28 +250,6 @@ func checkNoEmail(t *testing.T, got string) {
 	t.Helper()
 	if got == "" || strings.Contains(got, "me@example.com") {
 		t.Errorf("output empty or holding the account email:\n%s", got)
-	}
-}
-
-// A live run that overruns its budget leaves neither usage-*.tmp nor a cache
-// behind, even when its worker resumes afterwards.
-func TestRunDoctorLiveOverrunLeavesNoTemp(t *testing.T) {
-	t.Parallel()
-	d, _, _, path := doctorEnv(t, "models-stale")
-	f := testFetcher(t, nil)
-	release := make(chan struct{})
-	b := doctorBudget{offline: time.Hour, live: 50 * time.Millisecond, perProvider: time.Second, identity: time.Second}
-	if code := d.runDoctorBudget(t.Context(), []string{"-live"}, blockingStore{fakeStore{home: f.home}, release}, f, b); code != 0 {
-		t.Fatalf("exit = %d", code)
-	}
-	close(release)
-	// Give the released worker time to run to its end.
-	time.Sleep(300 * time.Millisecond)
-	if m, _ := filepath.Glob(filepath.Join(filepath.Dir(path), "usage-*.tmp")); len(m) != 0 {
-		t.Errorf("leftover temp files: %v", m)
-	}
-	if _, err := os.Stat(path); err == nil {
-		t.Errorf("cache written after the budget overran")
 	}
 }
 

@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"net/http"
 	"net/http/httptest"
 	"path/filepath"
 	"slices"
@@ -37,60 +36,55 @@ func fiveHourByHarness(t *testing.T, snaps []usg.Snapshot) map[string]float64 {
 	return out
 }
 
-func TestCodexSessionFallbackIsPerProfile(t *testing.T) {
-	t.Parallel()
-	failing := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-	t.Cleanup(failing.Close)
-
-	views := map[string]func(*testing.T, []provider.Account, usageFetcher) []usg.Snapshot{
-		"cached view": func(_ *testing.T, accts []provider.Account, f usageFetcher) []usg.Snapshot {
-			return cachedView(accts, nil, f)
-		},
-		"failed live": func(t *testing.T, accts []provider.Account, f usageFetcher) []usg.Snapshot {
-			t.Helper()
-			return liveSnapshots(t.Context(), accts, f, 5*time.Second)
-		},
-	}
-	for name, view := range views {
-		t.Run(name+"/CODEX_HOME selects the work profile", func(t *testing.T) {
-			t.Parallel()
-			f := testFetcher(t, failing)
-			home := f.home
-			store := fakeStore{home: home, env: map[string]string{"CODEX_HOME": filepath.Join(home, ".codex-work")}, files: map[string]string{
-				filepath.Join(home, ".codex", "auth.json"):      codexAuthFile("fake-a1", "acct-1"),
-				filepath.Join(home, ".codex-work", "auth.json"): codexAuthFile("fake-a2", "acct-2"),
-			}}
-			writeCodexRollout(t, filepath.Join(home, ".codex"), 11)
-			writeCodexRollout(t, filepath.Join(home, ".codex-work"), 77)
-
-			got := fiveHourByHarness(t, view(t, provider.Discover(store), f))
-
-			if diff := cmp.Diff(map[string]float64{"codex": 11, "codex:work": 77}, got); diff != "" {
-				t.Errorf("5h by row (-want +got):\n%s", diff)
-			}
-		})
-		t.Run(name+"/only the work profile is logged in", func(t *testing.T) {
-			t.Parallel()
-			f := testFetcher(t, failing)
-			home := f.home
-			store := fakeStore{home: home, files: map[string]string{
-				filepath.Join(home, ".codex-work", "auth.json"): codexAuthFile("fake-a2", "acct-2"),
-			}}
-			writeCodexRollout(t, filepath.Join(home, ".codex"), 11)
-			writeCodexRollout(t, filepath.Join(home, ".codex-work"), 77)
-
-			got := fiveHourByHarness(t, view(t, provider.Discover(store), f))
-
-			if diff := cmp.Diff(map[string]float64{"codex": 77}, got); diff != "" {
-				t.Errorf("5h by row (-want +got):\n%s", diff)
-			}
-		})
-	}
+// failingServer is failServer closed with the test, so every live fetch fails
+// and the offline fallbacks run.
+func failingServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	srv := failServer()
+	t.Cleanup(srv.Close)
+	return srv
 }
 
-func TestSameNameProfilesBothAppearInCachedView(t *testing.T) {
+func TestCodexSessionFallbackIsPerProfile(t *testing.T) {
+	t.Parallel()
+	failing := failingServer(t)
+
+	t.Run("CODEX_HOME selects the work profile", func(t *testing.T) {
+		t.Parallel()
+		f := testFetcher(t, failing)
+		home := f.home
+		store := fakeStore{home: home, env: map[string]string{"CODEX_HOME": filepath.Join(home, ".codex-work")}, files: map[string]string{
+			filepath.Join(home, ".codex", "auth.json"):      codexAuthFile("fake-a1", "acct-1"),
+			filepath.Join(home, ".codex-work", "auth.json"): codexAuthFile("fake-a2", "acct-2"),
+		}}
+		writeCodexRollout(t, filepath.Join(home, ".codex"), 11)
+		writeCodexRollout(t, filepath.Join(home, ".codex-work"), 77)
+
+		got := fiveHourByHarness(t, liveSnapshots(t.Context(), provider.Discover(store), f, 5*time.Second))
+
+		if diff := cmp.Diff(map[string]float64{"codex": 11, "codex:work": 77}, got); diff != "" {
+			t.Errorf("5h by row (-want +got):\n%s", diff)
+		}
+	})
+	t.Run("only the work profile is logged in", func(t *testing.T) {
+		t.Parallel()
+		f := testFetcher(t, failing)
+		home := f.home
+		store := fakeStore{home: home, files: map[string]string{
+			filepath.Join(home, ".codex-work", "auth.json"): codexAuthFile("fake-a2", "acct-2"),
+		}}
+		writeCodexRollout(t, filepath.Join(home, ".codex"), 11)
+		writeCodexRollout(t, filepath.Join(home, ".codex-work"), 77)
+
+		got := fiveHourByHarness(t, liveSnapshots(t.Context(), provider.Discover(store), f, 5*time.Second))
+
+		if diff := cmp.Diff(map[string]float64{"codex": 77}, got); diff != "" {
+			t.Errorf("5h by row (-want +got):\n%s", diff)
+		}
+	})
+}
+
+func TestSameNameProfilesBothAppearInLiveView(t *testing.T) {
 	t.Parallel()
 	store := fakeStore{
 		home: "/h",
@@ -101,7 +95,7 @@ func TestSameNameProfilesBothAppearInCachedView(t *testing.T) {
 		},
 	}
 
-	got := cachedView(provider.Discover(store), nil, testFetcher(t, nil))
+	got := liveSnapshots(t.Context(), provider.Discover(store), testFetcher(t, failingServer(t)), 5*time.Second)
 
 	labels := make([]string, 0, len(got))
 	for _, s := range got {

@@ -15,10 +15,7 @@ import (
 	usg "github.com/giocaizzi/agents/internal/usage"
 )
 
-const (
-	usageCacheFile = "usage.json"
-	noDataNote     = "no data yet (run with -live)"
-)
+const usageCacheFile = "usage.json"
 
 func (d Deps) runUsage(ctx context.Context, args []string) int {
 	store := newOSStore(d)
@@ -28,7 +25,6 @@ func (d Deps) runUsage(ctx context.Context, args []string) int {
 // runUsageWith is runUsage with the credential store and the fetcher injected.
 func (d Deps) runUsageWith(ctx context.Context, args []string, store provider.Store, f usageFetcher) int {
 	flags := newFlags("usage")
-	live := flags.Bool("live", false, "query every provider and rewrite the cache")
 	only := flags.String("provider", "", "limit the output to one provider id")
 	if err := flags.Parse(args); err != nil {
 		fmt.Fprintf(d.Stderr, "flag parse error: %v\n", err)
@@ -48,43 +44,28 @@ func (d Deps) runUsageWith(ctx context.Context, args []string, store provider.St
 		fmt.Fprintf(d.Stderr, "usage: ignoring cache: %v\n", cacheErr)
 	}
 
-	var snaps []usg.Snapshot
-	var meta string
-	if *live {
-		var err error
-		snaps, err = refreshUsage(ctx, store, f, path, cached, liveTimeout, liveTimeout)
-		if err != nil {
-			fmt.Fprintf(d.Stderr, "usage: cache not written: %v\n", err)
-		}
-		meta = "(live)"
-	} else {
-		accounts := provider.Merge(bindCached(provider.Discover(store), cached.Snapshots))
-		snaps = cachedView(accounts, cached.Snapshots, f)
-		switch {
-		case cached.WrittenAt.IsZero():
-			meta = "(no cache yet; -live to refresh)"
-		default:
-			meta = "(cached " + usg.HumanDuration(now.Sub(cached.WrittenAt)) + " ago; -live to refresh)"
-		}
+	snaps, err := refreshUsage(ctx, store, f, path, cached)
+	if err != nil {
+		fmt.Fprintf(d.Stderr, "usage: cache not written: %v\n", err)
 	}
 
 	if *only != "" {
 		snaps = filterProvider(snaps, *only)
 	}
-	renderUsage(d.Stdout, term.NewStyle(d.Stdout, d.Getenv), snaps, meta, now)
+	renderUsage(d.Stdout, term.NewStyle(d.Stdout, d.Getenv), snaps, now)
 	return 0
 }
 
-// refreshUsage is the live flow shared by usage and doctor: discover the
-// accounts, resolve their identities (under identity), bind them to the cached
-// snapshots, query every provider (perProvider each), keep the cached snapshot
-// of a failed one and rewrite the cache. It returns the snapshots; the error
+// refreshUsage discovers the accounts, resolves their identities (under
+// liveTimeout), binds them to the cached snapshots, queries every provider
+// (liveTimeout each), keeps the cached snapshot of a failed one and rewrites
+// the cache. It returns the snapshots; the error
 // is the cache write failure, which leaves the snapshots valid.
-func refreshUsage(ctx context.Context, store provider.Store, f usageFetcher, path string, cached usg.Cache, perProvider, identity time.Duration) ([]usg.Snapshot, error) {
-	ictx, cancel := context.WithTimeout(ctx, identity)
+func refreshUsage(ctx context.Context, store provider.Store, f usageFetcher, path string, cached usg.Cache) ([]usg.Snapshot, error) {
+	ictx, cancel := context.WithTimeout(ctx, liveTimeout)
 	defer cancel()
 	accounts := provider.Merge(bindCached(f.resolveIdentities(ictx, provider.Discover(store)), cached.Snapshots))
-	snaps := keepStale(liveSnapshots(ctx, accounts, f, perProvider), cached.Snapshots)
+	snaps := keepStale(liveSnapshots(ctx, accounts, f, liveTimeout), cached.Snapshots)
 	if ctx.Err() != nil {
 		// Overrun or cancelled: leave the cache alone, a write may be cut off by exit.
 		return snaps, fmt.Errorf("usage refresh: %w", context.Cause(ctx))
@@ -160,61 +141,6 @@ func filterProvider(snaps []usg.Snapshot, id string) []usg.Snapshot {
 		if s.Provider == id {
 			out = append(out, s)
 		}
-	}
-	return out
-}
-
-// cachedView is the default view: one row per discovered account, from its
-// cached snapshot (with the account's current harnesses) when there is one.
-// Cached snapshots of accounts no longer discovered are dropped. Without a
-// cached snapshot, offline sources fill openai and google; an account that
-// cannot be queried shows why; the rest show "no data yet".
-func cachedView(accounts []provider.Account, cached []usg.Snapshot, f usageFetcher) []usg.Snapshot {
-	refs := make([]acctRef, len(accounts))
-	for i, a := range accounts {
-		refs[i] = acctRef{id: a.ID, provider: a.Provider, label: a.Label, kind: a.Plan.Kind, fingerprints: a.Fingerprints, unknown: identityUnknown(a)}
-	}
-	have := newCacheIndex(cached)
-	var out []usg.Snapshot
-	seen := make(map[string]bool, len(accounts))
-	for i, a := range accounts {
-		key := snapKey(a.ID, a.Provider)
-		if seen[key] {
-			continue
-		}
-		seen[key] = true
-		if a.TokenSharing {
-			// Never from the cache: an old snapshot may hold a 401 row.
-			snap := f.base(a)
-			snap.Status, snap.Note = a.Status, a.Note
-			out = append(out, snap)
-			continue
-		}
-		if s, ok := have.find(refs[i]); ok {
-			s.ID = a.ID
-			s.Harnesses = a.Harnesses
-			s.Fingerprints = a.Fingerprints
-			s.IdentityUnknown = identityUnknown(a)
-			out = append(out, s)
-			continue
-		}
-		var (
-			snap usg.Snapshot
-			ok   bool
-		)
-		switch {
-		case a.Status != "" && a.Status != usg.StatusOK:
-			snap, ok = f.base(a), true
-			snap.Status, snap.Note = a.Status, a.Note
-		case a.Provider == provider.OpenAI:
-			snap, ok = f.codexSessionFallback(a)
-		case a.Provider == provider.Google:
-			snap, ok = f.agyLogFallback(a)
-		}
-		if !ok {
-			snap = unavailable(f.base(a), noDataNote)
-		}
-		out = append(out, snap)
 	}
 	return out
 }

@@ -129,8 +129,8 @@ func assertDistinctIDs(t *testing.T, accounts []provider.Account) {
 	}
 }
 
-// assertIdentityFlow runs -live on a healthy server, the cached view, then
-// -live on a failing server, and checks every step has two rows with their own limits.
+// assertIdentityFlow runs usage on a healthy server, then
+// on a failing server, and checks every step has two rows with their own limits.
 func assertIdentityFlow(t *testing.T, store provider.Store, want map[string]float64) {
 	t.Helper()
 	ok, bad := usageServer(), failServer()
@@ -138,7 +138,7 @@ func assertIdentityFlow(t *testing.T, store provider.Store, want map[string]floa
 	defer bad.Close()
 	d, out, errb, path := usageDeps(t)
 
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, testFetcher(t, ok)); code != 0 {
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, ok)); code != 0 {
 		t.Fatalf("live exit = %d, stderr %q", code, errb)
 	}
 	cached, err := readUsageCache(path)
@@ -149,13 +149,8 @@ func assertIdentityFlow(t *testing.T, store provider.Store, want map[string]floa
 		t.Errorf("live rows (-want +got):\n%s", diff)
 	}
 
-	view := cachedView(provider.Discover(store), cached.Snapshots, testFetcher(t, ok))
-	if diff := cmp.Diff(want, usedByHarness(t, view, usg.StatusOK)); diff != "" {
-		t.Errorf("cached view (-want +got):\n%s", diff)
-	}
-
 	out.Reset()
-	if code := d.runUsageWith(t.Context(), []string{"-live"}, store, testFetcher(t, bad)); code != 0 {
+	if code := d.runUsageWith(t.Context(), nil, store, testFetcher(t, bad)); code != 0 {
 		t.Fatalf("failing live exit = %d, stderr %q", code, errb)
 	}
 	stale, err := readUsageCache(path)

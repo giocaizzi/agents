@@ -81,7 +81,7 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	case "usage":
 		return d.runUsage(ctx, rest)
 	case "doctor":
-		return d.runDoctor(ctx, rest)
+		return d.runDoctor(rest)
 	case "plugins":
 		return d.runPlugins(ctx, rest)
 	case "statusline":
@@ -132,8 +132,8 @@ func usage(s term.Style) string {
 	p("  %sagents%s %smodels%s %s[-file <path>]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %smodels sync%s %s[-file <path>] [-doc <path>]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %smodels render%s %s[-check] [-file <path>] [-doc <path>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %susage%s %s[-live] [-provider <id>]%s\n", m, o, m, o, d, o)
-	p("  %sagents%s %sdoctor%s %s[-live] [-q] [-json] [-harness <list>]%s\n", m, o, m, o, d, o)
+	p("  %sagents%s %susage%s %s[-provider <id>]%s\n", m, o, m, o, d, o)
+	p("  %sagents%s %sdoctor%s %s[-q] [-json] [-harness <list>]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %splugins%s %s[list│update│prune] [-n] [-f] [-file <path>] [-harness-dir <path>]%s\n", m, o, m, o, d, o)
 	p("  %sagents%s %sversion%s %s│%s %shelp%s\n\n", m, o, m, o, d, o, m, o)
 
@@ -148,8 +148,8 @@ func usage(s term.Style) string {
 	p("  %s%-13s%s %s%-30s%s %s\n", m, "models", o, d, "[-file <path>]", o, "Print the model tier list with costs and arena ranks")
 	p("  %s%-13s%s %s%-30s%s %s\n", m, "models sync", o, d, "[-file <path>]", o, "Refresh model data from models.dev, LMArena and Epoch AI; recompute the tiers")
 	p("  %s%-13s%s %s%-30s%s %s\n", m, "models render", o, d, "[-check]", o, "Regenerate docs/MODELS.md offline")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "usage", o, d, "[-live] [-provider <id>]", o, "Show subscription usage per provider account (cached; -live refreshes)")
-	p("  %s%-13s%s %s%-30s%s %s\n", m, "doctor", o, d, "[-live] [-q] [-harness <list>]", o, "Advise on configured models, accounts and capacity (cached; -live refreshes)")
+	p("  %s%-13s%s %s%-30s%s %s\n", m, "usage", o, d, "[-provider <id>]", o, "Show subscription usage per provider account (always live; writes the cache)")
+	p("  %s%-13s%s %s%-30s%s %s\n", m, "doctor", o, d, "[-q] [-harness <list>]", o, "Advise on configured models, accounts and capacity (reads the usage cache)")
 	p("  %s%-13s%s %s%-30s%s %s\n", m, "plugins", o, d, "[list|update|prune]", o, "Inspect, update, or prune plugins across harnesses")
 	p("  %s%-13s%s %-30s %s\n", m, "version", o, "", "Print agents version information")
 	p("  %s%-13s%s %-30s %s\n\n", m, "help", o, "", "Display this help message")
@@ -163,7 +163,6 @@ func usage(s term.Style) string {
 	p("  %s-check%s               Validate layer presence or models doc freshness without printing output\n", y, o)
 	p("  %s-doc%s %s<path>%s          Path to docs/MODELS.md\n", y, o, d, o)
 	p("  %s-target%s %s<file>%s       Target file to write rendered configuration\n", y, o, d, o)
-	p("  %s-live%s                Query every provider and rewrite the usage cache (usage, doctor)\n", y, o)
 	p("  %s-provider%s %s<id>%s       Limit usage output to one provider id\n", y, o, d, o)
 	p("  %s-q%s                   Print nothing when there is nothing to report (doctor)\n", y, o)
 	p("  %s-json%s                Print the doctor findings as JSON\n\n", y, o)
@@ -175,7 +174,7 @@ func usage(s term.Style) string {
 	p("  %sagents render -harness claude -part prompt%s     Display effective system prompt for Claude Code\n", m, o)
 	p("  %sagents prompt -harness antigravity -check%s      Verify effective prompt presence for Antigravity\n", m, o)
 	p("  %sagents prompt -profile work%s                    Display composed instructions for work profile\n", m, o)
-	p("  %sagents doctor -live%s                            Refresh usage and advise on models, accounts and capacity\n\n", m, o)
+	p("  %sagents doctor%s                                    Advise on models, accounts and capacity from the usage cache\n\n", m, o)
 
 	p("%sDOCUMENTATION%s\n", b, o)
 	p("  %shttps://github.com/giocaizzi/agents#readme%s\n", d, o)

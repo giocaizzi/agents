@@ -80,7 +80,7 @@ func TestRenderUsageGolden(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
 	st := term.NewStyle(&buf, func(string) string { return "" }) // not an *os.File: no colour
-	renderUsage(&buf, st, sampleSnapshots(), "(cached 12m ago; -live to refresh)", renderNow)
+	renderUsage(&buf, st, sampleSnapshots(), renderNow)
 
 	golden := filepath.Join("testdata", "usage_golden.txt")
 	if *update {
@@ -104,9 +104,9 @@ func TestRenderUsageColour(t *testing.T) {
 	t.Parallel()
 	st := term.Style{B: "<B>", M: "<M>", Y: "<Y>", G: "<G>", D: "<D>", O: "<O>"}
 	var buf bytes.Buffer
-	renderUsage(&buf, st, sampleSnapshots(), "(live)", renderNow)
+	renderUsage(&buf, st, sampleSnapshots(), renderNow)
 	out := buf.String()
-	for _, want := range []string{"<B>anthropic<O>", "<M>Enterprise seat · me@example.com<O>", "<Y>codex, opencode, pi<O>", "<Y>!<O> token expired, open pi", "<D>(live)<O>"} {
+	for _, want := range []string{"<B>anthropic<O>", "<M>Enterprise seat · me@example.com<O>", "<Y>codex, opencode, pi<O>", "<Y>!<O> token expired, open pi"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("coloured output lacks %q:\n%s", want, out)
 		}
@@ -116,7 +116,7 @@ func TestRenderUsageColour(t *testing.T) {
 func TestRenderUsageSortsByProviderThenAccount(t *testing.T) {
 	t.Parallel()
 	var buf bytes.Buffer
-	renderUsage(&buf, term.Style{}, sampleSnapshots(), "(live)", renderNow)
+	renderUsage(&buf, term.Style{}, sampleSnapshots(), renderNow)
 	var providers []string
 	for line := range strings.SplitSeq(buf.String(), "\n") {
 		if line != "" && line[0] != ' ' && !strings.HasPrefix(line, "agents") {
@@ -136,7 +136,7 @@ func TestRenderUnprovenNextToAPIKeyIsIdentityUnknown(t *testing.T) {
 		{Provider: "openai", Plan: usg.Plan{Kind: usg.KindAPI}},
 	}
 	var buf bytes.Buffer
-	renderUsage(&buf, term.Style{}, snaps, "(live)", renderNow)
+	renderUsage(&buf, term.Style{}, snaps, renderNow)
 	out := buf.String()
 	if !strings.Contains(out, "identity unknown") || strings.Contains(out, "same account?") {
 		t.Errorf("want identity unknown only:\n%s", out)
