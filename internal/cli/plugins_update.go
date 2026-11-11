@@ -272,21 +272,29 @@ func failureDetail(out string, err error) string {
 
 // printUpdateSummary closes the run and returns the exit code.
 func (d Deps) printUpdateSummary(st term.Style, plans []harnessPlan, failed int, dryRun bool) int {
-	acting := 0
+	acting, behindSkipped := 0, 0
 	anyChange := false
 	for _, p := range plans {
 		anyChange = anyChange || len(p.changes) > 0
-		if p.skip == "" {
+		switch {
+		case p.skip == "":
 			acting++
+		case len(p.changes) > 0:
+			behindSkipped++
 		}
 	}
 	switch {
 	case !anyChange:
 		fmt.Fprintf(d.Stdout, "\n  %s✓%s nothing to update across %d harness(es)\n", st.G, st.O, len(plans))
+	case acting == 0:
+		fmt.Fprintf(d.Stdout, "\n  nothing updated\n")
 	case dryRun:
 		fmt.Fprintf(d.Stdout, "\n  would update %d harness(es)\n", acting)
 	default:
 		fmt.Fprintf(d.Stdout, "\n  %s✓%s updated %d harness(es)\n", st.G, st.O, acting-failed)
+	}
+	if behindSkipped > 0 {
+		st.Warn(d.Stdout, fmt.Sprintf("%d harness(es) behind but skipped (see above)", behindSkipped))
 	}
 	if failed > 0 {
 		st.Warn(d.Stdout, fmt.Sprintf("%d harness(es) failed to update", failed))

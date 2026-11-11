@@ -1,15 +1,18 @@
 package cli
 
 import (
+	"bytes"
 	"errors"
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/giocaizzi/agents/internal/pluginmgmt"
+	"github.com/giocaizzi/agents/internal/term"
 )
 
 func fakeLookPath(missing ...string) func(string) (string, error) {
@@ -192,5 +195,49 @@ func TestPlanUpdatesOnlyBehindHarness(t *testing.T) {
 	}
 	if plans[1].skip != "up to date" || len(plans[1].steps) != 0 {
 		t.Errorf("codex should be skipped as up to date, got %+v", plans[1])
+	}
+}
+
+func TestPrintUpdateSummary(t *testing.T) {
+	t.Parallel()
+	behind := []pluginChange{{plugin: "dev-tools", from: "1.0.0", to: "1.1.0"}}
+	acting := harnessPlan{harness: "claude", changes: behind}
+	current := harnessPlan{harness: "codex", skip: "up to date"}
+	noBinary := harnessPlan{harness: "copilot", changes: behind, skip: "`copilot` not found on PATH"}
+	tests := []struct {
+		name     string
+		plans    []harnessPlan
+		failed   int
+		dryRun   bool
+		wantCode int
+		want     []string
+		notWant  []string
+	}{
+		{name: "nothing behind", plans: []harnessPlan{current}, want: []string{"nothing to update across 1 harness(es)"}},
+		{name: "updated", plans: []harnessPlan{acting, current}, want: []string{"updated 1 harness(es)"}, notWant: []string{"skipped"}},
+		{name: "dry run", plans: []harnessPlan{acting}, dryRun: true, want: []string{"would update 1 harness(es)"}},
+		{name: "failed", plans: []harnessPlan{acting}, failed: 1, wantCode: 1, want: []string{"updated 0 harness(es)", "1 harness(es) failed to update"}},
+		{name: "behind but skipped", plans: []harnessPlan{noBinary, current}, want: []string{"nothing updated", "1 harness(es) behind but skipped"}, notWant: []string{"updated 0"}},
+		{name: "partly skipped", plans: []harnessPlan{acting, noBinary}, want: []string{"updated 1 harness(es)", "1 harness(es) behind but skipped"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var out bytes.Buffer
+			d := Deps{Stdout: &out}
+			if got := d.printUpdateSummary(term.Style{}, tt.plans, tt.failed, tt.dryRun); got != tt.wantCode {
+				t.Errorf("printUpdateSummary() = %d, want %d", got, tt.wantCode)
+			}
+			for _, w := range tt.want {
+				if !strings.Contains(out.String(), w) {
+					t.Errorf("output missing %q:\n%s", w, out.String())
+				}
+			}
+			for _, w := range tt.notWant {
+				if strings.Contains(out.String(), w) {
+					t.Errorf("output has %q:\n%s", w, out.String())
+				}
+			}
+		})
 	}
 }

@@ -153,7 +153,7 @@ When no plugin directory is specified, automatic discovery prefers the managed i
 
 `agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
 
-`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. Harnesses linked to the checkout without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
+`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. A harness that is behind but whose CLI is not on `PATH` is skipped with a warning. Harnesses linked to the checkout without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
 
 `agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline.
 
