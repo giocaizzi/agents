@@ -38,7 +38,7 @@ func (d Deps) runPlugins(ctx context.Context, args []string) int {
 	switch subcmd {
 	case "list":
 		return d.runPluginsList(ctx, rest)
-	case "update":
+	case verbUpdate:
 		return d.runPluginsUpdate(ctx, rest)
 	case "prune":
 		return d.runPluginsPrune(ctx, rest)
@@ -225,33 +225,8 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 		harnesses = []string{flags.harness}
 	}
 
-	headers := []string{"PLUGIN", "UPSTREAM"}
-	for _, h := range harnesses {
-		headers = append(headers, strings.ToUpper(h))
-	}
-
-	var rows [][]string
-	staleCount := 0
-	missingCount := 0
-	hasStandalone := slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.IsStandalone })
 	upstreamStale := slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.UpstreamStale })
-
-	for _, p := range list {
-		row, isStale, isMissing := buildPluginRow(p, harnesses, st)
-		if isStale {
-			staleCount++
-		}
-		if isMissing {
-			missingCount++
-		}
-		rows = append(rows, row)
-	}
-
-	st.Table(d.Stdout, headers, rows)
-	fmt.Fprintln(d.Stdout)
-	if hasStandalone {
-		fmt.Fprintf(d.Stdout, "  %s* standalone external plugin%s\n\n", st.D, st.O)
-	}
+	staleCount, missingCount := d.printPluginMatrix(st, list, harnesses)
 
 	if staleCount > 0 || missingCount > 0 {
 		st.Warn(d.Stdout, fmt.Sprintf("%d plugin(s) stale or missing: run `agents plugins update`", staleCount+missingCount))
@@ -266,6 +241,35 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 	return 0
 }
 
+// printPluginMatrix renders the plugin by harness table and returns how many
+// plugins are stale and how many are missing on at least one harness.
+func (d Deps) printPluginMatrix(st term.Style, list []pluginmgmt.PluginInfo, harnesses []string) (stale, missing int) {
+	headers := make([]string, 0, 2+len(harnesses))
+	headers = append(headers, "PLUGIN", "UPSTREAM")
+	for _, h := range harnesses {
+		headers = append(headers, strings.ToUpper(h))
+	}
+
+	rows := make([][]string, 0, len(list))
+	for _, p := range list {
+		row, isStale, isMissing := buildPluginRow(p, harnesses, st)
+		if isStale {
+			stale++
+		}
+		if isMissing {
+			missing++
+		}
+		rows = append(rows, row)
+	}
+
+	st.Table(d.Stdout, headers, rows)
+	fmt.Fprintln(d.Stdout)
+	if slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.IsStandalone }) {
+		fmt.Fprintf(d.Stdout, "  %s* standalone external plugin%s\n\n", st.D, st.O)
+	}
+	return stale, missing
+}
+
 // printUpToDate reports that nothing is stale or missing. When upstream was
 // unreachable it cannot claim the plugins are current, so the line is neutral.
 func (d Deps) printUpToDate(st term.Style, plugins, harnesses int, upstreamStale bool) {
@@ -274,36 +278,6 @@ func (d Deps) printUpToDate(st term.Style, plugins, harnesses int, upstreamStale
 		return
 	}
 	fmt.Fprintf(d.Stdout, "  %s✓%s all %d plugins up to date across %d configured harnesses\n", st.G, st.O, plugins, harnesses)
-}
-
-func (d Deps) runPluginsUpdate(ctx context.Context, args []string) int {
-	st := term.NewStyle(d.Stdout, d.Getenv)
-	flags, err := parsePluginsFlags("plugins update", args, d.Getenv)
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "flags: %v\n", err)
-		return 2
-	}
-
-	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "plugins: %v\n", err)
-		return 1
-	}
-
-	fmt.Fprintf(d.Stdout, "%sagents plugins update — sync and lifecycle across harnesses%s\n\n", st.B, st.O)
-
-	d.syncUpstream(ctx, st, mgr.HarnessDir, flags.dryRun)
-
-	targetHarnesses := pluginmgmt.SortHarnesses(pluginmgmt.EnabledHarnesses(mgr.HarnessConfig))
-	if flags.harness != "" {
-		targetHarnesses = []string{flags.harness}
-	}
-	d.updateHarnesses(ctx, st, mgr, targetHarnesses, flags.dryRun)
-
-	d.pruneCaches(st, mgr, flags.dryRun)
-
-	fmt.Fprintf(d.Stdout, "\n  %s✓%s plugin update complete\n", st.G, st.O)
-	return 0
 }
 
 func (d Deps) syncUpstream(ctx context.Context, st term.Style, harnessDir string, dryRun bool) {
@@ -326,25 +300,6 @@ func (d Deps) syncUpstream(ctx context.Context, st term.Style, harnessDir string
 	}
 }
 
-func (d Deps) updateHarnesses(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, harnesses []string, dryRun bool) {
-	for _, h := range harnesses {
-		switch h {
-		case harnessAntigravity:
-			d.updateAntigravity(ctx, st, mgr, dryRun)
-		case harnessCodex:
-			d.updateCodex(ctx, st, mgr, dryRun)
-		case harnessClaude:
-			d.updateClaude(ctx, st, mgr, dryRun)
-		case harnessCopilot:
-			d.updateCopilot(ctx, st, mgr, dryRun)
-		case harnessOpencode:
-			d.updateOpencode(ctx, st, mgr, dryRun)
-		case harnessPi:
-			d.updatePi(ctx, st, mgr, dryRun)
-		}
-	}
-}
-
 func (d Deps) pruneCaches(st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
 	candidates, err := mgr.FindPruneCandidates()
 	if err != nil || len(candidates) == 0 {
@@ -357,126 +312,6 @@ func (d Deps) pruneCaches(st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
 	pruned, pErr := mgr.Prune(candidates)
 	if pErr == nil {
 		fmt.Fprintf(d.Stdout, "  %s✓%s pruned %d obsolete plugin cache(s)\n", st.G, st.O, len(pruned))
-	}
-}
-
-func (d Deps) updateAntigravity(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("agy"); err != nil {
-		return
-	}
-	pluginsDir := filepath.Join(mgr.HarnessDir, "plugins")
-	var installed []string
-
-	for p, hs := range mgr.HarnessConfig.Plugins {
-		if !slices.Contains(hs, harnessAntigravity) {
-			continue
-		}
-		pPath := filepath.Join(pluginsDir, p)
-		if _, err := os.Stat(pPath); err != nil {
-			continue
-		}
-		if dryRun {
-			fmt.Fprintf(d.Stdout, "  %s[dry-run]%s agy plugin install %s\n", st.D, st.O, pPath)
-		} else {
-			cmd := exec.CommandContext(ctx, "agy", "plugin", "install", pPath)
-			if err := cmd.Run(); err == nil {
-				installed = append(installed, p)
-			}
-		}
-	}
-
-	installScript := filepath.Join(mgr.HarnessDir, "scripts", "install.mjs")
-	if _, err := os.Stat(installScript); err == nil && !dryRun {
-		_ = exec.CommandContext(ctx, "node", installScript, harnessAntigravity).Run()
-	}
-
-	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s✓%s antigravity: would update plugins and sync agents/hooks\n", st.G, st.O)
-	} else {
-		fmt.Fprintf(d.Stdout, "  %s✓%s antigravity: %d plugin(s) installed/updated\n", st.G, st.O, len(installed))
-	}
-}
-
-func (d Deps) updateCodex(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("codex"); err != nil {
-		return
-	}
-	ns := mgr.EffectiveNamespace()
-	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s codex plugin marketplace upgrade %s\n", st.D, st.O, ns)
-		return
-	}
-	_ = exec.CommandContext(ctx, "codex", "plugin", "marketplace", "upgrade", ns).Run()
-	count := 0
-	for p, hs := range mgr.HarnessConfig.Plugins {
-		if slices.Contains(hs, harnessCodex) {
-			if err := exec.CommandContext(ctx, "codex", "plugin", "add", p+"@"+ns).Run(); err == nil {
-				count++
-			}
-		}
-	}
-	installScript := filepath.Join(mgr.HarnessDir, "scripts", "install.mjs")
-	if _, err := os.Stat(installScript); err == nil {
-		_ = exec.CommandContext(ctx, "node", installScript, harnessCodex).Run()
-	}
-	fmt.Fprintf(d.Stdout, "  %s✓%s codex: updated marketplace and %d plugin(s)\n", st.G, st.O, count)
-}
-
-func (d Deps) updateMarketplaceHarness(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, harnessName, command string, dryRun bool) {
-	if _, err := exec.LookPath(command); err != nil {
-		return
-	}
-	ns := mgr.EffectiveNamespace()
-	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s %s plugin marketplace update %s\n", st.D, st.O, command, ns)
-		return
-	}
-	_ = exec.CommandContext(ctx, command, "plugin", "marketplace", "update", ns).Run()
-	count := 0
-	for p, hs := range mgr.HarnessConfig.Plugins {
-		if slices.Contains(hs, harnessName) {
-			if err := exec.CommandContext(ctx, command, "plugin", "update", p+"@"+ns).Run(); err == nil {
-				count++
-			}
-		}
-	}
-	fmt.Fprintf(d.Stdout, "  %s✓%s %s: updated marketplace and %d plugin(s)\n", st.G, st.O, harnessName, count)
-}
-
-func (d Deps) updateClaude(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	d.updateMarketplaceHarness(ctx, st, mgr, harnessClaude, "claude", dryRun)
-}
-
-func (d Deps) updateCopilot(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	d.updateMarketplaceHarness(ctx, st, mgr, harnessCopilot, "copilot", dryRun)
-}
-
-func (d Deps) updateOpencode(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("opencode"); err != nil {
-		return
-	}
-	installScript := filepath.Join(mgr.HarnessDir, "scripts", "install.mjs")
-	if _, err := os.Stat(installScript); err == nil {
-		if dryRun {
-			fmt.Fprintf(d.Stdout, "  %s[dry-run]%s node %s opencode\n", st.D, st.O, installScript)
-		} else {
-			_ = exec.CommandContext(ctx, "node", installScript, harnessOpencode).Run()
-			fmt.Fprintf(d.Stdout, "  %s✓%s opencode: synchronized skills and agents from checkout\n", st.G, st.O)
-		}
-	}
-}
-
-func (d Deps) updatePi(ctx context.Context, st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
-	if _, err := exec.LookPath("pi"); err != nil {
-		return
-	}
-	if mgr.HarnessDir != "" {
-		if dryRun {
-			fmt.Fprintf(d.Stdout, "  %s[dry-run]%s pi install %s\n", st.D, st.O, mgr.HarnessDir)
-		} else {
-			_ = exec.CommandContext(ctx, "pi", "install", mgr.HarnessDir).Run()
-			fmt.Fprintf(d.Stdout, "  %s✓%s pi: package link up to date\n", st.G, st.O)
-		}
 	}
 }
 
