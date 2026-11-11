@@ -75,13 +75,12 @@ Sources (Plugins): `internal/pluginreg/pluginreg.go` (`CheckRegistry`, `DefaultH
 
 | Dimension | Claude Code | Copilot CLI | VS Code Copilot | Codex | opencode | pi | Antigravity |
 |---|---|---|---|---|---|---|---|
-| Status line (`agents statusline [claude\|copilot\|tmux\|omp]`) | renders text for a `statusLine` command (same output for every target); the settings key is not rendered | renders the same text; settings key not rendered (GAP: `statusLine`) | — unknown | — GAP: `tui.status_line` | — unknown | — unknown | — unknown |
 | Usage and quota (`agents usage`) | reads Anthropic credentials, queries `api.anthropic.com` | reads GitHub Copilot credentials, queries `api.github.com` | — unknown: `provider.Harnesses` has no VS Code entry; it is not known whether VS Code's GitHub login is discovered | reads OpenAI credentials, queries `chatgpt.com`; falls back to Codex rollout sessions | reads per-provider logins in opencode's auth store, queries the provider (Anthropic, OpenAI, GitHub Copilot) | reads per-provider logins in pi's `auth.json` (commands starting with `!` are never run) | reads no credential; runs `agy` for `/usage`, falls back to the agy log |
 | Doctor (`agents doctor`) | reads tier models from the policy and the usage cache; reports unknown model, tier drift, missing account, capacity, headroom, better model | reads `native.copilot.agents` models (fallback to tiers) and the same checks | — n/a: `agents` manages no VS Code model setting | reads tiers and `native.codex.model` | reads tiers and `native.opencode.defaultModel` | reads tiers and `native.pi.defaultModel` | reads tiers |
-| Models catalog (`agents models`) | Harness-independent: lists, syncs and renders the model catalog (models.dev, LMArena, Epoch AI); `doctor` joins it to the settings above | same | same | same | same | same | same |
+| Models catalog (`agents models`) | Harness-independent: displays terminal tables of the model catalog (models.dev, LMArena, Epoch AI); `agents models sync` writes only the JSON catalog; `doctor` joins it to the settings above | same | same | same | same | same | same |
 | Init (`agents init`) | scaffolds `agents.toml` with the detected harnesses from `claude, copilot, antigravity, codex, opencode, pi` | same | — GAP: not in the init harness list | same | same | same | same |
 
-Sources (Runtime tools): `internal/cli/statusline.go`, `internal/cli/usage*.go` and `internal/provider/*.go` (credential discovery), `internal/usage/*.go`, `internal/doctor/{doctor,checks,resolve}.go` (`harnessOrder` has no VS Code), `internal/catalog/*.go`, `internal/cli/init.go`.
+Sources (Runtime tools): `internal/cli/usage*.go` and `internal/provider/*.go` (credential discovery), `internal/usage/*.go`, `internal/doctor/{doctor,checks,resolve}.go` (`harnessOrder` has no VS Code), `internal/catalog/*.go`, `internal/cli/init.go`.
 
 ## Findings
 
@@ -108,7 +107,7 @@ Security and permissions
 
 Correctness of what users see
 
-10. Claude Code, Copilot CLI, opencode - model and effort - `model`, `effortLevel`, `showThinkingSummaries`; `model`, `effortLevel`; `small_model` - render `models.tiers` and the effort fields (today only `doctor` and `statusline` read tiers).
+10. Claude Code, Copilot CLI, opencode - model and effort - `model`, `effortLevel`, `showThinkingSummaries`; `model`, `effortLevel`; `small_model` - render `models.tiers` and the effort fields (today `doctor` reads tiers).
 11. Claude Code, Codex, opencode, pi - context compaction - `autoCompactEnabled`, `model_auto_compact_token_limit`, `compaction`, `compaction.*` - map `context.*`.
 12. Claude Code, Copilot CLI, Codex, pi - theme - `theme`, `theme`, `tui.theme`, `theme` - map `ui.theme` (VS Code already is).
 13. Claude Code, Copilot CLI, pi - other UI fields - `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`; `terminalProgress`; `tuiMode`, `terminal.showTerminalProgress` - map `ui.*`.
@@ -121,9 +120,8 @@ Correctness of what users see
 
 Convenience
 
-20. Claude Code, Copilot CLI, Codex - status line setting - `statusLine`, `statusLine`, `tui.status_line` - render the key that calls `agents statusline`.
-21. opencode - MCP - `mcp` in `opencode.json` - add an opencode target to `mcp sync`.
-22. VS Code Copilot - plugin update - no command driven - add an update/install path.
-23. VS Code Copilot - init - harness list - add `vscode` to `agents init`.
+20. opencode - MCP - `mcp` in `opencode.json` - add an opencode target to `mcp sync`.
+21. VS Code Copilot - plugin update - no command driven - add an update/install path.
+22. VS Code Copilot - init - harness list - add `vscode` to `agents init`.
 
 Derived from the code at 0066e38; checked 2026-11-11.

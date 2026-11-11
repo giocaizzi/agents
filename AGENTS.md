@@ -17,7 +17,7 @@ Universal AI Agent Harness Manager (`agents` standalone CLI and chezmoi plugin p
 - `internal/doctor/` — Diagnostic engine for model drift, stale plugins, and account health.
 - `internal/pluginreg/` — Multi-registry and standalone plugin declarations and validator.
 - `internal/pluginmgmt/` — Cross-harness plugin lifecycle (inspect, update, prune).
-- `internal/term/` — Sub-5ms status line formatter, Catppuccin styles, and table rendering.
+- `internal/term/` — Catppuccin styles and terminal table rendering.
 
 ## Principles & Public Repository Integrity
 

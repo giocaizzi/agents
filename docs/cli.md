@@ -11,7 +11,7 @@ agents help mcp               # group navigation: sync and add
 agents help mcp add           # nested leaf: arguments, flags, defaults, example
 agents mcp add --help         # same leaf help; -h also works
 agents help render            # settings and prompt rendering options
-agents help models render     # offline model documentation options
+agents help models sync       # model catalog sync options
 agents help plugins update    # plugin update options
 ```
 
@@ -24,7 +24,6 @@ Root help lists immediate commands, group help lists immediate children, and lea
 - Value flags accept `-file agents.toml` or `-file=agents.toml`; the parser also accepts double-dash spellings. Boolean flags default to false; use `-check` or `-check=true`, not `-check true`.
 - Parsing stops at the first positional argument or `--`. A flag's value is data, even if it looks like a help token. Help is not intercepted by scanning the whole argument list.
 - For `mcp add`, options must precede the server name. Arguments after the executable are forwarded unchanged, including `-h` or `--help`. For example, `agents mcp add -no-sync example example-server --help` stores `--help` as a server argument; it does not display `agents` help. Use `agents help mcp add` to inspect the command without adding a server.
-- Statusline targets (`claude`, `copilot`, `tmux`, `omp`) are **arguments**, not subcommands: `agents statusline claude`. Ask for `agents help statusline`, not `agents help statusline claude`.
 
 ### Streams and exit statuses
 
@@ -143,21 +142,19 @@ agents mcp add -type http example https://mcp.example.com/mcp
 
 If native sync fails after adding a server, `.mcp.json` has already changed. Resolve the sync error and rerun `agents mcp sync`.
 
-### `models [sync|render]`
+### `models [sync]`
 
-Bare `agents models` displays the model tier list, costs and rankings; it accepts `-file <path>` for `models.json`.
+Bare `agents models` displays terminal tables of model tiers, costs and rankings; it accepts `-file <path>` for `models.json`.
 
 | Command | Flags | Behavior |
 |---|---|---|
-| `models sync` | `-file <path>`, `-doc <path>` | Fetch models.dev, LMArena and Epoch AI data, recompute tiers, write catalog and documentation |
-| `models render` | `-file <path>`, `-doc <path>`, `-check` | Regenerate documentation offline; `-check` compares without writing |
+| `models sync` | `-file <path>` | Fetch models.dev, LMArena and Epoch AI data, recompute tiers, and write only the JSON catalog |
 
-The catalog is discovered when `-file` is omitted. The doc defaults to `docs/MODELS.md`, resolved relative to a chezmoi catalog location when applicable. `render -check` can report a skipped check successfully when benchmark data is absent but the doc exists; this is not a freshness guarantee.
+The catalog is discovered when `-file` is omitted. Use `agents models` to inspect it in the terminal; use `agents render` separately to print native harness configuration.
 
 ```sh
 agents models -file models.json
-agents models sync -file models.json -doc docs/MODELS.md
-agents models render -check -file models.json
+agents models sync -file models.json
 ```
 
 ### `plugins [list|update|prune]`
@@ -186,20 +183,18 @@ Two harnesses take plugins from the checkout itself instead of a marketplace:
 
 `agents plugins prune` removes superseded Claude/Codex cache versions and the obsolete Antigravity `api` plugin. Preview removals first with `-n`.
 
-### `usage`, `doctor` and `statusline`
+### `usage` and `doctor`
 
 | Command | Flags/arguments | Behavior |
 |---|---|---|
 | `usage` | `-provider <id>` | Limit displayed output to one provider; refresh still queries all discovered providers |
 | `doctor` | `-q`, `-json`, `-harness <comma-separated-list>` | Advisory model capacity, drift and account findings; quiet mode suppresses output when there is nothing to report |
-| `statusline` | `[claude\|copilot\|tmux\|omp]` | Fast status bar text; default target `generic`; currently all targets render the same text |
 
-`agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline with respect to provider usage. The cache uses `XDG_CACHE_HOME` (or the platform cache default).
+`agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents doctor` only reads that cache, so it stays offline with respect to provider usage. The cache uses `XDG_CACHE_HOME` (or the platform cache default).
 
 ```sh
 agents usage -provider anthropic
 agents doctor -json
-agents statusline claude
 ```
 
 ### `version` and `help`
