@@ -104,22 +104,6 @@ async function render() {
     white-space: pre-wrap;
     word-break: break-word;
   }
-  .statusline {
-    margin-top: 24px;
-    padding-top: 14px;
-    border-top: 1px solid #313244;
-    display: flex;
-    gap: 12px;
-    font-size: 12.5px;
-  }
-  .pill {
-    background: #313244;
-    padding: 3px 10px;
-    border-radius: 6px;
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-  }
   .c-blue { color: #89b4fa; }
   .c-mauve { color: #cba6f7; }
   .c-green { color: #a6e3a1; }
@@ -165,12 +149,6 @@ async function render() {
 <span class="c-green">↑</span> <span class="c-yellow">scout</span>    GPT-5.5 → Gemini 2.5 Flash     <span class="c-overlay">better-ranked · #23 → #18 · flat plan · copilot, pi</span>
 <span class="c-green">↑</span> <span class="c-yellow">worker</span>   GPT-5.5 → Claude 3.5 Haiku     <span class="c-overlay">better-ranked · #23 → #12 · flat plan · copilot, pi</span>
 <span class="c-green">↑</span> <span class="c-yellow">driver</span>   GPT-5.5 → Claude 3.7 Sonnet    <span class="c-overlay">better-ranked · #6 → #1 · flat plan · copilot, pi</span></pre>
-      <div class="statusline">
-        <div class="pill"><span class="c-green">●</span> <span class="c-mauve">claude-3-7-sonnet</span></div>
-        <div class="pill"><span class="c-yellow">󰚥</span> <span class="c-yellow">100% left</span></div>
-        <div class="pill"><span class="c-blue">󰊢</span> <span class="c-blue">main</span></div>
-        <div class="pill"><span class="c-overlay"></span> <span class="c-overlay">~/workspace</span></div>
-      </div>
     </div>
   </div>
 </body>

@@ -10,7 +10,7 @@ Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-p
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 <p align="center">
-  <img src="docs/assets/showcase.png" alt="agents showcase: statusline, multi-provider quota tracking, health diagnostics" width="880">
+  <img src="docs/assets/showcase.png" alt="agents showcase: multi-provider quota tracking and health diagnostics" width="880">
 </p>
 
 </div>
@@ -29,7 +29,6 @@ Developers frequently switch between AI coding harnesses—**Claude Code, GitHub
 - **Workspace MCP Sync**: Keep workspace `.mcp.json` definitions synchronized across Codex, Pi, and Antigravity configs automatically.
 - **Live Provider Usage & Quota**: Inspect real-time subscription usage, billing limits, and reset dates across Anthropic, OpenAI, GitHub Copilot, and Google Gemini.
 - **Health Doctor**: Diagnose model drift against LMArena rankings, detect orphaned plugins, and audit missing system dependencies.
-- **Sub-5ms Status Line**: Native Go status bar hook for Claude Code, Copilot CLI, tmux, and oh-my-posh.
 - **Abstract Plugin Engine**: Support for multiple registries (community, company, personal) alongside standalone external plugins, with automated update, prune, and parity checks.
 
 ---
