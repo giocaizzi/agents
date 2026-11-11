@@ -60,4 +60,4 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ needs.release-please.outputs.tag_name }}
-        run: gh release upload "$TAG" dist/*
+        run: gh release upload "$TAG" dist/* --clobber
