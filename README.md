@@ -23,7 +23,7 @@ Developers frequently switch between AI coding harnesses—**Claude Code, GitHub
 
 ## Highlights
 
-- **Multi-Harness Parity**: Compile declarative security rules, command allowlists, LSP language servers, and subagent models into native JSON/TOML configurations for 6 harnesses.
+- **Multi-Harness Parity**: Compile declarative security rules, command allowlists, LSP language servers, and subagent models into native JSON/TOML configurations for 6 harnesses. See the [parity matrix](docs/parity.md) for what each harness covers.
 - **Bounded Harness Clamping**: Intelligently adapts models for bounded harnesses like GitHub Copilot CLI where arbitrary tier models (e.g. Claude Opus) are unavailable.
 - **Layered Prompt Engine**: Compose system prompts dynamically from modular instruction layers with support for custom profiles (`[profiles.work]`, `[profiles.default]`).
 - **Workspace MCP Sync**: Keep workspace `.mcp.json` definitions synchronized across Codex, Pi, and Antigravity configs automatically.
