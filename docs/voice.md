@@ -17,17 +17,11 @@ How the mapping reaches a harness:
 | VS Code Copilot | Yes: chat dictation, Cmd/Ctrl+I | Local on desktop | `dictation.enabled` | No key | No key | `agents.voice.language`, written only when set | `translate/vscode.go`; static `settings.json` edited by hand | The static file must hold the policy's `enabled` and `language` | VS Code's own; not shared | None |
 | Codex | No dictation: `/voice` starts a realtime spoken conversation (cloud), not dictation into the prompt; the desktop app has its own dictation | — | Not mapped (no CLI dictation) | — | — | — | — | — | — | Use the OS dictation |
 | opencode | No dictation found | — | Not mapped (no dictation) | — | — | — | — | — | — | Use the OS dictation |
-| pi | No built-in dictation; community packages add it, some with local models | Depends on the package | Not mapped (no built-in key) | — | — | — | — | — | Package-specific, e.g. GGUF models through transcribe-cpp; not shared with Copilot's ONNX models | Install a voice package, or use the OS dictation |
+| pi | Not implemented | — | — | — | — | — | — | — | — | Use the OS dictation |
 | Antigravity | Yes: `/voice dictate`, `/record` or F5; `/voice live` or F6 is a spoken conversation | Cloud: a transcription service; no speech model is stored on disk, only an audio encoder. Voice mode streams to Gemini Live | Not mapped: no documented settings key | — | — | — | — | — | Vendor-hosted, none on disk | `/logout` and sign in once to grant the dictation permission; not for business or enterprise accounts |
 
 ## Shared speech model
 
-No two harnesses can share one local model today:
-
-- Copilot CLI ships ONNX models and its own runtime.
-- The local pi packages load GGUF models.
-- Claude Code and Antigravity transcribe in the cloud.
-
-Sharing would need one format and runtime, so each local harness downloads its own model.
+No speech model is shared. Copilot CLI (ONNX models on its own Foundry Local runtime) and VS Code transcribe locally, each with its own model. Claude Code and Antigravity transcribe in the cloud.
 
 Facts were checked against each harness's documentation and its installed CLI on 2026-11-11.
