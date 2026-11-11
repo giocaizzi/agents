@@ -90,7 +90,7 @@ func (d Deps) printHelp(w io.Writer, path string, fs *flag.FlagSet) {
 	if n.arguments != "" {
 		fmt.Fprint(w, " "+strings.Split(n.arguments, "  ")[0])
 	}
-	if fs != nil {
+	if fs != nil || path == "" || len(n.children) == 0 {
 		fmt.Fprint(w, " [options]")
 	}
 	fmt.Fprintln(w)
@@ -104,6 +104,11 @@ func (d Deps) printHelp(w io.Writer, path string, fs *flag.FlagSet) {
 		fmt.Fprintf(w, "\n%sARGUMENTS%s\n  %s\n", s.B, s.O, n.arguments)
 	}
 	// Root and groups deliberately don't aggregate leaf options or examples.
+	if path == "" {
+		fmt.Fprintf(w, "\n%sOPTIONS%s\n", s.B, s.O)
+		fmt.Fprintln(w, "  -h, --help\n    Show this help and exit.")
+		fmt.Fprintln(w, "  -v, --version\n    Print version information and exit.")
+	}
 	if len(n.children) == 0 {
 		fmt.Fprintf(w, "\n%sOPTIONS%s\n", s.B, s.O)
 		if fs != nil {
@@ -130,12 +135,14 @@ func (d Deps) printHelp(w io.Writer, path string, fs *flag.FlagSet) {
 
 func (d Deps) newFlags(name string) *flag.FlagSet {
 	fs := newFlags(name)
-	fs.Usage = func() { d.printHelp(d.Stdout, name, fs) }
+	// flag invokes Usage for both help and errors; parseFailure chooses the stream.
+	fs.Usage = func() {}
 	return fs
 }
 
 func (d Deps) parseFailure(fs *flag.FlagSet, err error) int {
 	if errors.Is(err, flag.ErrHelp) {
+		d.printHelp(d.Stdout, fs.Name(), fs)
 		return 0
 	}
 	fmt.Fprintf(d.Stderr, "flag parse error: %v\n\n", err)

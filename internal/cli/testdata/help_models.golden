@@ -1,0 +1,16 @@
+agents models — Display model tiers (default), sync data, or render docs
+
+USAGE
+  agents models [command]
+
+COMMANDS
+  sync         Refresh model data and recompute tiers
+  render       Regenerate model documentation offline
+
+DEFAULTS
+  Without a subcommand, displays the model tier list.
+
+ENVIRONMENT
+  AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog and configuration discovery.
+
+Use agents help <command> for command-specific help.

@@ -15,6 +15,13 @@ import (
 
 func (d Deps) runStatusline(ctx context.Context, args []string) int {
 	fs := d.newFlags("statusline")
+	if len(args) > 1 && (args[1] == helpFlag || args[1] == "-h") {
+		switch args[0] {
+		case harnessClaude, harnessCopilot, "tmux", "omp":
+			d.printHelp(d.Stdout, commandStatusline, fs)
+			return 0
+		}
+	}
 	if err := fs.Parse(args); err != nil {
 		return d.parseFailure(fs, err)
 	}

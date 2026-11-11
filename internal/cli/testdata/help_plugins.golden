@@ -1,0 +1,14 @@
+agents plugins — Inspect, update, or prune plugins
+
+USAGE
+  agents plugins [command]
+
+COMMANDS
+  list         Inspect configured plugins
+  update       Update plugins across harnesses
+  prune        Prune plugins across harnesses
+
+DEFAULTS
+  Without a subcommand, lists plugins.
+
+Use agents help <command> for command-specific help.

@@ -56,6 +56,15 @@ func assertLocalHelp(t *testing.T, path string, args []string) {
 	if path != "" && path != "help" && strings.Contains(out.String(), "agents doctor") && path != "doctor" {
 		t.Errorf("unrelated doctor help: %s", &out)
 	}
+	// Every spelling must render the same parser-derived local help.
+	var explicit, explicitErr bytes.Buffer
+	other := helpDeps(&explicit, &explicitErr)
+	if code := other.Run(t.Context(), append([]string{"help"}, strings.Fields(path)...)); code != 0 || explicitErr.Len() != 0 {
+		t.Fatalf("explicit help code=%d stderr=%q", code, &explicitErr)
+	}
+	if out.String() != explicit.String() {
+		t.Errorf("help forms differ:\nexplicit: %s\nactual: %s", &explicit, &out)
+	}
 }
 
 func TestHelpGoldens(t *testing.T) {
@@ -92,7 +101,7 @@ func TestHelpGoldens(t *testing.T) {
 func TestHelpLocalErrors(t *testing.T) {
 	t.Parallel()
 	tests := []struct{ args, local, absent string }{
-		{"bogus", "agents", "OPTIONS"},
+		{"bogus", "agents", "EXAMPLES"},
 		{"help mcp bogus", "agents mcp", "agents doctor"},
 		{"help statusline claude", "agents statusline", "agents doctor"},
 		{"mcp", "agents mcp", "OPTIONS"},
@@ -177,6 +186,126 @@ func TestHelpMCPForwardedArguments(t *testing.T) {
 			}
 			if strings.Contains(out.String(), "USAGE") {
 				t.Errorf("forwarded argument interpreted as help: %s", &out)
+			}
+		})
+	}
+}
+
+func TestHelpRootScope(t *testing.T) {
+	t.Parallel()
+	var out, err bytes.Buffer
+	d := helpDeps(&out, &err)
+	if code := d.Run(t.Context(), []string{"--help"}); code != 0 || err.Len() != 0 {
+		t.Fatalf("code=%d stderr=%q", code, &err)
+	}
+	text := out.String()
+	for _, want := range []string{"-h, --help", "-v, --version"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("missing root flag %q: %s", want, text)
+		}
+	}
+	for _, absent := range []string{"EXAMPLES", "ENVIRONMENT", "-file", "-harness", "-provider"} {
+		if strings.Contains(text, absent) {
+			t.Errorf("unrelated root content %q: %s", absent, text)
+		}
+	}
+	_, commands, ok := strings.Cut(text, "COMMANDS\n")
+	if !ok {
+		t.Fatal("missing command list")
+	}
+	commands, _, _ = strings.Cut(commands, "\n\n")
+	var names []string
+	for line := range strings.SplitSeq(commands, "\n") {
+		if fields := strings.Fields(line); len(fields) > 0 {
+			names = append(names, fields[0])
+		}
+	}
+	want := "init check render prompt mcp models plugins usage doctor statusline version help"
+	if got := strings.Join(names, " "); got != want {
+		t.Errorf("command list=%q, want %q", got, want)
+	}
+	if strings.Count(text, "COMMANDS\n") != 1 {
+		t.Error("command list repeated")
+	}
+}
+
+func TestHelpStatuslineTargets(t *testing.T) {
+	t.Parallel()
+	for _, target := range []string{"claude", "copilot", "tmux", "omp"} {
+		for _, spelling := range []string{"-h", "--help"} {
+			t.Run(target+"/"+spelling, func(t *testing.T) {
+				t.Parallel()
+				assertLocalHelp(t, "statusline", []string{"statusline", target, spelling})
+			})
+		}
+	}
+}
+
+func TestHelpLeafErrors(t *testing.T) {
+	t.Parallel()
+	for _, path := range []string{"init", "check", "render", "prompt", "mcp sync", "mcp add", "models sync", "models render", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "statusline", "version", "help"} {
+		t.Run(path, func(t *testing.T) {
+			t.Parallel()
+			var out, err bytes.Buffer
+			d := helpDeps(&out, &err)
+			if code := d.Run(t.Context(), append(strings.Fields(path), "-bogus")); code != 2 || out.Len() != 0 {
+				t.Fatalf("code=%d stdout=%q stderr=%q", code, &out, &err)
+			}
+			if !strings.Contains(err.String(), "agents "+path) || !strings.Contains(err.String(), "USAGE") {
+				t.Errorf("missing local error help: %s", &err)
+			}
+		})
+	}
+}
+
+func TestHelpPluginAliases(t *testing.T) {
+	t.Parallel()
+	for _, args := range [][]string{{"-n", "-f"}, {"-dry-run", "-force"}} {
+		t.Run(strings.Join(args, " "), func(t *testing.T) {
+			t.Parallel()
+			var out, err bytes.Buffer
+			d := helpDeps(&out, &err)
+			flags, e := d.parsePluginsFlags("plugins list", args)
+			if e != nil || !flags.dryRun || !flags.force || flags.file != "" || flags.jsonOutput {
+				t.Errorf("flags=%+v err=%v", flags, e)
+			}
+		})
+	}
+}
+
+func TestHelpBareGroupsStillExecute(t *testing.T) {
+	// Discovery falls back to the real home and relative paths: isolate both.
+	dir := t.TempDir()
+	t.Chdir(dir)
+	for _, command := range []string{"models", "plugins"} {
+		t.Run(command, func(t *testing.T) {
+			var out, err bytes.Buffer
+			d := Deps{Stdout: &out, Stderr: &err, Getenv: func(key string) string {
+				if key == "HOME" || key == "CHEZMOI_SOURCE_DIR" || key == "XDG_CACHE_HOME" {
+					return dir
+				}
+				return ""
+			}}
+			if code := d.Run(t.Context(), []string{command}); code != 1 {
+				t.Errorf("code=%d, want configuration discovery error 1: %s %s", code, &out, &err)
+			}
+			if err.Len() == 0 || strings.Contains(out.String()+err.String(), "USAGE") {
+				t.Errorf("bare group did not execute default action: %s %s", &out, &err)
+			}
+		})
+	}
+}
+
+func TestHelpVersionAliases(t *testing.T) {
+	t.Parallel()
+	for _, command := range []string{"version", "-v", "--version"} {
+		t.Run(command, func(t *testing.T) {
+			t.Parallel()
+			var out, err bytes.Buffer
+			d := helpDeps(&out, &err)
+			d.Version = "1.2.3"
+			if code := d.Run(t.Context(), []string{command}); code != 0 || out.String() != "agents 1.2.3\n" || err.Len() != 0 {
+				t.Errorf("code=%d stdout=%q stderr=%q", code, &out, &err)
 			}
 		})
 	}

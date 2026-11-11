@@ -1,0 +1,26 @@
+agents — Universal AI harness configuration and policy tools
+
+USAGE
+  agents [command] [options]
+
+COMMANDS
+  init         Detect harnesses and scaffold agents.toml
+  check        Validate policy, client parity, and plugins
+  render       Render client-native configuration or prompt
+  prompt       Display or validate the effective system prompt
+  mcp          Manage workspace MCP configuration
+  models       Display model tiers (default), sync data, or render docs
+  plugins      Inspect, update, or prune plugins
+  usage        Show live provider account usage and refresh the cache
+  doctor       Advise on models, accounts, and capacity from cached usage
+  statusline   Output a fast status line
+  version      Print version information
+  help         Show help for a command path
+
+OPTIONS
+  -h, --help
+    Show this help and exit.
+  -v, --version
+    Print version information and exit.
+
+Use agents help <command> for command-specific help.
