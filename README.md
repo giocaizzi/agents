@@ -147,11 +147,13 @@ When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi aut
 | `models` | `[sync│render]` | Inspect LMArena ranks, Epoch ECI, and pricing |
 | `usage` | `[-provider <id>]` | Live subscription usage per provider account; writes the usage cache |
 | `doctor` | `[-q] [-json] [-harness <list>]` | Advisory on model capacity, drift, and accounts; reads the usage cache only |
-| `plugins` | `[list│update│prune]` | Cross-harness plugin lifecycle management |
+| `plugins` | `[list│update│prune]` | Cross-harness plugin status; update acts only on harnesses that are behind |
 
 When no plugin directory is specified, automatic discovery prefers the managed installation at `~/.local/share/<registry-namespace>` before working-directory, `~/Documents`, and `~/src` developer checkouts. Pass `-harness-dir <path>` or set `HARNESS_DIR` to use a specific directory instead.
 
 `agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
+
+`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. Harnesses linked to the checkout without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
 
 `agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents statusline` and `agents doctor` only read that cache, so they stay fast and offline.
 
