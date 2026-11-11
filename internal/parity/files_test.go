@@ -14,12 +14,15 @@ import (
 
 const goodClaude = `{"voice": {"enabled": {{ .harnessPolicy.voice.enabled | default false | toJson }}, "mode": {{ .harnessPolicy.voice.mode | quote }}, "autoSubmit": {{ .harnessPolicy.voice.autoSubmit | default false | toJson }}}}`
 
+const goodCopilot = `{"voice": {"enabled": {{ .harnessPolicy.voice.enabled | default false | toJson }}}}`
+
 func writeSource(t *testing.T, vscode, claude string) string {
 	t.Helper()
 	dir := t.TempDir()
 	files := map[string]string{
-		"dot_config/Code/User/settings.json":     vscode,
-		".chezmoitemplates/claude-settings.json": claude,
+		"dot_config/Code/User/settings.json":      vscode,
+		".chezmoitemplates/claude-settings.json":  claude,
+		".chezmoitemplates/copilot-settings.json": goodCopilot,
 		".chezmoidata/packages.toml": "[package.pyright]\n[package.ruff]\n[package.typescript]\n[package.gopls]\n[package.bash-language-server]\n" +
 			"[package.yaml-language-server]\n[package.vscode-langservers-extracted]\n[package.terraform-ls]\n[package.tflint]\n",
 	}
@@ -95,11 +98,62 @@ func TestCheckSourceFiles(t *testing.T) {
 	}
 }
 
+// setCopilotTemplate overwrites the Copilot template, or removes it when content is empty.
+func setCopilotTemplate(t *testing.T, dir, content string) {
+	t.Helper()
+	path := filepath.Join(dir, ".chezmoitemplates", "copilot-settings.json")
+	if content == "" {
+		if err := os.Remove(path); err != nil {
+			t.Fatal(err)
+		}
+		return
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCheckSourceFiles_CopilotTemplate(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name     string
+		template string   // empty: remove the file
+		want     []string // substrings, one per expected finding
+	}{
+		{name: "reads agents", template: `{"voice": {"enabled": {{ .agents.voice.enabled | toJson }}}}`},
+		{name: "reads harnessPolicy", template: goodCopilot},
+		{name: "hard-coded", template: `{"voice": {"enabled": true}}`, want: []string{".agents.voice.enabled"}},
+		{name: "file missing", want: []string{"cannot read"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := writeSource(t, `{"dictation.enabled": false}`, goodClaude)
+			setCopilotTemplate(t, dir, tt.template)
+			p := loadPolicy(t)
+			p.Voice.Enabled = false
+			findings := parity.CheckSourceFiles(p, dir)
+			got := make([]string, 0, len(findings))
+			for _, f := range findings {
+				got = append(got, f.String())
+			}
+			if len(got) != len(tt.want) {
+				t.Fatalf("findings = %v, want %d matching %v", got, len(tt.want), tt.want)
+			}
+			for i, sub := range tt.want {
+				if !strings.Contains(got[i], sub) || !strings.Contains(got[i], "copilot") {
+					t.Errorf("finding %d = %q, want substring %q and copilot", i, got[i], sub)
+				}
+			}
+		})
+	}
+}
+
 func TestCheckSourceFiles_MissingFiles(t *testing.T) {
 	t.Parallel()
 	got := parity.CheckSourceFiles(loadPolicy(t), t.TempDir())
-	if len(got) != 3 {
-		t.Errorf("findings = %v, want 3 (one per missing file)", got)
+	if len(got) != 4 {
+		t.Errorf("findings = %v, want 4 (one per missing file)", got)
 	}
 }
 

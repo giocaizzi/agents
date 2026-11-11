@@ -302,7 +302,7 @@ defaultModel = "gpt-5.5"
 sandbox = false
 
 # --- D9: Voice input (dictation) ---
-# Claude Code: rendered from this table. VS Code: settings.json is static, edit it to match (agents check fails on drift). Others: docs/OS.md#voice-input.
+# Claude Code and Copilot CLI: rendered from this table. VS Code: settings.json is static, edit it to match (agents check fails on drift). Others: docs/OS.md#voice-input.
 [harnessPolicy.voice]
 enabled = true
 mode = "hold"        # "hold" (push-to-talk) | "tap" (toggle)

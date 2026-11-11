@@ -41,9 +41,11 @@ Points that hold for the whole page:
 | Other UI (`tuiMode`, `viewMode`, `outputStyle`, `showTurnDuration`, `progressBar`, `timeFormat`) | — GAP: `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled` (schema-only) | — GAP: `terminalProgress` | — unknown | — unknown | — unknown | — GAP: `tuiMode`, `terminal.showTerminalProgress` | — unknown |
 | Telemetry (`telemetry.*`, dual tier, hooks bridge) | — GAP: OTEL settings under `env` (schema-only) | — GAP: `telemetry.*` | — unknown | — GAP: `otel` | — GAP: `experimental.openTelemetry` | — n/a: only anonymous install telemetry (`enableInstallTelemetry`), not OTLP | — unknown |
 | LSP (`lsp.enabled`, `lsp.server.*`) | checks each server names a row in `packages.toml`; not rendered (no `lspServers` key in the schema) | checks `packages.toml` row; not rendered (GAP: `lsp` configuration) | checks `packages.toml` row; native key unknown | checks `packages.toml` row; native key unknown | checks `packages.toml` row; not rendered (GAP: `lsp`) | checks `packages.toml` row; n/a: no built-in LSP | checks `packages.toml` row; native key unknown |
-| Voice (`voice.enabled`, `mode`, `autoSubmit`, `language`) | renders `voice.enabled`, `voice.mode` (default `hold`), `voice.autoSubmit`; no `language` (it also sets the reply language); checks the Claude template reads `.agents.voice.{enabled,mode,autoSubmit}` and sets no `"language":` | — GAP: Copilot CLI has a documented `voice.enabled` key; not mapped yet | renders `dictation.enabled`, `agents.voice.language`; checks the static `dot_config/Code/User/settings.json` matches both | — n/a: no dictation in the CLI; `/voice` starts a realtime spoken conversation (cloud), not dictation into the prompt | — n/a: none found | — not implemented | — n/a: `/voice` dictation (cloud) has no documented settings key |
+| Voice (`voice.enabled`, `mode`, `autoSubmit`, `language`) | renders `voice.enabled`, `voice.mode` (default `hold`), `voice.autoSubmit`; no `language` (it also sets the reply language); checks the Claude template reads `.agents.voice.{enabled,mode,autoSubmit}` and sets no `"language":` | renders `voice.enabled` (Copilot has no mode, auto-submit or language key); checks the Copilot template reads `.agents.voice.enabled` | renders `dictation.enabled`, `agents.voice.language`; checks the static `dot_config/Code/User/settings.json` matches both | — n/a: no dictation in the CLI; `/voice` starts a realtime spoken conversation (cloud), not dictation into the prompt | — n/a: none found | — not implemented | — n/a: `/voice` dictation (cloud) has no documented settings key |
 | Native escapes (`native.*`) | renders `defaultMode`, `skipAutoPermissionPrompt`; `cleanupPeriodDays`, `disableClaudeAiConnectors` are parsed, not rendered (GAP: `cleanupPeriodDays`, `disableClaudeAiConnectors`) | renders `subagents.agents` from `native.copilot.agents`; checks binding has model and `effortLevel` | — n/a: no native block | renders `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode` when set | renders `model`, `sandbox` | renders the four `native.pi` keys | renders `agentMode`, `toolPermission`, `enableTerminalSandbox`, `allowNonWorkspaceAccess` |
 | Profiles (`profiles.*`) | `WithProfile` is harness-independent: merges tiers, appends allow/deny/MCP lists, overrides `executionMode`, `sandboxMode`, `ui`. It drops `allowCommandPatterns`, `askCommandPrefixes`, other autonomy fields and `profiles.*.plugins`. | same | same | same | same | same | same |
+
+For voice per harness (where audio goes, the speech model, manual steps) see [voice parity](voice.md).
 
 Sources (Configuration): `internal/config/policy.go` (fields, `WithProfile`), `internal/config/validate.go` (`Validate`: autonomy mode enum, non-empty patterns, tier model/effort, `native.claude.defaultMode`, `native.antigravity.agentMode`, `native.pi.defaultThinkingLevel`, voice mode and BCP 47 language, LSP server shape), `internal/translate/{claude,copilot,vscode,codex,opencode,pi,antigravity}.go`, `internal/parity/parity.go: CheckParity`, `internal/parity/files.go: CheckSourceFiles`.
 
@@ -107,22 +109,21 @@ Security and permissions
 Correctness of what users see
 
 10. Claude Code, Copilot CLI, opencode - model and effort - `model`, `effortLevel`, `showThinkingSummaries`; `model`, `effortLevel`; `small_model` - render `models.tiers` and the effort fields (today only `doctor` and `statusline` read tiers).
-11. Copilot CLI - voice - `voice.enabled` - map `voice.enabled`; add a Copilot template check (in progress outside this branch).
-12. Claude Code, Codex, opencode, pi - context compaction - `autoCompactEnabled`, `model_auto_compact_token_limit`, `compaction`, `compaction.*` - map `context.*`.
-13. Claude Code, Copilot CLI, Codex, pi - theme - `theme`, `theme`, `tui.theme`, `theme` - map `ui.theme` (VS Code already is).
-14. Claude Code, Copilot CLI, pi - other UI fields - `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`; `terminalProgress`; `tuiMode`, `terminal.showTerminalProgress` - map `ui.*`.
-15. Claude Code, Copilot CLI, Codex, opencode - telemetry - OTEL `env`, `telemetry.*`, `otel`, `experimental.openTelemetry` - map `telemetry.*`.
-16. Copilot CLI, Codex, opencode - subagent limits - `subagents.maxDepth`, `agents.max_depth`, `experimental.subagent_depth` - map `autonomy.subagentDepth`.
-17. Copilot CLI, opencode - LSP - `lsp` configuration - render `lsp.server.*` (today only the `packages.toml` row is checked).
-18. Claude Code - native escapes - `cleanupPeriodDays`, `disableClaudeAiConnectors` - render the parsed `native.claude` fields.
-19. VS Code Copilot - instructions - custom instructions files - accept `vscode` in `agents prompt`.
-20. VS Code Copilot - CLI render - `agents render -harness vscode` - add the `vscode` case to `renderHarness`.
+11. Claude Code, Codex, opencode, pi - context compaction - `autoCompactEnabled`, `model_auto_compact_token_limit`, `compaction`, `compaction.*` - map `context.*`.
+12. Claude Code, Copilot CLI, Codex, pi - theme - `theme`, `theme`, `tui.theme`, `theme` - map `ui.theme` (VS Code already is).
+13. Claude Code, Copilot CLI, pi - other UI fields - `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`; `terminalProgress`; `tuiMode`, `terminal.showTerminalProgress` - map `ui.*`.
+14. Claude Code, Copilot CLI, Codex, opencode - telemetry - OTEL `env`, `telemetry.*`, `otel`, `experimental.openTelemetry` - map `telemetry.*`.
+15. Copilot CLI, Codex, opencode - subagent limits - `subagents.maxDepth`, `agents.max_depth`, `experimental.subagent_depth` - map `autonomy.subagentDepth`.
+16. Copilot CLI, opencode - LSP - `lsp` configuration - render `lsp.server.*` (today only the `packages.toml` row is checked).
+17. Claude Code - native escapes - `cleanupPeriodDays`, `disableClaudeAiConnectors` - render the parsed `native.claude` fields.
+18. VS Code Copilot - instructions - custom instructions files - accept `vscode` in `agents prompt`.
+19. VS Code Copilot - CLI render - `agents render -harness vscode` - add the `vscode` case to `renderHarness`.
 
 Convenience
 
-21. Claude Code, Copilot CLI, Codex - status line setting - `statusLine`, `statusLine`, `tui.status_line` - render the key that calls `agents statusline`.
-22. opencode - MCP - `mcp` in `opencode.json` - add an opencode target to `mcp sync`.
-23. VS Code Copilot - plugin update - no command driven - add an update/install path.
-24. VS Code Copilot - init - harness list - add `vscode` to `agents init`.
+20. Claude Code, Copilot CLI, Codex - status line setting - `statusLine`, `statusLine`, `tui.status_line` - render the key that calls `agents statusline`.
+21. opencode - MCP - `mcp` in `opencode.json` - add an opencode target to `mcp sync`.
+22. VS Code Copilot - plugin update - no command driven - add an update/install path.
+23. VS Code Copilot - init - harness list - add `vscode` to `agents init`.
 
 Derived from the code at 0066e38; checked 2026-11-11.
