@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+	toml "github.com/pelletier/go-toml/v2"
 
 	"github.com/giocaizzi/agents/internal/mcpsync"
 )
@@ -746,4 +747,34 @@ func TestSync_OAuthBothStyles(t *testing.T) {
 			t.Errorf("%s leaks Copilot keys:\n%s", out.Path, out.Content)
 		}
 	}
+}
+
+func TestRenderCodex_OAuthClientIDStaysValidTOML(t *testing.T) {
+	t.Parallel()
+
+	t.Run("xfail: control character in oauth.clientId corrupts the Codex TOML", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: clientId is neither validated nor TOML-escaped; Go quoting writes \\a, which TOML rejects")
+
+		// Either fix is fine: reject the client id at parse time, or render it
+		// as a TOML basic string that parses back to the same value.
+		src, err := mcpsync.ParseAndValidate(strings.NewReader(
+			`{"mcpServers":{"s":{"url":"https://a.example.com","oauth":{"clientId":"a\u0007b"}}}}`), "acct")
+		if err != nil {
+			return
+		}
+		var got struct {
+			MCPServers map[string]struct {
+				OAuth struct {
+					ClientID string `toml:"client_id"`
+				} `toml:"oauth"`
+			} `toml:"mcp_servers"`
+		}
+		if err := toml.Unmarshal(mcpsync.RenderCodex(src.MCPServers), &got); err != nil {
+			t.Fatalf("rendered Codex config is not valid TOML: %v", err)
+		}
+		if diff := cmp.Diff("a\ab", got.MCPServers["s"].OAuth.ClientID); diff != "" {
+			t.Errorf("client_id round-trip (-want +got):\n%s", diff)
+		}
+	})
 }
