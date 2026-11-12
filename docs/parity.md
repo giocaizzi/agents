@@ -60,7 +60,7 @@ What stays VS Code-specific is `settings.json`, which `VSCodeSettings` renders a
 
 For voice per harness (where audio goes, the speech model, manual steps) see [voice parity](voice.md).
 
-Sources (Configuration): `internal/config/policy.go` (fields, `WithProfile`), `internal/config/validate.go` (`Validate`: autonomy mode enum, non-empty patterns, tier model/effort, `native.claude.defaultMode`, `native.antigravity.agentMode`, `native.pi.defaultThinkingLevel`, voice mode and BCP 47 language, LSP server shape), `internal/translate/{claude,copilot,vscode,codex,opencode,pi,antigravity}.go`, `internal/parity/parity.go: CheckParity`, `internal/parity/files.go: CheckSourceFiles`.
+Sources (Configuration): `internal/policy/policy.go` (fields, `WithProfile`), `internal/policy/validate.go` (`Validate`: autonomy mode enum, non-empty patterns, tier model/effort, `native.claude.defaultMode`, `native.antigravity.agentMode`, `native.pi.defaultThinkingLevel`, voice mode and BCP 47 language, LSP server shape), `internal/translate/{claude,copilot,vscode,codex,opencode,pi,antigravity}.go`, `internal/parity/parity.go: CheckParity`, `internal/parity/files.go: CheckSourceFiles`.
 
 ## Instructions and MCP
 

@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // OpenCodeSettings returns the managed subset of opencode settings.
-func OpenCodeSettings(p *config.Policy) map[string]any {
+func OpenCodeSettings(p *policy.Policy) map[string]any {
 	cfg := map[string]any{
 		"bell": p.UI.TerminalBell || p.Notifications.TerminalBell,
 	}

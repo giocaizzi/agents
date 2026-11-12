@@ -1,0 +1,1089 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/giocaizzi/agents/main/schema/config.schema.json",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "AntigravitySettings": {
+      "properties": {
+        "agent_mode": {
+          "type": "string",
+          "description": "Agent mode"
+        },
+        "tool_permission": {
+          "type": "string",
+          "description": "Tool permission level"
+        },
+        "enable_terminal_sandbox": {
+          "type": "boolean",
+          "description": "Sandbox the terminal"
+        },
+        "allow_non_workspace_access": {
+          "type": "boolean",
+          "description": "Allow access outside the workspace"
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra allow rules in native syntax"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Autonomy": {
+      "properties": {
+        "execution_mode": {
+          "type": "string",
+          "description": "Execution mode name"
+        },
+        "sandbox_mode": {
+          "type": "string",
+          "description": "Sandbox mode name"
+        },
+        "allow_non_workspace_access": {
+          "type": "boolean",
+          "description": "Allow access outside the workspace"
+        },
+        "subagent_depth": {
+          "type": "integer",
+          "description": "Maximum subagent nesting depth"
+        },
+        "allow_subagent_invocations": {
+          "type": "boolean",
+          "description": "Allow agents to invoke subagents"
+        },
+        "ask_timeout": {
+          "type": "string",
+          "description": "How long to wait for an answer to a question"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Default agent mode"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Catalog": {
+      "properties": {
+        "providers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Providers to include"
+        },
+        "since": {
+          "type": "string",
+          "description": "Ignore models released before this date"
+        },
+        "pins": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Pinned model per tier or role (any name)"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models to ignore"
+        },
+        "aliases": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "type": "object",
+          "description": "Model aliases per provider (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ClaudeSettings": {
+      "properties": {
+        "default_mode": {
+          "type": "string",
+          "description": "Default permission mode"
+        },
+        "skip_auto_permission_prompt": {
+          "type": "boolean",
+          "description": "Skip the auto mode permission prompt"
+        },
+        "cleanup_period_days": {
+          "type": "integer",
+          "description": "Days to keep transcripts"
+        },
+        "disable_claude_ai_connectors": {
+          "type": "boolean",
+          "description": "Turn off claude.ai connectors"
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra allow rules in native syntax"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CodexSettings": {
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier"
+        },
+        "model_reasoning_effort": {
+          "type": "string",
+          "description": "Reasoning effort"
+        },
+        "approval_policy": {
+          "type": "string",
+          "description": "Approval policy"
+        },
+        "sandbox_mode": {
+          "type": "string",
+          "description": "Sandbox mode"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Config": {
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "enum": [
+            1
+          ],
+          "description": "Schema version of this file (must be 1)"
+        },
+        "profile": {
+          "type": "string",
+          "description": "Selected profile (a machine fact)"
+        },
+        "harnesses": {
+          "items": {
+            "$ref": "#/$defs/Harness"
+          },
+          "type": "array",
+          "description": "Harnesses to configure (unset means auto-detect)"
+        },
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "How freely agents act"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Command and path permissions shared by all harnesses"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Model tiers and the model catalog preferences"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context window and prompt cache behaviour"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "Terminal UI preferences"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notification preferences"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice input preferences"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "OpenTelemetry export settings"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "Language servers made available to the harnesses"
+        },
+        "instructions": {
+          "$ref": "#/$defs/Instructions",
+          "description": "Instruction layers and how to edit them"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugin registry and per-harness plugin selection"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP servers and workspaces"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness settings"
+        },
+        "os": {
+          "$ref": "#/$defs/OSTable",
+          "description": "Overlays applied on one operating system"
+        },
+        "profiles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Profile"
+          },
+          "type": "object",
+          "description": "Named profiles (overlays on top of the config)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Context": {
+      "properties": {
+        "auto_compact": {
+          "type": "boolean",
+          "description": "Compact the context automatically"
+        },
+        "auto_compact_window": {
+          "type": "integer",
+          "description": "Context size that triggers compaction"
+        },
+        "prompt_cache_ttl": {
+          "type": "string",
+          "description": "Prompt cache lifetime"
+        },
+        "subagent_prompt_cache_ttl": {
+          "type": "string",
+          "description": "Prompt cache lifetime for subagents"
+        },
+        "max_turn_tokens": {
+          "type": "integer",
+          "description": "Token limit of one turn"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Token limit of one response"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CopilotAgent": {
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier"
+        },
+        "effort_level": {
+          "type": "string",
+          "description": "Reasoning effort"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CopilotSettings": {
+      "properties": {
+        "agents": {
+          "additionalProperties": {
+            "$ref": "#/$defs/CopilotAgent"
+          },
+          "type": "object",
+          "description": "Per-agent model settings (any agent name)"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Harness": {
+      "type": "string",
+      "enum": [
+        "claude",
+        "copilot",
+        "vscode",
+        "codex",
+        "opencode",
+        "pi",
+        "antigravity"
+      ],
+      "description": "A supported harness"
+    },
+    "HarnessTable": {
+      "properties": {
+        "claude": {
+          "$ref": "#/$defs/ClaudeSettings",
+          "description": "Claude Code settings"
+        },
+        "copilot": {
+          "$ref": "#/$defs/CopilotSettings",
+          "description": "Copilot CLI settings"
+        },
+        "vscode": {
+          "$ref": "#/$defs/VSCodeSettings",
+          "description": "VS Code settings"
+        },
+        "codex": {
+          "$ref": "#/$defs/CodexSettings",
+          "description": "Codex settings"
+        },
+        "opencode": {
+          "$ref": "#/$defs/OpenCodeSettings",
+          "description": "opencode settings"
+        },
+        "pi": {
+          "$ref": "#/$defs/PiSettings",
+          "description": "pi settings"
+        },
+        "antigravity": {
+          "$ref": "#/$defs/AntigravitySettings",
+          "description": "Antigravity settings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "InstructionLayer": {
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "File of the layer relative to the instructions dir"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Instructions": {
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Directory of instruction files (default is the config dir plus /instructions)"
+        },
+        "edit_command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command that edits an instruction file"
+        },
+        "vars": {
+          "type": "object",
+          "description": "Template variables (any name)"
+        },
+        "layers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InstructionLayer"
+          },
+          "type": "object",
+          "description": "Declared layers (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LSP": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable language servers"
+        },
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/LSPServer"
+          },
+          "type": "object",
+          "description": "Language servers (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LSPServer": {
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command line that starts the server"
+        },
+        "extensions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "File extension to language id (any name)"
+        },
+        "filetypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Editor file types"
+        },
+        "format": {
+          "type": "boolean",
+          "description": "Use the server to format"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MCP": {
+      "properties": {
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPServer"
+          },
+          "type": "object",
+          "description": "MCP servers (any name)"
+        },
+        "workspaces": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Workspace"
+          },
+          "type": "object",
+          "description": "Workspaces with their own MCP servers (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MCPServer": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Transport type"
+        },
+        "url": {
+          "type": "string",
+          "description": "Remote server URL"
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "HTTP headers (any name)"
+        },
+        "command": {
+          "type": "string",
+          "description": "Local server command"
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Arguments of the command"
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Environment of the command (any name)"
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth",
+          "description": "Pre-registered OAuth client (url servers only)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ModelTier": {
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier"
+        },
+        "effort": {
+          "type": "string",
+          "description": "Reasoning effort"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Models": {
+      "properties": {
+        "default_effort_level": {
+          "type": "string",
+          "description": "Default reasoning effort"
+        },
+        "show_thinking_summaries": {
+          "type": "boolean",
+          "description": "Show thinking summaries"
+        },
+        "tiers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/ModelTier"
+          },
+          "type": "object",
+          "description": "Named model tiers (any name)"
+        },
+        "catalog": {
+          "$ref": "#/$defs/Catalog",
+          "description": "Model catalog preferences"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Notifications": {
+      "properties": {
+        "terminal_bell": {
+          "type": "boolean",
+          "description": "Ring the terminal bell when a turn ends"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OAuth": {
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client id"
+        },
+        "callback_port": {
+          "type": "integer",
+          "description": "Local callback port (1 to 65535)"
+        },
+        "public_client": {
+          "type": "boolean",
+          "description": "The client has no secret"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OSTable": {
+      "properties": {
+        "darwin": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on macOS"
+        },
+        "linux": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on Linux"
+        },
+        "windows": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on Windows"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OpenCodeSettings": {
+      "properties": {
+        "default_model": {
+          "type": "string",
+          "description": "Default model"
+        },
+        "sandbox": {
+          "type": "boolean",
+          "description": "Run sandboxed"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Overlay": {
+      "properties": {
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "Autonomy overlay"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Permissions overlay"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Models overlay"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context overlay"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "UI overlay"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notifications overlay"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice overlay"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "Telemetry overlay"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "LSP overlay"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugins overlay"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP overlay"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness overlay"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Permissions": {
+      "properties": {
+        "allow_commands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Commands allowed without asking"
+        },
+        "allowed_urls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "URLs agents may fetch"
+        },
+        "allow_command_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Regular expressions of commands allowed without asking"
+        },
+        "deny_read": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Path globs agents may not read"
+        },
+        "deny_write": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Path globs agents may not write"
+        },
+        "deny_command_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Regular expressions of denied commands"
+        },
+        "deny_command_exact": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Exact command lines that are denied"
+        },
+        "deny_command_prefixes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command prefixes that are denied"
+        },
+        "ask_command_prefixes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command prefixes that always ask"
+        },
+        "allowed_mcp": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "MCP servers or tools allowed without asking"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PiSettings": {
+      "properties": {
+        "default_provider": {
+          "type": "string",
+          "description": "Default provider"
+        },
+        "default_model": {
+          "type": "string",
+          "description": "Default model"
+        },
+        "default_thinking_level": {
+          "type": "string",
+          "description": "Default thinking level"
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "pi packages to install"
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Plugins": {
+      "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Plugin registry repository"
+        },
+        "enabled": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/Harness"
+            },
+            "type": "array"
+          },
+          "type": "object",
+          "description": "Harnesses each plugin is enabled for (any plugin name)"
+        },
+        "disabled": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Plugins that stay off"
+        },
+        "standalone": {
+          "additionalProperties": {
+            "$ref": "#/$defs/StandalonePlugin"
+          },
+          "type": "object",
+          "description": "Plugins outside any registry (any name)"
+        },
+        "external": {
+          "additionalProperties": {
+            "$ref": "#/$defs/StandalonePlugin"
+          },
+          "type": "object",
+          "description": "Alias of standalone for external plugins (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Profile": {
+      "properties": {
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this profile (in order)"
+        },
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "Autonomy overlay"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Permissions overlay"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Models overlay"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context overlay"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "UI overlay"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notifications overlay"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice overlay"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "Telemetry overlay"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "LSP overlay"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugins overlay"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP overlay"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness overlay (harness.\u003ch\u003e.instructions is the profile x harness layer list)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandalonePlugin": {
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Repository or URL of the plugin"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path inside the source"
+        },
+        "harnesses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Harnesses the plugin applies to"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version or ref"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Telemetry": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Export telemetry"
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Collector endpoint"
+        },
+        "protocol": {
+          "type": "string",
+          "description": "Export protocol"
+        },
+        "temporality": {
+          "type": "string",
+          "description": "Metric temporality"
+        },
+        "log_tool_details": {
+          "type": "boolean",
+          "description": "Log tool call details"
+        },
+        "log_tool_content": {
+          "type": "boolean",
+          "description": "Log tool call content"
+        },
+        "service_namespace": {
+          "type": "string",
+          "description": "Service namespace resource attribute"
+        },
+        "attributes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Extra resource attributes (any name)"
+        },
+        "services": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Service name per harness (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "UI": {
+      "properties": {
+        "theme": {
+          "type": "string",
+          "description": "Colour theme"
+        },
+        "tui_mode": {
+          "type": "string",
+          "description": "Terminal UI mode"
+        },
+        "view_mode": {
+          "type": "string",
+          "description": "Transcript view mode"
+        },
+        "output_style": {
+          "type": "string",
+          "description": "Output style"
+        },
+        "show_turn_duration": {
+          "type": "boolean",
+          "description": "Show how long each turn took"
+        },
+        "progress_bar": {
+          "type": "boolean",
+          "description": "Show a progress bar"
+        },
+        "time_format": {
+          "type": "string",
+          "description": "Time format"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VSCodeSettings": {
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key)"
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Voice": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable voice input"
+        },
+        "mode": {
+          "type": "string",
+          "description": "Voice mode"
+        },
+        "auto_submit": {
+          "type": "boolean",
+          "description": "Submit the transcript automatically"
+        },
+        "language": {
+          "type": "string",
+          "description": "Dictation language"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Workspace": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Workspace directory"
+        },
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPServer"
+          },
+          "type": "object",
+          "description": "MCP servers of the workspace (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  },
+  "title": "agents configuration",
+  "description": "The standalone agents configuration file (config.toml or a project agents.toml)."
+}

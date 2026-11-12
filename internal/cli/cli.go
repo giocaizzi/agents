@@ -11,8 +11,8 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/term"
 )
 
@@ -113,7 +113,7 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	}
 }
 
-func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
+func (d Deps) loadPolicy(explicitPath string) (*policy.Policy, string, error) {
 	if explicitPath != "" {
 		cleaned := filepath.Clean(explicitPath)
 		f, err := os.Open(cleaned)
@@ -121,7 +121,7 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 			return nil, "", fmt.Errorf("open policy %s: %w", explicitPath, err)
 		}
 		defer f.Close()
-		p, err := config.ParseTOML(f)
+		p, err := policy.ParseTOML(f)
 		if err != nil {
 			return nil, "", fmt.Errorf("parse %s: %w", explicitPath, err)
 		}
@@ -178,7 +178,7 @@ func (d Deps) loadPolicy(explicitPath string) (*config.Policy, string, error) {
 				return nil, "", fmt.Errorf("open %s: %w", cand, err)
 			}
 			defer f.Close()
-			p, err := config.ParseTOML(f)
+			p, err := policy.ParseTOML(f)
 			if err != nil {
 				return nil, "", fmt.Errorf("parse %s: %w", cand, err)
 			}

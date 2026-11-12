@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // CodexConfig returns the managed subset of Codex configuration as a map.
-func CodexConfig(p *config.Policy) map[string]any {
+func CodexConfig(p *policy.Policy) map[string]any {
 	bell := p.UI.TerminalBell || p.Notifications.TerminalBell
 	cfg := map[string]any{
 		"tui": map[string]any{

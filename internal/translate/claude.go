@@ -4,7 +4,7 @@ package translate
 import (
 	"fmt"
 
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 const defaultAuto = "auto"
@@ -40,7 +40,7 @@ func (c ClaudePermissionsOutput) ToMap() map[string]any {
 }
 
 // ClaudePermissions translates policy permissions into Claude's native schema.
-func ClaudePermissions(p *config.Policy, goos string) ClaudePermissionsOutput {
+func ClaudePermissions(p *policy.Policy, goos string) ClaudePermissionsOutput {
 	allow := make([]string, 0, 4+len(p.Permissions.AllowCommandPatterns))
 	allow = append(allow,
 		"WebSearch",
@@ -102,7 +102,7 @@ func ClaudePermissions(p *config.Policy, goos string) ClaudePermissionsOutput {
 }
 
 // ClaudeSettings returns the managed subset of Claude Code settings.
-func ClaudeSettings(p *config.Policy, goos string) map[string]any {
+func ClaudeSettings(p *policy.Policy, goos string) map[string]any {
 	notif := "notifications_disabled"
 	if p.UI.TerminalBell || p.Notifications.TerminalBell {
 		notif = "terminal_bell"

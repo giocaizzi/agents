@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/translate"
 )
 
@@ -24,7 +24,7 @@ func SupportedHarnesses() []string {
 }
 
 // CheckParity verifies that canonical policy translates cleanly to all harnesses.
-func CheckParity(p *config.Policy) []finding.Finding {
+func CheckParity(p *policy.Policy) []finding.Finding {
 	var fs []finding.Finding
 
 	bell := p.UI.TerminalBell || p.Notifications.TerminalBell
@@ -78,7 +78,7 @@ func CheckParity(p *config.Policy) []finding.Finding {
 }
 
 // Summary returns a human-readable parity status across all harnesses.
-func Summary(_ *config.Policy) string {
+func Summary(_ *policy.Policy) string {
 	var sb strings.Builder
 	sb.WriteString("Harness Configuration Parity Matrix:\n")
 	for _, h := range SupportedHarnesses() {

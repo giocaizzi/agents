@@ -19,7 +19,7 @@ import (
 
 	"github.com/giocaizzi/agents/internal/cache"
 	"github.com/giocaizzi/agents/internal/catalog"
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/term"
 )
 
@@ -130,7 +130,7 @@ func (d Deps) defaultModelsJSONPath() string {
 	return "models.json"
 }
 
-func (d Deps) catalogFromPolicy(p *config.Policy) catalog.Catalog {
+func (d Deps) catalogFromPolicy(p *policy.Policy) catalog.Catalog {
 	since := p.Models.Catalog.Since
 	if since == "" {
 		since = "2026-01-01"
@@ -153,7 +153,7 @@ func (d Deps) catalogFromPolicy(p *config.Policy) catalog.Catalog {
 	return c
 }
 
-func (d Deps) overlayCatalogPolicy(c *catalog.Catalog, p *config.Policy) {
+func (d Deps) overlayCatalogPolicy(c *catalog.Catalog, p *policy.Policy) {
 	if len(p.Models.Catalog.Providers) > 0 {
 		c.Providers = p.Models.Catalog.Providers
 	}

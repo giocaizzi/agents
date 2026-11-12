@@ -1,0 +1,7 @@
+schema_version = 1
+
+[mcp.servers.acme-local]
+command = "acme-mcp"
+
+[mcp.servers.acme-local.oauth]
+client_id = "abc"

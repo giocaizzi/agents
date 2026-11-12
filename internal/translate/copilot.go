@@ -1,12 +1,12 @@
 package translate
 
 import (
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // CopilotSettings returns the managed subset of Copilot CLI settings. Voice
 // input honors only voice.enabled; the other voice keys stay user-managed.
-func CopilotSettings(p *config.Policy) map[string]any {
+func CopilotSettings(p *policy.Policy) map[string]any {
 	agents := make(map[string]any, len(p.Native.Copilot.Agents))
 	for name, a := range p.Native.Copilot.Agents {
 		agents[name] = map[string]any{

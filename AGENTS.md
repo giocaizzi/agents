@@ -7,7 +7,7 @@ Universal AI Agent Harness Manager (`agents` standalone CLI and chezmoi plugin p
 `agents` provides a declarative, cross-client management tool for AI coding agents across multiple harnesses: Claude Code, GitHub Copilot CLI, Google Antigravity, OpenAI Codex, OpenCode, and Pi.
 
 - `cmd/agents/` — Main entrypoint (dispatched as `agents` or optional `chezmoi-agents` symlink).
-- `internal/config/` — Declarative policy and harness configuration parser (`agents.toml`, `harness.toml`).
+- `internal/policy/` — Declarative policy and harness configuration parser (`agents.toml`, `harness.toml`).
 - `internal/parity/` — Client parity compiler and rule verification across 6 harnesses.
 - `internal/translate/` — Translates declarative rules and settings into native client formats.
 - `internal/mcpsync/` — Bidirectional workspace MCP synchronization (`.mcp.json`).

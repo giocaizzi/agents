@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/giocaizzi/agents/internal/catalog"
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/usage"
 )
 
@@ -162,7 +162,7 @@ const (
 // Settings lists the configured models of the given harnesses from the
 // policy, in harness then role order. Harness names it does not know are
 // ignored.
-func Settings(p config.Policy, harnesses []string) []Setting {
+func Settings(p policy.Policy, harnesses []string) []Setting {
 	var out []Setting
 	for _, h := range harnessOrder() {
 		if !slices.Contains(harnesses, h) {
@@ -190,7 +190,7 @@ func Settings(p config.Policy, harnesses []string) []Setting {
 
 // defaultSetting is the harness's own default model, for the harnesses whose
 // native settings have one.
-func defaultSetting(p config.Policy, h string) (Setting, bool) {
+func defaultSetting(p policy.Policy, h string) (Setting, bool) {
 	s := Setting{Harness: h, Role: RoleDefault}
 	switch h {
 	case hCodex:
