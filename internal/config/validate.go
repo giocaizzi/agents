@@ -34,24 +34,10 @@ func Validate(c Config) []finding.Finding {
 		}
 	}
 
-	layers := c.Instructions.Layers
-	checkLayers := func(where string, names []string) {
-		for _, n := range names {
-			if _, ok := layers[n]; !ok {
-				add(where, "layer %q is not declared under instructions.layers", n)
-			}
-		}
-	}
-	for _, h := range All() {
-		checkLayers("harness."+string(h)+".instructions", c.Harness.InstructionLists()[h])
-	}
+	validateLayerRefs(c, add)
 	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
 		p := c.Profiles[name]
 		base := "profiles." + name
-		checkLayers(base+".instructions", p.Instructions)
-		for _, h := range All() {
-			checkLayers(base+".harness."+string(h)+".instructions", p.Harness.InstructionLists()[h])
-		}
 		validatePlugins(base+".plugins", p.Plugins, add)
 		validateServers(base+".mcp.servers", p.MCP.Servers, false, add)
 	}
@@ -71,6 +57,29 @@ func Validate(c Config) []finding.Finding {
 		validateServers(where+".servers", w.Servers, true, add)
 	}
 	return out
+}
+
+// validateLayerRefs checks that every instructions list names declared layers.
+func validateLayerRefs(c Config, add func(string, string, ...any)) {
+	layers := c.Instructions.Layers
+	checkLayers := func(where string, names []string) {
+		for _, n := range names {
+			if _, ok := layers[n]; !ok {
+				add(where, "layer %q is not declared under instructions.layers", n)
+			}
+		}
+	}
+	for _, h := range All() {
+		checkLayers("harness."+string(h)+".instructions", c.Harness.InstructionLists()[h])
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
+		p := c.Profiles[name]
+		base := "profiles." + name
+		checkLayers(base+".instructions", p.Instructions)
+		for _, h := range All() {
+			checkLayers(base+".harness."+string(h)+".instructions", p.Harness.InstructionLists()[h])
+		}
+	}
 }
 
 func harnessList() string {

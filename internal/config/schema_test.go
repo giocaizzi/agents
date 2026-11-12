@@ -27,8 +27,8 @@ func TestSchemaDrift(t *testing.T) {
 		t.Fatal(err)
 	}
 	if *update {
-		if err := os.WriteFile(schemaPath, got, 0o600); err != nil {
-			t.Fatal(err)
+		if werr := os.WriteFile(schemaPath, got, 0o600); werr != nil {
+			t.Fatal(werr)
 		}
 		return
 	}
@@ -52,8 +52,8 @@ func compile(t *testing.T) *jsonschema.Schema {
 		t.Fatal(err)
 	}
 	c := jsonschema.NewCompiler()
-	if err := c.AddResource(config.SchemaID, doc); err != nil {
-		t.Fatal(err)
+	if aerr := c.AddResource(config.SchemaID, doc); aerr != nil {
+		t.Fatal(aerr)
 	}
 	s, err := c.Compile(config.SchemaID)
 	if err != nil {

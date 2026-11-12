@@ -35,27 +35,27 @@ type Config struct {
 	SchemaVersion int                `json:"schema_version,omitempty" jsonschema:"enum=1,description=Schema version of this file (must be 1)"       toml:"schema_version,omitempty"`
 	Profile       string             `json:"profile,omitempty"        jsonschema:"description=Selected profile (a machine fact)"                    toml:"profile,omitempty"`
 	Harnesses     []Harness          `json:"harnesses,omitempty"      jsonschema:"description=Harnesses to configure (unset means auto-detect)"     toml:"harnesses,omitempty"`
-	Autonomy      Autonomy           `json:"autonomy,omitzero"       jsonschema:"description=How freely agents act"                                toml:"autonomy,omitzero"`
-	Permissions   Permissions        `json:"permissions,omitzero"    jsonschema:"description=Command and path permissions shared by all harnesses" toml:"permissions,omitzero"`
-	Models        Models             `json:"models,omitzero"         jsonschema:"description=Model tiers and the model catalog preferences"        toml:"models,omitzero"`
-	Context       Context            `json:"context,omitzero"        jsonschema:"description=Context window and prompt cache behaviour"            toml:"context,omitzero"`
-	UI            UI                 `json:"ui,omitzero"             jsonschema:"description=Terminal UI preferences"                              toml:"ui,omitzero"`
-	Notifications Notifications      `json:"notifications,omitzero"  jsonschema:"description=Notification preferences"                             toml:"notifications,omitzero"`
-	Voice         Voice              `json:"voice,omitzero"          jsonschema:"description=Voice input preferences"                              toml:"voice,omitzero"`
-	Telemetry     Telemetry          `json:"telemetry,omitzero"      jsonschema:"description=OpenTelemetry export settings"                        toml:"telemetry,omitzero"`
-	LSP           LSP                `json:"lsp,omitzero"            jsonschema:"description=Language servers made available to the harnesses"     toml:"lsp,omitzero"`
-	Instructions  Instructions       `json:"instructions,omitzero"   jsonschema:"description=Instruction layers and how to edit them"              toml:"instructions,omitzero"`
-	Plugins       Plugins            `json:"plugins,omitzero"        jsonschema:"description=Plugin registry and per-harness plugin selection"     toml:"plugins,omitzero"`
-	MCP           MCP                `json:"mcp,omitzero"            jsonschema:"description=MCP servers and workspaces"                           toml:"mcp,omitzero"`
-	Harness       HarnessTable       `json:"harness,omitzero"        jsonschema:"description=Per-harness settings"                                 toml:"harness,omitzero"`
-	OS            OSTable            `json:"os,omitzero"             jsonschema:"description=Overlays applied on one operating system"             toml:"os,omitzero"`
+	Autonomy      Autonomy           `json:"autonomy,omitzero"        jsonschema:"description=How freely agents act"                                toml:"autonomy,omitzero"`
+	Permissions   Permissions        `json:"permissions,omitzero"     jsonschema:"description=Command and path permissions shared by all harnesses" toml:"permissions,omitzero"`
+	Models        Models             `json:"models,omitzero"          jsonschema:"description=Model tiers and the model catalog preferences"        toml:"models,omitzero"`
+	Context       Context            `json:"context,omitzero"         jsonschema:"description=Context window and prompt cache behaviour"            toml:"context,omitzero"`
+	UI            UI                 `json:"ui,omitzero"              jsonschema:"description=Terminal UI preferences"                              toml:"ui,omitzero"`
+	Notifications Notifications      `json:"notifications,omitzero"   jsonschema:"description=Notification preferences"                             toml:"notifications,omitzero"`
+	Voice         Voice              `json:"voice,omitzero"           jsonschema:"description=Voice input preferences"                              toml:"voice,omitzero"`
+	Telemetry     Telemetry          `json:"telemetry,omitzero"       jsonschema:"description=OpenTelemetry export settings"                        toml:"telemetry,omitzero"`
+	LSP           LSP                `json:"lsp,omitzero"             jsonschema:"description=Language servers made available to the harnesses"     toml:"lsp,omitzero"`
+	Instructions  Instructions       `json:"instructions,omitzero"    jsonschema:"description=Instruction layers and how to edit them"              toml:"instructions,omitzero"`
+	Plugins       Plugins            `json:"plugins,omitzero"         jsonschema:"description=Plugin registry and per-harness plugin selection"     toml:"plugins,omitzero"`
+	MCP           MCP                `json:"mcp,omitzero"             jsonschema:"description=MCP servers and workspaces"                           toml:"mcp,omitzero"`
+	Harness       HarnessTable       `json:"harness,omitzero"         jsonschema:"description=Per-harness settings"                                 toml:"harness,omitzero"`
+	OS            OSTable            `json:"os,omitzero"              jsonschema:"description=Overlays applied on one operating system"             toml:"os,omitzero"`
 	Profiles      map[string]Profile `json:"profiles,omitempty"       jsonschema:"description=Named profiles (overlays on top of the config)"       toml:"profiles,omitempty"`
 }
 
 // Profile is an overlay selected by name. Its instructions lists are
 // composition data and never merge into the config.
 type Profile struct {
-	Instructions  []string      `json:"instructions,omitempty"  jsonschema:"description=Instruction layers composed for this profile (in order)"                            toml:"instructions,omitempty"`
+	Instructions  []string      `json:"instructions,omitempty" jsonschema:"description=Instruction layers composed for this profile (in order)"                            toml:"instructions,omitempty"`
 	Autonomy      Autonomy      `json:"autonomy,omitzero"      jsonschema:"description=Autonomy overlay"                                                                   toml:"autonomy,omitzero"`
 	Permissions   Permissions   `json:"permissions,omitzero"   jsonschema:"description=Permissions overlay"                                                                toml:"permissions,omitzero"`
 	Models        Models        `json:"models,omitzero"        jsonschema:"description=Models overlay"                                                                     toml:"models,omitzero"`
@@ -124,7 +124,7 @@ type Models struct {
 	DefaultEffortLevel    string               `json:"default_effort_level,omitempty"    jsonschema:"description=Default reasoning effort"     toml:"default_effort_level,omitempty"`
 	ShowThinkingSummaries bool                 `json:"show_thinking_summaries,omitempty" jsonschema:"description=Show thinking summaries"      toml:"show_thinking_summaries,omitempty"`
 	Tiers                 map[string]ModelTier `json:"tiers,omitempty"                   jsonschema:"description=Named model tiers (any name)" toml:"tiers,omitempty"`
-	Catalog               Catalog              `json:"catalog,omitzero"                 jsonschema:"description=Model catalog preferences"    toml:"catalog,omitzero"`
+	Catalog               Catalog              `json:"catalog,omitzero"                  jsonschema:"description=Model catalog preferences"    toml:"catalog,omitzero"`
 }
 
 // ModelTier is one named tier.
@@ -253,7 +253,7 @@ type MCPServer struct {
 	Command string            `json:"command,omitempty" jsonschema:"description=Local server command"                           toml:"command,omitempty"`
 	Args    []string          `json:"args,omitempty"    jsonschema:"description=Arguments of the command"                       toml:"args,omitempty"`
 	Env     map[string]string `json:"env,omitempty"     jsonschema:"description=Environment of the command (any name)"          toml:"env,omitempty"`
-	OAuth   OAuth             `json:"oauth,omitzero"   jsonschema:"description=Pre-registered OAuth client (url servers only)" toml:"oauth,omitzero"`
+	OAuth   OAuth             `json:"oauth,omitzero"    jsonschema:"description=Pre-registered OAuth client (url servers only)" toml:"oauth,omitzero"`
 }
 
 // OAuth is a pre-registered OAuth client.

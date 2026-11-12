@@ -210,9 +210,11 @@ func TestLoadOSOverlayOrder(t *testing.T) {
 			}
 		})
 	}
+}
 
-	t.Run("os overlay only without a profile", func(t *testing.T) {
-		t.Parallel()
+func TestLoadOSOverlayWithoutProfile(t *testing.T) {
+	t.Parallel()
+	{
 		fsys := newFS(map[string]string{p("c.toml"): `
 [os.windows.ui]
 theme = "win"
@@ -241,7 +243,7 @@ theme = "base"
 				}
 			}
 		}
-	})
+	}
 }
 
 func TestLoadProfileOverlayStripsInstructions(t *testing.T) {

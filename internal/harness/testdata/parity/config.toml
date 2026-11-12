@@ -214,8 +214,14 @@ format = true
 command = ["tflint", "--langserver"]
 extensions = { ".tf" = "terraform", ".tfvars" = "terraform-vars" }
 
-[instructions]
-layers = ["${HOME}/.config/agents/instructions/core.md", "${HOME}/.config/agents/instructions/env.md"]
+# Layer files live in the default directory, ~/.config/agents/instructions/<name>.md.
+[instructions.vars]
+tools = ["git", "make", "uv"]
+
+[instructions.layers.core]
+[instructions.layers.env]
+[instructions.layers.personal]
+[instructions.layers.work]
 
 [plugins]
 registry = "giocaizzi/harness"
@@ -336,7 +342,6 @@ sandbox_mode = "workspace-write"
 default_provider = "openai"
 default_model = "gpt-6.1-sol"
 default_thinking_level = "medium"
-packages = ["../../.local/share/giocaizzi-harness"]
 
 [harness.opencode]
 default_model = "gpt-5.5"
@@ -352,11 +357,7 @@ CLAUDE_CODE_SCROLL_SPEED = "3"
 
 [profiles.personal]
 telemetry.enabled = true
-instructions.layers = [
-    "${HOME}/.config/agents/instructions/core.md",
-    "${HOME}/.config/agents/instructions/env.md",
-    "${HOME}/.config/agents/instructions/personal.md",
-]
+instructions = ["core", "env", "personal"]
 
 [profiles.personal.harness.claude.settings.env]
 CLAUDE_CODE_ENHANCED_TELEMETRY_BETA = "1"
@@ -374,8 +375,4 @@ crm = { url = "https://crm.example.com/mcp", oauth = { client_id = "${MCP_CLIENT
 
 [profiles.work]
 plugins.disabled = ["go"]
-instructions.layers = [
-    "${HOME}/.config/agents/instructions/core.md",
-    "${HOME}/.config/agents/instructions/env.md",
-    "${HOME}/.config/agents/instructions/work.md",
-]
+instructions = ["core", "env", "work"]
