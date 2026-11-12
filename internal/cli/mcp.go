@@ -73,25 +73,39 @@ func (d Deps) runMCPSync(_ context.Context, args []string) int {
 		if account == "" {
 			account = "example-account"
 		}
-		if err := mcpsync.Check(root, account); err != nil {
+		warnings, err := mcpsync.Check(root, account)
+		if err != nil {
 			errSt := term.NewStyle(d.Stderr, d.Getenv)
 			fmt.Fprintf(d.Stderr, "%serror:%s %v\n", errSt.R, errSt.O, err)
 			return 1
 		}
+		d.printMCPWarnings(warnings)
 		srcFile := filepath.Join(root, mcpsync.SourceFilename)
 		fmt.Fprintf(d.Stdout, "%s✓%s workspace MCP source is valid for Codex, pi and Antigravity (%s)\n", st.G, st.O, srcFile)
 		return 0
 	}
 
-	outputs, err := mcpsync.Sync(root, account)
+	outputs, warnings, err := mcpsync.Sync(root, account)
 	if err != nil {
 		errSt := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%serror:%s %v\n", errSt.R, errSt.O, err)
 		return 1
 	}
+	d.printMCPWarnings(warnings)
 
 	fmt.Fprintf(d.Stdout, "%s✓%s generated workspace MCP configuration for Codex, pi and Antigravity (%d files)\n", st.G, st.O, len(outputs))
 	return 0
+}
+
+// printMCPWarnings reports, on stderr, settings a native target cannot represent.
+func (d Deps) printMCPWarnings(warnings []string) {
+	if len(warnings) == 0 {
+		return
+	}
+	st := term.NewStyle(d.Stderr, d.Getenv)
+	for _, w := range warnings {
+		fmt.Fprintf(d.Stderr, "%swarning:%s %s\n", st.Y, st.O, w)
+	}
 }
 
 func parseEnvFlags(envFlags []string) (map[string]string, error) {
@@ -222,12 +236,13 @@ func (d Deps) runMCPAdd(_ context.Context, args []string) int {
 		account = d.Getenv("MCP_CONNECTOR_ACCOUNT")
 	}
 
-	outputs, syncErr := mcpsync.Sync(*dirFlag, account)
+	outputs, warnings, syncErr := mcpsync.Sync(*dirFlag, account)
 	if syncErr != nil {
 		errSt := term.NewStyle(d.Stderr, d.Getenv)
 		fmt.Fprintf(d.Stderr, "%serror syncing native configuration:%s %v\n", errSt.R, errSt.O, syncErr)
 		return 1
 	}
+	d.printMCPWarnings(warnings)
 
 	fmt.Fprintf(d.Stdout, "%s✓%s added server %q to %s and synced native configurations (%d files)\n", st.G, st.O, name, mcpsync.SourceFilename, len(outputs))
 	return 0

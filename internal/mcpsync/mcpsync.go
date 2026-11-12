@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -26,6 +27,9 @@ const (
 	PiTargetRelPath    = ".pi/mcp.json"
 	AntigravityRelPath = ".agents/mcp_config.json"
 
+	// AntigravityRedirectURI is the fixed OAuth redirect URI of Antigravity.
+	AntigravityRedirectURI = "https://antigravity.google/oauth-callback"
+
 	TransportHTTP  = "http"
 	TransportStdio = "stdio"
 )
@@ -37,13 +41,53 @@ var (
 )
 
 // ServerEntry matches the schema for an MCP server definition.
+//
+// A pre-registered OAuth client may be declared in either key style that
+// shares the source file: Claude Code's nested OAuth object, or GitHub Copilot
+// CLI's flat OAuthClientID, OAuthPublicClient and Auth keys. Both are kept
+// verbatim so that rewriting the source never drops either style. A client
+// secret is never part of the schema.
 type ServerEntry struct {
-	Type    string            `json:"type,omitempty"`
-	URL     string            `json:"url,omitempty"`
-	Headers map[string]string `json:"headers,omitempty"`
-	Command string            `json:"command,omitempty"`
-	Args    []string          `json:"args,omitempty"`
-	Env     map[string]string `json:"env,omitempty"`
+	Type              string            `json:"type,omitempty"`
+	URL               string            `json:"url,omitempty"`
+	Headers           map[string]string `json:"headers,omitempty"`
+	Command           string            `json:"command,omitempty"`
+	Args              []string          `json:"args,omitempty"`
+	Env               map[string]string `json:"env,omitempty"`
+	OAuth             *OAuth            `json:"oauth,omitempty"`
+	OAuthClientID     string            `json:"oauthClientId,omitempty"`
+	OAuthPublicClient *bool             `json:"oauthPublicClient,omitempty"`
+	Auth              *Auth             `json:"auth,omitempty"`
+}
+
+// OAuth is Claude Code's nested pre-registered OAuth client.
+type OAuth struct {
+	ClientID     string `json:"clientId,omitempty"`
+	CallbackPort int    `json:"callbackPort,omitempty"`
+}
+
+// oauthClient returns the effective pre-registered OAuth client id and
+// callback port. Per field, the nested (Claude Code) style wins over the flat
+// (Copilot CLI) one; differing values are allowed because the harnesses may
+// legitimately use different ports. OAuthPublicClient is Copilot-only and is
+// never translated.
+func (e ServerEntry) oauthClient() (clientID string, port int) {
+	clientID = e.OAuthClientID
+	if e.OAuth != nil && e.OAuth.ClientID != "" {
+		clientID = e.OAuth.ClientID
+	}
+	if e.Auth != nil {
+		port = e.Auth.RedirectPort
+	}
+	if e.OAuth != nil && e.OAuth.CallbackPort != 0 {
+		port = e.OAuth.CallbackPort
+	}
+	return clientID, port
+}
+
+// Auth is GitHub Copilot CLI's OAuth redirect settings.
+type Auth struct {
+	RedirectPort int `json:"redirectPort,omitempty"`
 }
 
 // Source represents the top-level .mcp.json schema.
@@ -141,6 +185,12 @@ func validateHTTPEntry(name string, entry ServerEntry, account string) (ServerEn
 	if entry.Command != "" || len(entry.Args) > 0 || len(entry.Env) > 0 {
 		return entry, fmt.Errorf("server %q: command, args and env not allowed for http transport", name)
 	}
+	if entry.OAuth != nil && !validPort(entry.OAuth.CallbackPort) {
+		return entry, fmt.Errorf("server %q: oauth.callbackPort %d out of range 1..65535", name, entry.OAuth.CallbackPort)
+	}
+	if entry.Auth != nil && !validPort(entry.Auth.RedirectPort) {
+		return entry, fmt.Errorf("server %q: auth.redirectPort %d out of range 1..65535", name, entry.Auth.RedirectPort)
+	}
 
 	resolvedURL, err := resolvePlaceholders(entry.URL, account)
 	if err != nil {
@@ -162,7 +212,15 @@ func validateStdioEntry(name string, entry ServerEntry) (ServerEntry, error) {
 	if entry.URL != "" || len(entry.Headers) > 0 {
 		return entry, fmt.Errorf("server %q: url and headers not allowed for stdio transport", name)
 	}
+	if entry.OAuth != nil || entry.OAuthClientID != "" || entry.OAuthPublicClient != nil || entry.Auth != nil {
+		return entry, fmt.Errorf("server %q: oauth, oauthClientId, oauthPublicClient and auth not allowed for stdio transport", name)
+	}
 	return entry, nil
+}
+
+// validPort reports whether p is unset (0) or a valid TCP port.
+func validPort(p int) bool {
+	return p == 0 || (p >= 1 && p <= 65535)
 }
 
 func resolvePlaceholders(rawURL, account string) (string, error) {
@@ -210,18 +268,19 @@ func validateURL(raw string) error {
 	return nil
 }
 
-// Check verifies that .mcp.json is valid and that preflight checks pass for target files.
-func Check(root, account string) error {
+// Check verifies that .mcp.json is valid and that preflight checks pass for
+// target files. It returns the warnings a sync would report.
+func Check(root, account string) ([]string, error) {
 	srcPath := filepath.Clean(filepath.Join(root, SourceFilename))
 	f, err := os.Open(srcPath)
 	if err != nil {
-		return fmt.Errorf("open %s: %w", SourceFilename, err)
+		return nil, fmt.Errorf("open %s: %w", SourceFilename, err)
 	}
 	defer f.Close()
 
 	src, err := ParseAndValidate(f, account)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	targets := []string{
@@ -232,12 +291,33 @@ func Check(root, account string) error {
 
 	for _, target := range targets {
 		if err := PreflightCheck(root, target); err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	_ = src
-	return nil
+	return Warnings(src.MCPServers), nil
+}
+
+// Warnings lists the source settings that a target cannot represent and that
+// a sync therefore leaves out of it.
+func Warnings(servers map[string]ServerEntry) []string {
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	var warnings []string
+	for _, name := range names {
+		entry := servers[name]
+		if entry.Type != TransportHTTP {
+			continue
+		}
+		if _, port := entry.oauthClient(); port != 0 {
+			warnings = append(warnings, fmt.Sprintf("antigravity: server %q: callback port %d not supported, left out (register %s as a redirect URI)", name, port, AntigravityRedirectURI))
+		}
+	}
+	return warnings
 }
 
 // PreflightCheck inspects target and parent paths for symlinks and checks file ownership markers.
@@ -307,26 +387,31 @@ func isOwned(path string, content []byte) bool {
 	}
 }
 
-// Sync validates .mcp.json, checks preflight conditions, and writes target files with mode 0o600.
-func Sync(root, account string) ([]OutputFile, error) {
+// Sync validates .mcp.json, checks preflight conditions, and writes target
+// files with mode 0o600. It returns the written files and the warnings for
+// settings a target cannot represent.
+func Sync(root, account string) ([]OutputFile, []string, error) {
 	srcPath := filepath.Clean(filepath.Join(root, SourceFilename))
 	f, err := os.Open(srcPath)
 	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", SourceFilename, err)
+		return nil, nil, fmt.Errorf("open %s: %w", SourceFilename, err)
 	}
 	defer f.Close()
 
 	src, err := ParseAndValidate(f, account)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	codexContent := RenderCodex(src.MCPServers)
 	piContent, err := RenderPi(src.MCPServers)
 	if err != nil {
-		return nil, fmt.Errorf("render pi config: %w", err)
+		return nil, nil, fmt.Errorf("render pi config: %w", err)
 	}
-	agContent := RenderAntigravity(piContent)
+	agContent, err := RenderAntigravity(src.MCPServers)
+	if err != nil {
+		return nil, nil, fmt.Errorf("render antigravity config: %w", err)
+	}
 
 	outputs := []OutputFile{
 		{Path: filepath.Join(root, CodexTargetRelPath), Content: codexContent},
@@ -336,19 +421,19 @@ func Sync(root, account string) ([]OutputFile, error) {
 
 	for _, out := range outputs {
 		if err := PreflightCheck(root, out.Path); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 	}
 
 	for _, out := range outputs {
 		dir := filepath.Dir(out.Path)
 		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, fmt.Errorf("create dir %s: %w", dir, err)
+			return nil, nil, fmt.Errorf("create dir %s: %w", dir, err)
 		}
 		if err := os.WriteFile(filepath.Clean(out.Path), out.Content, 0o600); err != nil {
-			return nil, fmt.Errorf("write %s: %w", out.Path, err)
+			return nil, nil, fmt.Errorf("write %s: %w", out.Path, err)
 		}
 	}
 
-	return outputs, nil
+	return outputs, Warnings(src.MCPServers), nil
 }
