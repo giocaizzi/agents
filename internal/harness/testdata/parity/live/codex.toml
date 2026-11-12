@@ -1,0 +1,7 @@
+model = "gpt-5"
+[tui]
+theme = "dark"
+[mcp_servers.local]
+command = "x"
+[projects."/work/repo"]
+trust_level = "trusted"

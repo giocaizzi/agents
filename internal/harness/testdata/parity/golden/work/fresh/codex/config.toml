@@ -1,0 +1,10 @@
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[mcp_servers]
+  [mcp_servers.docs]
+    url = "https://docs.example.com/mcp"
+
+[tui]
+  notification_method = "bel"
+  notifications = true

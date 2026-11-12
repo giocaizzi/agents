@@ -1,0 +1,1 @@
+{"model": "gemini", "trustedWorkspaces": ["/w"], "permissions": {"allow": ["old"]}}

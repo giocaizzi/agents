@@ -1,0 +1,6 @@
+{
+  "model": "gpt-x",
+  "statusLine": {"type": "command", "command": "old"},
+  "allowedUrls": ["https://user.example.net/**", "https://github.com/**"],
+  "footer": {"showUsername": true, "extra": 1}
+}

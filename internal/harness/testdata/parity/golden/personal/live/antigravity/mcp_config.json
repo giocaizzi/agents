@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "docs": {
+      "url": "https://docs.example.com/mcp"
+    },
+    "local": {
+      "command": "x"
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp"
+    }
+  }
+}
+

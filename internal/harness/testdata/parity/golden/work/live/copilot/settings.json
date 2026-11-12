@@ -1,0 +1,91 @@
+{
+  "allowedUrls": [
+    "https://user.example.net/**",
+    "https://github.com/**",
+    "https://api.github.com/**",
+    "https://docs.github.com/**",
+    "https://learn.microsoft.com/**",
+    "https://*.example.org/**",
+    "https://*.claude.ai/**",
+    "https://*.claude.com/**",
+    "https://docs.anthropic.com/**",
+    "https://*.openai.com/**",
+    "https://*.google.com/**"
+  ],
+  "beep": true,
+  "enabledPlugins": {
+    "dev-tools@giocaizzi-harness": true,
+    "foundations@giocaizzi-harness": true,
+    "go@giocaizzi-harness": false,
+    "guard@giocaizzi-harness": true,
+    "infra@giocaizzi-harness": true,
+    "javascript@giocaizzi-harness": true,
+    "python@giocaizzi-harness": true
+  },
+  "extraKnownMarketplaces": {
+    "giocaizzi-harness": {
+      "source": {
+        "repo": "giocaizzi/harness",
+        "source": "github"
+      }
+    }
+  },
+  "footer": {
+    "extra": 1,
+    "showAgent": true,
+    "showAiUsed": true,
+    "showBranch": true,
+    "showCiStatus": true,
+    "showCodeChanges": true,
+    "showContextWindow": true,
+    "showCustom": true,
+    "showDirectory": true,
+    "showModelEffort": true,
+    "showPullRequest": true,
+    "showQuota": true,
+    "showSandbox": true,
+    "showSchedules": false,
+    "showUsername": false,
+    "showYolo": true
+  },
+  "ide": {
+    "autoConnect": false,
+    "openDiffOnEdit": false
+  },
+  "inlineImages": false,
+  "model": "gpt-x",
+  "showReasoning": false,
+  "subagents": {
+    "agents": {
+      "dev-tools:driver": {
+        "effortLevel": "medium",
+        "model": "gpt-6.1-sol"
+      },
+      "dev-tools:escalate": {
+        "effortLevel": "medium",
+        "model": "gpt-6-astra"
+      },
+      "dev-tools:reviewer": {
+        "effortLevel": "medium",
+        "model": "gpt-6-luna"
+      },
+      "dev-tools:scout": {
+        "effortLevel": "low",
+        "model": "gpt-6-luna"
+      },
+      "dev-tools:worker": {
+        "effortLevel": "medium",
+        "model": "gpt-6-luna"
+      },
+      "foundations:api-reviewer": {
+        "effortLevel": "medium",
+        "model": "gpt-6.1-sol"
+      }
+    }
+  },
+  "theme": "default",
+  "voice": {
+    "enabled": true
+  }
+}
+

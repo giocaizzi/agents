@@ -1,0 +1,16 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "alpha": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://alpha.acct.example.com/mcp"
+    },
+    "beta": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://beta.acct.example.com/mcp?toolset=admin"
+    }
+  }
+}
+

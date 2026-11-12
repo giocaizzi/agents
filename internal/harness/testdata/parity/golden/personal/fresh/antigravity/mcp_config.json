@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "docs": {
+      "url": "https://docs.example.com/mcp"
+    },
+    "notion": {
+      "url": "https://mcp.notion.com/mcp"
+    }
+  }
+}
+
