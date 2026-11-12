@@ -440,7 +440,7 @@ func TestSyncAndCheck_EndToEnd(t *testing.T) {
 	}
 
 	// Check succeeds without writing
-	if err := mcpsync.Check(tmpDir, "acct"); err != nil {
+	if _, err := mcpsync.Check(tmpDir, "acct"); err != nil {
 		t.Fatalf("Check failed: %v", err)
 	}
 
@@ -451,7 +451,7 @@ func TestSyncAndCheck_EndToEnd(t *testing.T) {
 	}
 
 	// Sync writes all files with mode 0o600
-	outputs, err := mcpsync.Sync(tmpDir, "acct")
+	outputs, _, err := mcpsync.Sync(tmpDir, "acct")
 	if err != nil {
 		t.Fatalf("Sync failed: %v", err)
 	}
