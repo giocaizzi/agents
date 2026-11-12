@@ -1,0 +1,117 @@
+package config
+
+import (
+	"fmt"
+	"maps"
+	"slices"
+	"strings"
+	"unicode"
+
+	"github.com/giocaizzi/agents/internal/finding"
+)
+
+// Validate checks a loaded Config for what the schema cannot say. Profiles are
+// overlays, so their MCP servers and language servers may be partial; only the
+// merged config and the workspaces are held to the complete-entry rules.
+func Validate(c Config) []finding.Finding {
+	var out []finding.Finding
+	add := func(where, format string, args ...any) {
+		out = append(out, finding.New(where, format, args...))
+	}
+
+	if c.SchemaVersion != 1 {
+		add("schema_version", "must be 1, got %d", c.SchemaVersion)
+	}
+	for i, h := range c.Harnesses {
+		if !h.Valid() {
+			add(fmt.Sprintf("harnesses[%d]", i), "unknown harness %q (want one of %s)", h, harnessList())
+		}
+	}
+	validatePlugins("plugins", c.Plugins, add)
+	if c.Profile != "" {
+		if _, ok := c.Profiles[c.Profile]; !ok {
+			add("profile", "profile %q is not declared under profiles", c.Profile)
+		}
+	}
+
+	layers := c.Instructions.Layers
+	checkLayers := func(where string, names []string) {
+		for _, n := range names {
+			if _, ok := layers[n]; !ok {
+				add(where, "layer %q is not declared under instructions.layers", n)
+			}
+		}
+	}
+	for _, h := range All() {
+		checkLayers("harness."+string(h)+".instructions", c.Harness.InstructionLists()[h])
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
+		p := c.Profiles[name]
+		base := "profiles." + name
+		checkLayers(base+".instructions", p.Instructions)
+		for _, h := range All() {
+			checkLayers(base+".harness."+string(h)+".instructions", p.Harness.InstructionLists()[h])
+		}
+		validatePlugins(base+".plugins", p.Plugins, add)
+		validateServers(base+".mcp.servers", p.MCP.Servers, false, add)
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(c.LSP.Servers)) {
+		if len(c.LSP.Servers[name].Command) == 0 {
+			add("lsp.servers."+name+".command", "must not be empty")
+		}
+	}
+	validateServers("mcp.servers", c.MCP.Servers, true, add)
+	for _, name := range slices.Sorted(maps.Keys(c.MCP.Workspaces)) {
+		w := c.MCP.Workspaces[name]
+		where := "mcp.workspaces." + name
+		if strings.TrimSpace(w.Path) == "" {
+			add(where+".path", "must not be empty")
+		}
+		validateServers(where+".servers", w.Servers, true, add)
+	}
+	return out
+}
+
+func harnessList() string {
+	names := make([]string, 0, len(All()))
+	for _, h := range All() {
+		names = append(names, string(h))
+	}
+	return strings.Join(names, ", ")
+}
+
+func validatePlugins(where string, p Plugins, add func(string, string, ...any)) {
+	for _, name := range slices.Sorted(maps.Keys(p.Enabled)) {
+		for _, h := range p.Enabled[name] {
+			if !h.Valid() {
+				add(where+".enabled."+name, "unknown harness %q (want one of %s)", h, harnessList())
+			}
+		}
+	}
+}
+
+// validateServers checks MCP servers. complete is false for profile overlays,
+// where an entry may only add a field to a server declared elsewhere.
+func validateServers(where string, servers map[string]MCPServer, complete bool, add func(string, string, ...any)) {
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		s := servers[name]
+		w := where + "." + name
+		hasURL, hasCmd := s.URL != "", s.Command != ""
+		if complete && hasURL == hasCmd {
+			add(w, "needs exactly one of url or command")
+		}
+		o := s.OAuth
+		if o.ClientID != "" || o.CallbackPort != 0 || o.PublicClient != nil {
+			if complete && !hasURL {
+				add(w+".oauth", "is only valid on a url server")
+			}
+			if o.CallbackPort != 0 && (o.CallbackPort < 1 || o.CallbackPort > 65535) {
+				add(w+".oauth.callback_port", "must be 1..65535, got %d", o.CallbackPort)
+			}
+			if strings.ContainsFunc(o.ClientID, unicode.IsControl) || strings.ContainsAny(o.ClientID, `"'\`) {
+				add(w+".oauth.client_id", "must not contain control characters, quotes or backslashes")
+			}
+		}
+	}
+}

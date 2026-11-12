@@ -1,0 +1,7 @@
+schema_version = 1
+
+[instructions.layers.core]
+file = "core.md"
+
+[profiles.dev]
+instructions = ["core", "ghost"]
