@@ -137,6 +137,41 @@ func TestRunMCPSync_SyncMode(t *testing.T) {
 	}
 }
 
+func TestRunMCPSync_OAuthWarnings(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	mcpJSON := `{
+		"mcpServers": {
+			"example": {
+				"type": "http",
+				"url": "https://mcp.example.com/mcp",
+				"oauth": {"clientId": "example-client", "callbackPort": 8765},
+				"oauthClientId": "example-client",
+				"oauthPublicClient": false,
+				"auth": {"redirectPort": 8765}
+			}
+		}
+	}`
+	if err := os.WriteFile(filepath.Join(tmpDir, mcpsync.SourceFilename), []byte(mcpJSON), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, args := range [][]string{
+		{"mcp", "sync", "-check", tmpDir},
+		{"mcp", "sync", tmpDir},
+	} {
+		var stdout, stderr bytes.Buffer
+		deps := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: func(_ string) string { return "" }}
+		if code := deps.Run(t.Context(), args); code != 0 {
+			t.Fatalf("%v: exit code %d, stderr: %s", args, code, stderr.String())
+		}
+		if !strings.Contains(stderr.String(), "warning:") || !strings.Contains(stderr.String(), "callback port 8765") {
+			t.Errorf("%v: stderr lacks the callback port warning: %q", args, stderr.String())
+		}
+	}
+}
+
 func TestRunMCPSync_InvalidDir(t *testing.T) {
 	t.Parallel()
 
