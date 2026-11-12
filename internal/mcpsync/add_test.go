@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/google/go-cmp/cmp"
+
 	"github.com/giocaizzi/agents/internal/mcpsync"
 )
 
@@ -177,5 +179,45 @@ func TestAddServer_CollisionAndValidation(t *testing.T) {
 	})
 	if err == nil {
 		t.Fatal("expected invalid transport error, got nil")
+	}
+}
+
+func TestAddServer_KeepsOAuthKeys(t *testing.T) {
+	t.Parallel()
+
+	tmpDir := t.TempDir()
+	existing := `{"mcpServers":{"docs":{"type":"http","url":"https://mcp.example.com/mcp",` +
+		`"oauth":{"clientId":"example-client","callbackPort":8765},` +
+		`"oauthClientId":"example-client","oauthPublicClient":false,"auth":{"redirectPort":8766}}}}`
+	srcFile := filepath.Join(tmpDir, mcpsync.SourceFilename)
+	if err := os.WriteFile(srcFile, []byte(existing), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	err := mcpsync.AddServer(tmpDir, mcpsync.AddOptions{Name: "tool", Command: "npx", Args: []string{"-y", "example"}})
+	if err != nil {
+		t.Fatalf("AddServer failed: %v", err)
+	}
+
+	data, err := os.ReadFile(srcFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		MCPServers map[string]map[string]any `json:"mcpServers"`
+	}
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]any{
+		"type":              "http",
+		"url":               "https://mcp.example.com/mcp",
+		"oauth":             map[string]any{"clientId": "example-client", "callbackPort": float64(8765)},
+		"oauthClientId":     "example-client",
+		"oauthPublicClient": false,
+		"auth":              map[string]any{"redirectPort": float64(8766)},
+	}
+	if diff := cmp.Diff(want, got.MCPServers["docs"]); diff != "" {
+		t.Errorf("docs entry changed (-want +got):\n%s", diff)
 	}
 }

@@ -38,17 +38,27 @@ func renderCodexServer(b *strings.Builder, name string, entry ServerEntry) {
 
 func renderCodexHTTPServer(b *strings.Builder, name string, entry ServerEntry) {
 	fmt.Fprintf(b, "\n[mcp_servers.%q]\nurl = %q\n", name, entry.URL)
-	if len(entry.Headers) == 0 {
+	if len(entry.Headers) > 0 {
+		fmt.Fprintf(b, "\n[mcp_servers.%q.http_headers]\n", name)
+		hdrKeys := make([]string, 0, len(entry.Headers))
+		for k := range entry.Headers {
+			hdrKeys = append(hdrKeys, k)
+		}
+		slices.Sort(hdrKeys)
+		for _, k := range hdrKeys {
+			fmt.Fprintf(b, "%q = %q\n", k, entry.Headers[k])
+		}
+	}
+	clientID, port := entry.oauthClient()
+	if clientID == "" && port == 0 {
 		return
 	}
-	fmt.Fprintf(b, "\n[mcp_servers.%q.http_headers]\n", name)
-	hdrKeys := make([]string, 0, len(entry.Headers))
-	for k := range entry.Headers {
-		hdrKeys = append(hdrKeys, k)
+	fmt.Fprintf(b, "\n[mcp_servers.%q.oauth]\n", name)
+	if clientID != "" {
+		fmt.Fprintf(b, "client_id = %q\n", clientID)
 	}
-	slices.Sort(hdrKeys)
-	for _, k := range hdrKeys {
-		fmt.Fprintf(b, "%q = %q\n", k, entry.Headers[k])
+	if port != 0 {
+		fmt.Fprintf(b, "callback_port = %d\n", port)
 	}
 }
 
@@ -74,32 +84,72 @@ func renderCodexStdioServer(b *strings.Builder, name string, entry ServerEntry) 
 	}
 }
 
-type piConfig struct {
-	GeneratedBy string                 `json:"_generatedBy"`
-	MCPServers  map[string]ServerEntry `json:"mcpServers"`
+// piServer is the server shape written to pi and Antigravity: Claude Code's
+// nested OAuth object only, never Copilot's flat keys.
+type piServer struct {
+	Type    string            `json:"type,omitempty"`
+	URL     string            `json:"url,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+	Command string            `json:"command,omitempty"`
+	Args    []string          `json:"args,omitempty"`
+	Env     map[string]string `json:"env,omitempty"`
+	OAuth   *piOAuth          `json:"oauth,omitempty"`
 }
 
-// RenderPi renders .pi/mcp.json with 2-space indentation and trailing newline.
-func RenderPi(servers map[string]ServerEntry) ([]byte, error) {
-	cfg := piConfig{
-		GeneratedBy: CurrentMarker,
-		MCPServers:  servers,
+type piOAuth struct {
+	ClientID     string `json:"clientId,omitempty"`
+	CallbackPort int    `json:"callbackPort,omitempty"`
+}
+
+type piConfig struct {
+	GeneratedBy string              `json:"_generatedBy"`
+	MCPServers  map[string]piServer `json:"mcpServers"`
+}
+
+// encodeJSONConfig renders servers with 2-space indentation and trailing
+// newline; withPort keeps oauth.callbackPort.
+func encodeJSONConfig(servers map[string]ServerEntry, withPort bool) ([]byte, error) {
+	out := make(map[string]piServer, len(servers))
+	for name, e := range servers {
+		s := piServer{
+			Type: e.Type, URL: e.URL, Headers: e.Headers,
+			Command: e.Command, Args: e.Args, Env: e.Env,
+		}
+		clientID, port := e.oauthClient()
+		if !withPort {
+			port = 0
+		}
+		if clientID != "" || port != 0 {
+			s.OAuth = &piOAuth{ClientID: clientID, CallbackPort: port}
+		}
+		out[name] = s
 	}
 
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	enc.SetIndent("", "  ")
 	enc.SetEscapeHTML(false)
-	if err := enc.Encode(cfg); err != nil {
-		return nil, fmt.Errorf("encode pi config: %w", err)
+	if err := enc.Encode(piConfig{GeneratedBy: CurrentMarker, MCPServers: out}); err != nil {
+		return nil, fmt.Errorf("encode config: %w", err)
 	}
-
 	return buf.Bytes(), nil
 }
 
-// RenderAntigravity returns identical JSON content as .pi/mcp.json.
-func RenderAntigravity(piJSON []byte) []byte {
-	out := make([]byte, len(piJSON))
-	copy(out, piJSON)
-	return out
+// RenderPi renders .pi/mcp.json with 2-space indentation and trailing newline.
+func RenderPi(servers map[string]ServerEntry) ([]byte, error) {
+	b, err := encodeJSONConfig(servers, true)
+	if err != nil {
+		return nil, fmt.Errorf("pi config: %w", err)
+	}
+	return b, nil
+}
+
+// RenderAntigravity renders .agents/mcp_config.json: the pi JSON without
+// oauth.callbackPort, which Antigravity cannot set.
+func RenderAntigravity(servers map[string]ServerEntry) ([]byte, error) {
+	b, err := encodeJSONConfig(servers, false)
+	if err != nil {
+		return nil, fmt.Errorf("antigravity config: %w", err)
+	}
+	return b, nil
 }

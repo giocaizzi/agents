@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strings"
 )
 
@@ -25,6 +26,9 @@ const (
 	CodexTargetRelPath = ".codex/config.toml"
 	PiTargetRelPath    = ".pi/mcp.json"
 	AntigravityRelPath = ".agents/mcp_config.json"
+
+	// AntigravityRedirectURI is the fixed OAuth redirect URI of Antigravity.
+	AntigravityRedirectURI = "https://antigravity.google/oauth-callback"
 
 	TransportHTTP  = "http"
 	TransportStdio = "stdio"
@@ -60,6 +64,25 @@ type ServerEntry struct {
 type OAuth struct {
 	ClientID     string `json:"clientId,omitempty"`
 	CallbackPort int    `json:"callbackPort,omitempty"`
+}
+
+// oauthClient returns the effective pre-registered OAuth client id and
+// callback port. Per field, the nested (Claude Code) style wins over the flat
+// (Copilot CLI) one; differing values are allowed because the harnesses may
+// legitimately use different ports. OAuthPublicClient is Copilot-only and is
+// never translated.
+func (e ServerEntry) oauthClient() (clientID string, port int) {
+	clientID = e.OAuthClientID
+	if e.OAuth != nil && e.OAuth.ClientID != "" {
+		clientID = e.OAuth.ClientID
+	}
+	if e.Auth != nil {
+		port = e.Auth.RedirectPort
+	}
+	if e.OAuth != nil && e.OAuth.CallbackPort != 0 {
+		port = e.OAuth.CallbackPort
+	}
+	return clientID, port
 }
 
 // Auth is GitHub Copilot CLI's OAuth redirect settings.
@@ -162,6 +185,12 @@ func validateHTTPEntry(name string, entry ServerEntry, account string) (ServerEn
 	if entry.Command != "" || len(entry.Args) > 0 || len(entry.Env) > 0 {
 		return entry, fmt.Errorf("server %q: command, args and env not allowed for http transport", name)
 	}
+	if entry.OAuth != nil && !validPort(entry.OAuth.CallbackPort) {
+		return entry, fmt.Errorf("server %q: oauth.callbackPort %d out of range 1..65535", name, entry.OAuth.CallbackPort)
+	}
+	if entry.Auth != nil && !validPort(entry.Auth.RedirectPort) {
+		return entry, fmt.Errorf("server %q: auth.redirectPort %d out of range 1..65535", name, entry.Auth.RedirectPort)
+	}
 
 	resolvedURL, err := resolvePlaceholders(entry.URL, account)
 	if err != nil {
@@ -183,7 +212,15 @@ func validateStdioEntry(name string, entry ServerEntry) (ServerEntry, error) {
 	if entry.URL != "" || len(entry.Headers) > 0 {
 		return entry, fmt.Errorf("server %q: url and headers not allowed for stdio transport", name)
 	}
+	if entry.OAuth != nil || entry.OAuthClientID != "" || entry.OAuthPublicClient != nil || entry.Auth != nil {
+		return entry, fmt.Errorf("server %q: oauth, oauthClientId, oauthPublicClient and auth not allowed for stdio transport", name)
+	}
 	return entry, nil
+}
+
+// validPort reports whether p is unset (0) or a valid TCP port.
+func validPort(p int) bool {
+	return p == 0 || (p >= 1 && p <= 65535)
 }
 
 func resolvePlaceholders(rawURL, account string) (string, error) {
@@ -263,8 +300,24 @@ func Check(root, account string) ([]string, error) {
 
 // Warnings lists the source settings that a target cannot represent and that
 // a sync therefore leaves out of it.
-func Warnings(_ map[string]ServerEntry) []string {
-	return nil
+func Warnings(servers map[string]ServerEntry) []string {
+	names := make([]string, 0, len(servers))
+	for name := range servers {
+		names = append(names, name)
+	}
+	slices.Sort(names)
+
+	var warnings []string
+	for _, name := range names {
+		entry := servers[name]
+		if entry.Type != TransportHTTP {
+			continue
+		}
+		if _, port := entry.oauthClient(); port != 0 {
+			warnings = append(warnings, fmt.Sprintf("antigravity: server %q: callback port %d not supported, left out (register %s as a redirect URI)", name, port, AntigravityRedirectURI))
+		}
+	}
+	return warnings
 }
 
 // PreflightCheck inspects target and parent paths for symlinks and checks file ownership markers.
@@ -355,7 +408,10 @@ func Sync(root, account string) ([]OutputFile, []string, error) {
 	if err != nil {
 		return nil, nil, fmt.Errorf("render pi config: %w", err)
 	}
-	agContent := RenderAntigravity(piContent)
+	agContent, err := RenderAntigravity(src.MCPServers)
+	if err != nil {
+		return nil, nil, fmt.Errorf("render antigravity config: %w", err)
+	}
 
 	outputs := []OutputFile{
 		{Path: filepath.Join(root, CodexTargetRelPath), Content: codexContent},
