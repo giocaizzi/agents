@@ -6,11 +6,11 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/parity"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
-func loadPolicy(t *testing.T) *config.Policy {
+func loadPolicy(t *testing.T) *policy.Policy {
 	t.Helper()
 	path := filepath.Join("..", "testdata", "harness-policy.toml")
 	f, err := os.Open(path)
@@ -19,7 +19,7 @@ func loadPolicy(t *testing.T) *config.Policy {
 	}
 	defer f.Close()
 
-	p, err := config.ParseTOML(f)
+	p, err := policy.ParseTOML(f)
 	if err != nil {
 		t.Fatalf("ParseTOML: %v", err)
 	}

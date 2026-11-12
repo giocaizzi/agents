@@ -7,11 +7,11 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/translate"
 )
 
-func loadTestPolicy(t *testing.T) (*config.Policy, map[string]any) {
+func loadTestPolicy(t *testing.T) (*policy.Policy, map[string]any) {
 	t.Helper()
 	f, err := os.Open("../testdata/harness-policy.toml")
 	if err != nil {
@@ -19,7 +19,7 @@ func loadTestPolicy(t *testing.T) (*config.Policy, map[string]any) {
 	}
 	defer f.Close()
 
-	p, err := config.ParseTOML(f)
+	p, err := policy.ParseTOML(f)
 	if err != nil {
 		t.Fatalf("ParseTOML: %v", err)
 	}
@@ -142,18 +142,18 @@ func TestVSCodeSettings_Voice(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		name         string
-		voice        config.Voice
+		voice        policy.Voice
 		wantEnabled  bool
 		wantLanguage any
 	}{
-		{"language unset", config.Voice{Enabled: true}, true, nil},
-		{"language set", config.Voice{Enabled: true, Language: "it"}, true, "it"},
-		{"disabled", config.Voice{}, false, nil},
+		{"language unset", policy.Voice{Enabled: true}, true, nil},
+		{"language set", policy.Voice{Enabled: true, Language: "it"}, true, "it"},
+		{"disabled", policy.Voice{}, false, nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := translate.VSCodeSettings(&config.Policy{Voice: tt.voice})
+			got := translate.VSCodeSettings(&policy.Policy{Voice: tt.voice})
 			if got["dictation.enabled"] != tt.wantEnabled {
 				t.Errorf("dictation.enabled = %v, want %v", got["dictation.enabled"], tt.wantEnabled)
 			}
@@ -176,7 +176,7 @@ func TestCopilotSettings_Voice(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := translate.CopilotSettings(&config.Policy{Voice: config.Voice{Enabled: tt.enabled}})
+			got := translate.CopilotSettings(&policy.Policy{Voice: policy.Voice{Enabled: tt.enabled}})
 			want := map[string]any{"enabled": tt.enabled}
 			if diff := cmp.Diff(want, got["voice"]); diff != "" {
 				t.Errorf("voice mismatch (-want +got):\n%s", diff)
@@ -187,7 +187,7 @@ func TestCopilotSettings_Voice(t *testing.T) {
 
 func TestClaudeSettings_VoiceModeDefault(t *testing.T) {
 	t.Parallel()
-	got := translate.ClaudeSettings(&config.Policy{Voice: config.Voice{Enabled: true}}, "linux")
+	got := translate.ClaudeSettings(&policy.Policy{Voice: policy.Voice{Enabled: true}}, "linux")
 	want := map[string]any{"enabled": true, "mode": "hold", "autoSubmit": false}
 	if diff := cmp.Diff(want, got["voice"]); diff != "" {
 		t.Errorf("voice mismatch (-want +got):\n%s", diff)

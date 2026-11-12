@@ -8,7 +8,7 @@ import (
 
 	toml "github.com/pelletier/go-toml/v2"
 
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/translate"
 )
 
@@ -63,7 +63,7 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	return 0
 }
 
-func (d Deps) renderHarness(p *config.Policy, harness, part, targetOS string) error {
+func (d Deps) renderHarness(p *policy.Policy, harness, part, targetOS string) error {
 	var out any
 	format := "json"
 

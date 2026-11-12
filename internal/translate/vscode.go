@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // VSCodeSettings translates policy permissions into VS Code Copilot autoApprove settings.
-func VSCodeSettings(p *config.Policy) map[string]any {
+func VSCodeSettings(p *policy.Policy) map[string]any {
 	terminalAutoApprove := make(map[string]bool)
 	for _, cmd := range p.Permissions.AllowCommands {
 		terminalAutoApprove[cmd] = true

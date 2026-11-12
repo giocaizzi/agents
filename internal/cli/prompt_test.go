@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/giocaizzi/agents/internal/cli"
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 func TestPromptWithPolicyProfiles(t *testing.T) {
@@ -98,20 +98,20 @@ effort = "low"
 
 func TestPolicyWithProfile(t *testing.T) {
 	t.Parallel()
-	p := config.Policy{
-		Models: config.Models{
-			Tiers: map[string]config.ModelTier{
+	p := policy.Policy{
+		Models: policy.Models{
+			Tiers: map[string]policy.ModelTier{
 				"driver": {Model: "base-driver", Effort: "high"},
 			},
 		},
-		Profiles: map[string]config.Profile{
+		Profiles: map[string]policy.Profile{
 			"work": {
-				Models: &config.Models{
-					Tiers: map[string]config.ModelTier{
+				Models: &policy.Models{
+					Tiers: map[string]policy.ModelTier{
 						"driver": {Model: "work-driver", Effort: "low"},
 					},
 				},
-				Permissions: &config.Permissions{
+				Permissions: &policy.Permissions{
 					AllowCommands: []string{"npm test"},
 				},
 			},

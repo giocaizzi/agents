@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
 	"github.com/giocaizzi/agents/internal/parity"
 	"github.com/giocaizzi/agents/internal/pluginreg"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 func (d Deps) runCheck(ctx context.Context, args []string) int {
@@ -97,7 +97,7 @@ func (d Deps) checkAll(ctx context.Context, harnessDir, profile string) ([]findi
 
 // appendSourceFiles checks the native voice settings in the discovered chezmoi
 // source directory; a missing source directory is a finding, not a skip.
-func (d Deps) appendSourceFiles(p *config.Policy, findings []finding.Finding, msgs []string) ([]finding.Finding, []string) {
+func (d Deps) appendSourceFiles(p *policy.Policy, findings []finding.Finding, msgs []string) ([]finding.Finding, []string) {
 	srcDir, err := d.findPolicySourceDir()
 	if err != nil {
 		if d.Getenv("CHEZMOI_SOURCE_DIR") != "" {

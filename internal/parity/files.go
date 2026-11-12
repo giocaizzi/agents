@@ -11,8 +11,8 @@ import (
 
 	toml "github.com/pelletier/go-toml/v2"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 const (
@@ -26,14 +26,14 @@ const (
 // static VS Code settings file must hold the native voice values, the Claude
 // and Copilot templates must read them from the policy, and every LSP server must name a
 // package row in packages.toml.
-func CheckSourceFiles(p *config.Policy, sourceDir string) []finding.Finding {
+func CheckSourceFiles(p *policy.Policy, sourceDir string) []finding.Finding {
 	fs := checkVSCodeFile(p, filepath.Join(sourceDir, filepath.FromSlash(vscodeSettingsRel)))
 	fs = append(fs, checkClaudeTemplate(filepath.Join(sourceDir, filepath.FromSlash(claudeTemplateRel)))...)
 	fs = append(fs, checkCopilotTemplate(filepath.Join(sourceDir, filepath.FromSlash(copilotTemplateRel)))...)
 	return append(fs, checkLSPPackages(p, filepath.Join(sourceDir, filepath.FromSlash(packagesRel)))...)
 }
 
-func checkLSPPackages(p *config.Policy, path string) []finding.Finding {
+func checkLSPPackages(p *policy.Policy, path string) []finding.Finding {
 	const where = "lsp"
 	if len(p.LSP.Server) == 0 {
 		return nil
@@ -62,7 +62,7 @@ func checkLSPPackages(p *config.Policy, path string) []finding.Finding {
 	return fs
 }
 
-func checkVSCodeFile(p *config.Policy, path string) []finding.Finding {
+func checkVSCodeFile(p *policy.Policy, path string) []finding.Finding {
 	const where = "vscode"
 	data, err := os.ReadFile(filepath.Clean(path))
 	if err != nil {

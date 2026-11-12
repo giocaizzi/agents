@@ -9,7 +9,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/giocaizzi/agents/internal/catalog"
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 	"github.com/giocaizzi/agents/internal/usage"
 )
 
@@ -95,20 +95,20 @@ func TestSettings(t *testing.T) {
 	t.Parallel()
 	codexModel := "gpt-6"
 	empty := ""
-	p := config.Policy{
-		Models: config.Models{Tiers: map[string]config.ModelTier{
+	p := policy.Policy{
+		Models: policy.Models{Tiers: map[string]policy.ModelTier{
 			"scout":  {Model: "claude-haiku-4-5"},
 			"worker": {Model: "claude-haiku-5"},
 			"driver": {Model: "gpt-6"},
 		}},
-		Native: config.Native{
-			Copilot: config.CopilotNative{Agents: map[string]config.AgentBinding{
+		Native: policy.Native{
+			Copilot: policy.CopilotNative{Agents: map[string]policy.AgentBinding{
 				"dev-tools:driver": {Model: "claude-opus-4-5"},
 				"dev-tools:worker": {Model: ""},
 			}},
-			Codex:    config.CodexNative{Model: &codexModel},
-			Pi:       config.PiNative{DefaultModel: "gemini-flash", DefaultProvider: "google"},
-			OpenCode: config.OpenCodeNative{DefaultModel: "openai/gpt-mini"},
+			Codex:    policy.CodexNative{Model: &codexModel},
+			Pi:       policy.PiNative{DefaultModel: "gemini-flash", DefaultProvider: "google"},
+			OpenCode: policy.OpenCodeNative{DefaultModel: "openai/gpt-mini"},
 		},
 	}
 	tier := func(h, role, model string) Setting {
@@ -116,7 +116,7 @@ func TestSettings(t *testing.T) {
 	}
 	tests := []struct {
 		name      string
-		p         config.Policy
+		p         policy.Policy
 		harnesses []string
 		want      []Setting
 	}{
@@ -140,7 +140,7 @@ func TestSettings(t *testing.T) {
 			},
 		},
 		{
-			name: "empty codex model and empty policy", p: config.Policy{Native: config.Native{Codex: config.CodexNative{Model: &empty}}},
+			name: "empty codex model and empty policy", p: policy.Policy{Native: policy.Native{Codex: policy.CodexNative{Model: &empty}}},
 			harnesses: []string{"codex", "claude", "antigravity"},
 			want:      nil,
 		},
@@ -505,7 +505,7 @@ func TestCheckRealData(t *testing.T) {
 		t.Skipf("policy not available: %v", err)
 	}
 	defer func() { _ = f.Close() }()
-	p, err := config.ParseTOML(f)
+	p, err := policy.ParseTOML(f)
 	if err != nil {
 		t.Fatal(err)
 	}

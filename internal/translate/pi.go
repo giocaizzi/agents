@@ -1,11 +1,11 @@
 package translate
 
 import (
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // PiSettings returns the managed subset of Pi settings.
-func PiSettings(p *config.Policy) map[string]any {
+func PiSettings(p *policy.Policy) map[string]any {
 	provider := p.Native.Pi.DefaultProvider
 	if provider == "" {
 		provider = "openai"

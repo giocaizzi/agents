@@ -1,6 +1,6 @@
-// Package config parses, validates and holds canonical AI harness configurations
+// Package policy parses, validates and holds canonical AI harness configurations
 // across Claude Code, Antigravity, Copilot CLI, VS Code Copilot, Codex, Pi, and opencode.
-package config
+package policy
 
 import "maps"
 

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 // AntigravityPermissionsOutput is the structure for Antigravity permissions.
@@ -36,7 +36,7 @@ func (a AntigravityPermissionsOutput) ToMap() map[string]any {
 }
 
 // AntigravityPermissions translates policy permissions into Antigravity's native schema.
-func AntigravityPermissions(p *config.Policy) AntigravityPermissionsOutput {
+func AntigravityPermissions(p *policy.Policy) AntigravityPermissionsOutput {
 	allow := []string{
 		"command(*)",
 		"command(gh pr merge * --auto*)",
@@ -102,7 +102,7 @@ func AntigravityPermissions(p *config.Policy) AntigravityPermissionsOutput {
 }
 
 // AntigravitySettings returns the managed subset of Antigravity settings.
-func AntigravitySettings(p *config.Policy) map[string]any {
+func AntigravitySettings(p *policy.Policy) map[string]any {
 	agentMode := p.Native.Antigravity.AgentMode
 	if agentMode == "" {
 		agentMode = defaultAuto

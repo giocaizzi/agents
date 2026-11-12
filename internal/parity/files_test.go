@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/parity"
+	"github.com/giocaizzi/agents/internal/policy"
 )
 
 const goodClaude = `{"voice": {"enabled": {{ .harnessPolicy.voice.enabled | default false | toJson }}, "mode": {{ .harnessPolicy.voice.mode | quote }}, "autoSubmit": {{ .harnessPolicy.voice.autoSubmit | default false | toJson }}}}`
@@ -172,7 +172,7 @@ func TestCheckSourceFiles_LSPPackages(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			p := &config.Policy{LSP: config.LSP{Server: map[string]config.LSPServer{
+			p := &policy.Policy{LSP: policy.LSP{Server: map[string]policy.LSPServer{
 				"one": {Package: "a"},
 				"two": {Package: "b"},
 			}}}
