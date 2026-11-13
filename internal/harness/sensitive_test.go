@@ -30,3 +30,19 @@ func TestSensitiveValues(t *testing.T) {
 		}
 	}
 }
+
+// TestSensitiveSkipsPaths: a variable expanded inside a path is not a secret.
+func TestSensitiveSkipsPaths(t *testing.T) {
+	t.Parallel()
+	var c config.Config
+	c.MCP.Workspaces = map[string]config.Workspace{
+		"w": {Path: "${WSDIR}/ws", Servers: map[string]config.MCPServer{"s": {URL: "https://s.example.com/mcp"}}},
+	}
+	// renderFor's environment has WSDIR=wsroot.
+	plan := renderFor(t, c, "linux", config.Claude, config.Pi)
+	for _, tg := range plan.Targets {
+		if len(tg.Sensitive) > 0 {
+			t.Errorf("%s Sensitive = %v, want none", tg.Path, tg.Sensitive)
+		}
+	}
+}
