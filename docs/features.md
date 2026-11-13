@@ -137,7 +137,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `models.default_effort_level`: `~/.claude/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.claude/settings.json: showThinkingSummaries`
 - `autonomy.execution_mode`: `~/.claude/settings.json: permissions.defaultMode` (https://code.claude.com/docs/en/permissions (fetched 2026-11-13): ask = default, auto = auto, full = bypassPermissions; acceptEdits, plan and dontAsk are not shared values; harness.claude.default_mode wins)
-- `autonomy.sandbox_mode`: `~/.claude/settings.json: sandbox.enabled` (https://code.claude.com/docs/en/settings-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default off; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns)
+- `autonomy.sandbox_mode`: `~/.claude/settings.json: sandbox.enabled`, `~/.claude/settings.json: sandbox.autoAllowBashIfSandboxed` (https://code.claude.com/docs/en/settings-reference and https://code.claude.com/docs/en/sandboxing (fetched 2026-11-13): sandbox.enabled is a boolean, default off; sandbox.autoAllowBashIfSandboxed defaults to true and would auto-allow sandboxed Bash, so it is written false whenever the sandbox is managed and execution_mode is ask or unset (nothing extra for auto or full); workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note)
 - `autonomy.ask_timeout`: `~/.claude/settings.json: askUserQuestionTimeout`
 - `permissions.allow_commands`: `~/.claude/settings.json: permissions.allow`
 - `permissions.allowed_urls`: `~/.claude/settings.json: permissions.allow`
@@ -218,7 +218,7 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
 - `autonomy.execution_mode`: `~/.copilot/settings.json: defaultPermissionMode` (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): ask = manual, auto = assisted (model review of eligible requests, the rest still prompts), full = allow-all)
-- `autonomy.sandbox_mode`: `~/.copilot/settings.json: sandbox.enabled` (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default false; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns)
+- `autonomy.sandbox_mode`: `~/.copilot/settings.json: sandbox.enabled` (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default false; workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; no setting that auto-approves sandboxed commands is documented, so nothing extra is written)
 - `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `permissions.allowed_urls`: `~/.copilot/settings.json: allowedUrls`
 - `notifications.terminal_bell`: `~/.copilot/settings.json: beep`
@@ -275,7 +275,7 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
 - `autonomy.execution_mode`: `<Code user dir>/settings.json: chat.permissions.default`, `~/.copilot/settings.json: defaultPermissionMode` (https://code.visualstudio.com/docs/copilot/reference/copilot-settings (fetched 2026-11-13): ask = default (Manual), full = autoApprove (Allow all); auto is not written and warns, because no documented chat.permissions.default value auto-approves while a safety layer still asks (Assisted permissions is a UI level without a setting value; autopilot is an agent mode that also answers questions by itself); the ~/.copilot file gets the Copilot CLI values)
-- `autonomy.sandbox_mode`: `<Code user dir>/settings.json: chat.agent.sandbox.enabled`, `~/.copilot/settings.json: sandbox.enabled` (https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns; the ~/.copilot file gets the Copilot CLI sandbox.enabled)
+- `autonomy.sandbox_mode`: `<Code user dir>/settings.json: chat.agent.sandbox.enabled`, `~/.copilot/settings.json: sandbox.enabled` (https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; the ~/.copilot file gets the Copilot CLI sandbox.enabled; the docs say sandboxed commands are approved automatically but document no setting for it, so nothing extra is written)
 - `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `autonomy.allow_subagent_invocations`: `<Code user dir>/settings.json: chat.subagents.allowInvocationsFromSubagents`
 - `permissions.allow_commands`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
@@ -529,8 +529,8 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 **Rendered**
 
 - `instructions`: `~/.gemini/config/AGENTS.md`
-- `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`, `~/.gemini/antigravity-cli/settings.json: toolPermission` (https://antigravity.google/docs/settings (fetched 2026-11-13): ask = agentMode default, auto = agentMode auto, full = agentMode auto with toolPermission always-proceed (agentMode alone still pauses risky commands); harness.antigravity.agent_mode and tool_permission win)
-- `autonomy.sandbox_mode`: `~/.gemini/antigravity-cli/settings.json: enableTerminalSandbox` (https://antigravity.google/docs/settings (fetched 2026-11-13): enableTerminalSandbox is a boolean that agents always writes; workspace = true, off = false, read-only has no equivalent: false is kept and it warns; harness.antigravity.enable_terminal_sandbox true also turns it on)
+- `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`, `~/.gemini/antigravity-cli/settings.json: toolPermission` (https://antigravity.google/docs/settings (fetched 2026-11-13): ask = agentMode default, auto = agentMode auto, full = agentMode auto with toolPermission always-proceed (agentMode alone still pauses risky commands), the toolPermission only when harness.antigravity.agent_mode is unset; the typed agent_mode and tool_permission win)
+- `autonomy.sandbox_mode`: `~/.gemini/antigravity-cli/settings.json: enableTerminalSandbox` (https://antigravity.google/docs/settings (fetched 2026-11-13): enableTerminalSandbox is a boolean that agents always writes; workspace = true, off = false, read-only is approximated toward the stricter side: true, with a note; harness.antigravity.enable_terminal_sandbox wins, true or false)
 - `autonomy.allow_non_workspace_access`: `~/.gemini/antigravity-cli/settings.json: allowNonWorkspaceAccess`
 - `permissions.allow_commands`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
 - `permissions.allowed_urls`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
