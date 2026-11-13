@@ -2,7 +2,6 @@ package harness
 
 import (
 	"path/filepath"
-	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -74,7 +73,39 @@ func TestRenderWorkspaces(t *testing.T) {
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("targets (-want +got):\n%s", diff)
 	}
-	if len(b.warnings) != 1 || !strings.Contains(b.warnings[0], "mcp.workspaces.ops: server \"crm\": OAuth client is not public") {
-		t.Errorf("warnings = %q, want the confidential client warning", b.warnings)
+	wantWarnings := []string{
+		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
+		`mcp.workspaces.ops: server "crm": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
+	}
+	if diff := cmp.Diff(wantWarnings, b.warnings); diff != "" {
+		t.Errorf("warnings (-want +got):\n%s", diff)
+	}
+}
+
+func TestRenderWorkspacesOnly(t *testing.T) {
+	t.Parallel()
+
+	home := t.TempDir()
+	r := &config.Resolved{
+		Harnesses: []config.Harness{config.Claude, config.Codex},
+		Config: config.Config{MCP: config.MCP{Workspaces: map[string]config.Workspace{
+			"ops": {Path: "~/ops", Servers: map[string]config.MCPServer{"docs": {URL: "https://docs.example.com/mcp"}}},
+		}}},
+	}
+	plan, err := RenderWorkspaces(r, Env{Home: home, Getenv: func(string) string { return "" }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make([]string, 0, len(plan.Targets))
+	for _, tg := range plan.Targets {
+		rel, _ := filepath.Rel(home, tg.Path)
+		got = append(got, rel)
+	}
+	want := []string{"ops/.mcp.json", "ops/.codex/config.toml"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("targets (-want +got):\n%s", diff)
+	}
+	if len(plan.Warnings) != 0 {
+		t.Errorf("warnings = %q, want none", plan.Warnings)
 	}
 }

@@ -1,8 +1,11 @@
 package harness
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
 	"maps"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -11,6 +14,20 @@ import (
 	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/mcpsync"
 )
+
+// RenderWorkspaces renders only the MCP files of the configured workspaces for
+// the selected harnesses. Like Render, it returns the Plan with what rendered
+// and an error joining the failures.
+func RenderWorkspaces(r *config.Resolved, env Env) (Plan, error) {
+	if env.ReadFile == nil {
+		env.ReadFile = os.ReadFile
+	}
+	b := &builder{cfg: &r.Config, env: env, profile: r.Profile, seen: map[string]bool{}}
+	if err := renderWorkspaces(b.cfg, b, Selected(r.Harnesses)); err != nil {
+		b.errs = append(b.errs, fmt.Errorf("mcp workspaces: %w", err))
+	}
+	return Plan{Targets: b.targets, Warnings: b.warnings}, errors.Join(b.errs...)
+}
 
 // renderWorkspaces adds the MCP files of every workspace for the selected harnesses.
 //
@@ -25,23 +42,46 @@ func renderWorkspaces(_ *config.Config, b *builder, selected []config.Harness) e
 		for name, s := range w.Servers {
 			servers[name] = serverEntry(s)
 		}
-		for _, d := range mcpsync.Docs(servers, names) {
-			b.add(apply.Target{
-				Owner:   d.Harness,
-				Path:    filepath.Join(w.Path, filepath.FromSlash(d.RelPath)),
-				Format:  d.Format,
-				Managed: d.Managed,
-				Mode:    workspaceMode(d.RelPath),
-			})
+		targets, warnings := WorkspaceTargets(w.Path, servers, names, false)
+		for _, t := range targets {
+			b.add(t)
 		}
-		for _, warning := range mcpsync.Warnings(servers) {
-			if strings.HasPrefix(warning, "antigravity:") && !slices.Contains(names, string(config.Antigravity)) {
-				continue
-			}
+		for _, warning := range warnings {
 			b.warnf("mcp.workspaces.%s: %s", w.Name, warning)
 		}
 	}
 	return nil
+}
+
+// WorkspaceTargets returns the MCP files of the workspace at root for the
+// named harnesses, and the warnings about servers a harness cannot take (only
+// for the harnesses named). withoutSource leaves out .mcp.json, for a
+// workspace whose source is that file.
+func WorkspaceTargets(root string, servers map[string]mcpsync.ServerEntry, harnesses []string, withoutSource bool) ([]apply.Target, []string) {
+	var targets []apply.Target
+	for _, d := range mcpsync.Docs(servers, harnesses) {
+		if withoutSource && d.RelPath == mcpsync.SourceFilename {
+			continue
+		}
+		targets = append(targets, apply.Target{
+			Owner:   d.Harness,
+			Path:    filepath.Join(root, filepath.FromSlash(d.RelPath)),
+			Format:  d.Format,
+			Managed: d.Managed,
+			Mode:    workspaceMode(d.RelPath),
+		})
+	}
+	var warnings []string
+	for _, warning := range mcpsync.Warnings(servers) {
+		if strings.HasPrefix(warning, "antigravity:") && !slices.Contains(harnesses, string(config.Antigravity)) {
+			continue
+		}
+		if strings.HasPrefix(warning, "opencode ") && !slices.Contains(harnesses, string(config.OpenCode)) {
+			continue
+		}
+		warnings = append(warnings, warning)
+	}
+	return targets, warnings
 }
 
 // workspaceMode is the mode of a new workspace file. .mcp.json and
