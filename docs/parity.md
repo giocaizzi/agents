@@ -1,137 +1,77 @@
 # Harness parity matrix
 
-What `agents` does for each policy dimension on each harness. Derived from the code, not from other docs.
+What `agents apply` writes for each config key on each harness. Derived from `internal/harness`, not from other docs. Keys are described in [config.md](config.md).
 
 ## Reading the matrix
 
-| Verb | Meaning |
+| Cell | Meaning |
 |---|---|
-| **renders** | `agents render` / `internal/translate` emits it. The native key follows. |
-| **checks** | `agents check` verifies it. The cell says what is compared. |
-| **syncs** | `agents` writes or merges the file itself (only `agents mcp sync` and `agents mcp add` do). |
-| **reads** | `agents` reads harness state only (installed plugin versions, credentials, instruction files). |
-| **—** | Not covered. `n/a: ...` means the harness has no such feature. `GAP: ...` means the harness supports it and `agents` does not cover it. `unknown: ...` means the evidence needed to tell the two apart is missing. |
+| a native key or file | `agents apply` writes it (merged into the live file; only managed keys are touched) |
+| check-only | compared by `apply` and `check -live`, never written |
+| **—** | not written. `n/a:` means the harness has no such feature; `GAP:` means the harness supports it and `agents` does not cover it; `unverified:` means the evidence is missing |
 
-Points that hold for the whole page:
+Every harness also gets `harness.<name>.settings`, merged as-is into its native settings file, and the composed instruction layers.
 
-- `agents` does not write harness settings. `agents render` prints native JSON/TOML to stdout; a config manager such as chezmoi writes the files from templates, and `agents check` inspects those templates (`CheckSourceFiles`). The only files `agents` writes itself are the MCP targets (see Instructions and MCP).
-- **checks** has two depths. `parity.CheckParity` runs the translators on the policy and tests the result against the policy (see Sources, Configuration); it never opens an installed harness file. Only `parity.CheckSourceFiles` reads files from the chezmoi source directory, and only when that directory is found.
-- A Policy field that no translator reads is parsed and validated (`Policy.Validate`) but not rendered. Such cells say `GAP: schema-only` when the harness has a matching native key.
-- Columns follow the harness names used in code: `claude`, `copilot`, `codex`, `opencode`, `pi`, `antigravity`. `vscode` is also a valid harness name (`pluginreg.DefaultHarnesses`, `parity.SupportedHarnesses`) but has no column: see VS Code below. `agents render` does not accept it (`internal/cli/render.go: renderHarness`); `VSCodeSettings` is only reachable from Go.
-- Native-key evidence: `copilot help config` and `copilot help permissions`; `opencode.ai/config.json`; the Codex `config.schema.json` (upstream `main`); the Claude Code settings schema (schemastore); `pi --help` and the docs shipped with the pi package; `agy --help`; the translator code. Where none of these covered a harness key, the cell says `unknown`.
+## What each harness receives
 
-## VS Code
-
-VS Code's agent chat runs on the Copilot harness (Agent Host) and reads `~/.copilot`: it follows the Copilot column (MCP from `~/.copilot/mcp-config.json`, shared with Copilot CLI; plugins from Copilot CLI's installed plugins; instructions from `~/.copilot/copilot-instructions.md`). VS Code's Local harness is deprecated, so `agents` renders no setting for it (autopilot, subagent invocation).
-
-What stays VS Code-specific is `settings.json`, which `VSCodeSettings` renders and `agents check` inspects:
-
-| Dimension | VS Code `settings.json` |
+| Harness | Files |
 |---|---|
-| Allowed, denied and ask commands | renders `chat.tools.terminal.autoApprove`: `true` for allowed commands and patterns, `false` for denied exact commands, patterns and ask prefixes (denied prefixes are not mapped, GAP); checks the key exists |
-| Allowed URLs | renders `chat.tools.urls.autoApprove` `true`; checks the key exists |
-| Theme (`ui.theme`) | renders `workbench.colorTheme` (default `Catppuccin Mocha`) |
-| Voice | renders `dictation.enabled`, `agents.voice.language`; checks the static `dot_config/Code/User/settings.json` matches both |
+| Claude Code | `~/.claude/settings.json`, `~/.claude.json` (MCP servers), `~/.claude/CLAUDE.md`; with language servers, a local plugin under `<data>/claude-plugins` (marketplace `agents`, plugin `lsp@agents`) |
+| Copilot CLI | `~/.copilot/settings.json`, `lsp-config.json`, `mcp-config.json`, `copilot-instructions.md` |
+| VS Code | `settings.json` in the user directory (check-only); VS Code's agent chat reads `~/.copilot`, so it gets the Copilot files too. When `copilot` is also selected, `copilot` owns them |
+| Codex | `~/.codex/config.toml`, `~/.codex/rules/agents.rules`, `~/.codex/AGENTS.md` |
+| opencode | `~/.config/opencode/opencode.jsonc`, `~/.config/opencode/AGENTS.md` |
+| pi | `~/.pi/agent/settings.json`, `mcp.json`, `AGENTS.md` |
+| Antigravity | `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/mcp_config.json`, `~/.gemini/config/AGENTS.md` |
 
-## Configuration
+JSON targets keep the live key order and append new keys; an unchanged target is not rewritten; a symlinked target is refused. The old local Claude marketplace keys (`lsp@dotfiles`) are removed once.
 
-| Dimension (Policy field) | Claude Code | Copilot CLI | Codex | opencode | pi | Antigravity |
-|---|---|---|---|---|---|---|
-| Execution mode (`autonomy.executionMode`, `autonomy.mode`, `native.claude.defaultMode`, `native.antigravity.agentMode`/`toolPermission`) | renders `permissions.defaultMode` (default `auto`); checks enum in `Validate` | — GAP: `defaultMode`, `defaultPermissionMode` | — GAP: `approval_policy` is only passed through from `native.codex`, not derived from autonomy | — unknown: `--auto` is a CLI flag; no config key for it found in the schema | — n/a: pi asks for no approval (`security.md`) | renders `agentMode` (default `auto`), `toolPermission` (default `always-proceed`); checks `agentMode` non-empty |
-| Sandbox (`autonomy.sandboxMode`, `native.codex.sandbox_mode`, `native.opencode.sandbox`, `native.antigravity.enableTerminalSandbox`) | — GAP: `sandbox` | — GAP: `sandbox.enabled` | renders `sandbox_mode` from `native.codex` only; `autonomy.sandboxMode` is not read | renders `sandbox` from `native.opencode.sandbox`; key not in the published schema (see Findings) | — n/a: no sandbox in pi (`security.md`) | renders `enableTerminalSandbox` |
-| Non-workspace access (`autonomy.allowNonWorkspaceAccess`, `native.antigravity.allowNonWorkspaceAccess`) | — unknown: no matching key verified | — unknown | — unknown | — unknown | — n/a: no workspace boundary (`security.md`) | renders `allowNonWorkspaceAccess` (from `native.antigravity`) |
-| Subagents (`autonomy.allowSubagentInvocations`, `subagentDepth`, `askTimeout`) | — unknown: no key verified | — GAP: `subagents.maxDepth` | — GAP: `agents.max_depth` | — GAP: `experimental.subagent_depth` | — n/a: no built-in subagents in `pi --help` | — unknown |
-| Allowed commands (`permissions.allowCommands`, `allowCommandPatterns`) | renders `permissions.allow`: fixed `WebSearch`, `WebFetch`, `Bash`, `Bash(gh pr merge * --auto*)` plus `Bash(<pattern>)`; `allowCommands` is not read | — GAP: `--allow-tool shell(...)` rules; no settings key found | — GAP: `permissions` | — GAP: `permission` | — n/a: no permission system | renders `permissions.allow`: fixed `command(*)`, `read_url(*)`, `execute_url(*)`, `mcp(*)`, `command(gh pr merge * --auto*)` plus `command(<prefix>)` for patterns without an inner `*` |
-| Denied commands (`denyCommandPatterns`, `denyCommandExact`, `denyCommandPrefixes`) | renders `permissions.deny`: `Bash(pat)`, `Bash(exact)`, `Bash(pfx:*)`; on Windows also `PowerShell(pfx *)` | — GAP: `--deny-tool shell(...)` rules; no settings key found | — GAP: `permissions` | — GAP: `permission` | — n/a | renders `permissions.deny`: `command(pat)`, `command(exact)`, `command(pfx)` and `command(pfx *)`; `git push` patterns are deduplicated by prefix |
-| Ask commands (`askCommandPrefixes`) | renders `permissions.ask`: `Bash(pfx)`, `Bash(pfx *)` | — GAP: no settings key found | — GAP: `permissions` | — GAP: `permission` | — n/a | renders `permissions.ask`: `command(pfx)`, `command(pfx *)` |
-| Allowed URLs (`permissions.allowedUrls`) | — GAP: `WebFetch(domain:...)` rules; a fixed `WebFetch` allow is rendered instead | — GAP: `allowedUrls` (settings.json) | — GAP: `permissions` network rules | — GAP: `permission` | — n/a | — GAP: `read_url(...)` rules; a fixed `read_url(*)`/`execute_url(*)` allow is rendered instead |
-| Protected paths (`denyRead`, `denyWrite`) | renders `permissions.deny`: `Read(path)`, `Edit(path)` | — GAP: `sandbox.userPolicy.filesystem.deniedPaths` (sandbox only) | — GAP: `permissions` filesystem rules | — GAP: `permission` | — n/a | renders `permissions.deny`: `read_file(path)`, `write_file(path)` |
-| Allowed MCP servers (`permissions.allowedMcp`) | — GAP: `allowedMcpServers` | — unknown | — unknown | — unknown | — n/a | renders fixed `mcp(*)` allow; the field is not read |
-| Model tiers and effort (`models.tiers`, `defaultEffortLevel`, `showThinkingSummaries`) | — GAP: `model`, `effortLevel`, `showThinkingSummaries` are not rendered | renders `subagents.agents.<name>.{model,effortLevel}` from `native.copilot.agents` only; tiers not rendered (GAP: `model`, `effortLevel`) | renders `model`, `model_reasoning_effort` from `native.codex` only; tiers not rendered | renders `model` from `native.opencode.defaultModel`; tiers not rendered (GAP: `small_model`) | renders `defaultProvider` (default `openai`), `defaultModel`, `defaultThinkingLevel` (default `medium`), `packages`; checks provider/model non-empty (always true because of defaults) | — unknown: `--model`/`--effort` are CLI flags; no settings key verified |
-| Context compaction (`context.autoCompact`, `autoCompactWindow`, `promptCacheTtl`, `subagentPromptCacheTtl`, `maxTurnTokens`, `maxTokens`) | — GAP: `autoCompactEnabled` (schema-only) | — unknown | — GAP: `model_auto_compact_token_limit` | — GAP: `compaction` | — GAP: `compaction.enabled`, `reserveTokens` | — unknown |
-| Terminal bell (`ui.terminalBell`, `notifications.terminalBell`) | renders `preferredNotifChannel` (`terminal_bell` or `notifications_disabled`); checks it equals `terminal_bell` when the bell is on | renders `beep`; checks `beep=true` when the bell is on | renders `tui.notifications`, `tui.notification_method=bel`; checks `tui.notifications=true` when the bell is on | renders `bell`; checks `bell=true` (key not in the published schema, see Findings) | — unknown | — unknown |
-| Theme (`ui.theme`) | — GAP: `theme` (schema-only) | — GAP: `theme` | — GAP: `tui.theme` | — unknown: theme is not in `opencode.json` | — GAP: `theme` | — unknown |
-| Other UI (`tuiMode`, `viewMode`, `outputStyle`, `showTurnDuration`, `progressBar`, `timeFormat`) | — GAP: `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled` (schema-only) | — GAP: `terminalProgress` | — unknown | — unknown | — GAP: `tuiMode`, `terminal.showTerminalProgress` | — unknown |
-| Telemetry (`telemetry.*`, dual tier, hooks bridge) | — GAP: OTEL settings under `env` (schema-only) | — GAP: `telemetry.*` | — GAP: `otel` | — GAP: `experimental.openTelemetry` | — n/a: only anonymous install telemetry (`enableInstallTelemetry`), not OTLP | — unknown |
-| LSP (`lsp.enabled`, `lsp.server.*`) | checks each server names a row in `packages.toml`; not rendered (no `lspServers` key in the schema) | checks `packages.toml` row; not rendered (GAP: `lsp` configuration) | checks `packages.toml` row; native key unknown | checks `packages.toml` row; not rendered (GAP: `lsp`) | checks `packages.toml` row; n/a: no built-in LSP | checks `packages.toml` row; native key unknown |
-| Voice (`voice.enabled`, `mode`, `autoSubmit`, `language`) | renders `voice.enabled`, `voice.mode` (default `hold`), `voice.autoSubmit`; no `language` (it also sets the reply language); checks the Claude template reads `.agents.voice.{enabled,mode,autoSubmit}` and sets no `"language":` | renders `voice.enabled` (Copilot has no mode, auto-submit or language key); checks the Copilot template reads `.agents.voice.enabled` | — n/a: no dictation in the CLI; `/voice` starts a realtime spoken conversation (cloud), not dictation into the prompt | — n/a: none found | — not implemented | — n/a: `/voice` dictation (cloud) has no documented settings key |
-| Native escapes (`native.*`) | renders `defaultMode`, `skipAutoPermissionPrompt`; `cleanupPeriodDays`, `disableClaudeAiConnectors` are parsed, not rendered (GAP: `cleanupPeriodDays`, `disableClaudeAiConnectors`) | renders `subagents.agents` from `native.copilot.agents`; checks binding has model and `effortLevel` | renders `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode` when set | renders `model`, `sandbox` | renders the four `native.pi` keys | renders `agentMode`, `toolPermission`, `enableTerminalSandbox`, `allowNonWorkspaceAccess` |
-| Profiles (`profiles.*`) | `WithProfile` is harness-independent: merges tiers, appends allow/deny/MCP lists, overrides `executionMode`, `sandboxMode`, `ui`. It drops `allowCommandPatterns`, `askCommandPrefixes`, other autonomy fields and `profiles.*.plugins`. | same | same | same | same | same |
+## Dimensions
 
-For voice per harness (where audio goes, the speech model, manual steps) see [voice parity](voice.md).
+| Config | Claude Code | Copilot CLI | VS Code | Codex | opencode | pi | Antigravity |
+|---|---|---|---|---|---|---|---|
+| `permissions` | `permissions` allow, deny and ask rules in Claude syntax; `defaultMode` from `harness.claude.default_mode` (default `auto`); `PowerShell(...)` deny rules on Windows | `allowedUrls` (union with the live list) | `chat.tools.terminal.autoApprove`, `chat.tools.urls.autoApprove` (check-only) | `rules/agents.rules`: `prefix_rule` for allow and deny patterns that are literal prefixes; others are skipped with a warning | `permissions` (allow, ask) and `policies` (deny) arrays, merged with the live ones | — (GAP: pi has no permission file) | `permissions` allow, ask and deny in Antigravity syntax; patterns with an inner `*` are skipped |
+| `autonomy` | `askUserQuestionTimeout` from `ask_timeout` | — | — | `harness.codex.approval_policy`, `sandbox_mode` | `experimental.subagent_depth` | — | `agentMode` (from `execution_mode` unless set), `allowNonWorkspaceAccess` |
+| `models.default` (session) | `model`, `effortLevel` | `model` | n/a: no session setting | `model`, `model_reasoning_effort` | `model` | `defaultModel`, `defaultThinkingLevel` | n/a: no session setting |
+| `ui` | `theme`, `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`, `timeFormat` | — | `workbench.colorTheme` (check-only) | — | — | — | — |
+| `context` | `autoCompactWindow`, `promptCacheTtl`, `subagentPromptCacheTtl` | — | — | — | — | — | — |
+| `notifications` | `preferredNotifChannel` | `beep` | — | `tui.notifications` with `bel` | — | — | — |
+| `voice` | `voice` object ([voice.md](voice.md)) | `voice.enabled` | `dictation.enabled`, `agents.voice.language` (check-only) | n/a | n/a | n/a | — (no documented key) |
+| `telemetry` | `env` OpenTelemetry keys; removed when off | — | — | `otel` exporters (OTLP over HTTP) | — | — | — |
+| `lsp` | local `lsp@agents` plugin | `lsp-config.json` | — | — | `lsp` | — | — |
+| `mcp.servers` | `~/.claude.json` `mcpServers` | `mcp-config.json` | via the Copilot files | `mcp_servers` | `mcp` | `mcp.json` | `mcp_config.json` |
+| `plugins` | `enabledPlugins`, `extraKnownMarketplaces` | `enabledPlugins`, `extraKnownMarketplaces` | via the Copilot files | — (plugins are installed by `agents plugins`) | — (installer from the registry checkout) | `packages` (registry checkout plus `harness.pi.packages`) | — |
 
-Sources (Configuration): `internal/policy/policy.go` (fields, `WithProfile`), `internal/policy/validate.go` (`Validate`: autonomy mode enum, non-empty patterns, tier model/effort, `native.claude.defaultMode`, `native.antigravity.agentMode`, `native.pi.defaultThinkingLevel`, voice mode and BCP 47 language, LSP server shape), `internal/translate/{claude,copilot,vscode,codex,opencode,pi,antigravity}.go`, `internal/parity/parity.go: CheckParity`, `internal/parity/files.go: CheckSourceFiles`.
+A harness's own keys (`harness.<name>.*`) are written where the harness has a matching setting; see the typed keys in [config.md](config.md#harnessname).
 
-## Instructions and MCP
+### MCP OAuth clients
 
-| Dimension | Claude Code | Copilot CLI | Codex | opencode | pi | Antigravity |
-|---|---|---|---|---|---|---|
-| System prompt / instructions (`agents prompt`, `agents render -part prompt`) | reads `CLAUDE.md`, `.claude/CLAUDE.md`, then `~/.claude/CLAUDE.md` | reads `.github/copilot-instructions.md`, `.copilot-instructions.md`, then `~/.copilot/copilot-instructions.md`, `~/.config/github-copilot/copilot-instructions.md` | reads `AGENTS.md`, `.codex/AGENTS.md`, then `~/.codex/AGENTS.md` | reads `AGENTS.md`, `.config/opencode/AGENTS.md`, then `~/.config/opencode/AGENTS.md` | reads `AGENTS.md`, `.pi/AGENTS.md`, then `~/.pi/agent/AGENTS.md`, `~/.pi/AGENTS.md` | reads `AGENTS.md`, `.gemini/AGENTS.md`, then `~/.gemini/antigravity-cli/AGENTS.md`, `~/.gemini/config/AGENTS.md` |
-| Prompt composition and presence check | All harnesses: when no file is found, falls back to `profiles.<name>.instructions` or the template prompt layers, prints it (`render -part prompt`); `agents prompt -check` checks presence only. `agents check` does not check prompts. | same | same | same | same | same |
-| MCP (`agents mcp sync`, `agents mcp add`, `.mcp.json` source) | — n/a: `.mcp.json` is Claude Code's native project file, so there is nothing to write | — unknown: native MCP file not verified | syncs `<workspace>/.codex/config.toml` | — GAP: `mcp` in `opencode.json` | syncs `<workspace>/.pi/mcp.json` | syncs `<workspace>/.agents/mcp_config.json` |
-| MCP OAuth client (`.mcp.json` `oauth.clientId`/`callbackPort`, or Copilot's `oauthClientId`/`auth.redirectPort`) | native: reads `oauth`, ignores Copilot's keys | native: reads `oauthClientId`, `oauthPublicClient`, `auth`; the file location is unverified (row above) | syncs `[mcp_servers.<name>.oauth]` `client_id`, `callback_port` | — GAP: no MCP sync | syncs `oauth.clientId`, `oauth.callbackPort` | syncs `oauth.clientId`; no callback port setting (fixed redirect URI), so a port is left out with a warning |
-| MCP safety (`agents mcp sync -check`) | n/a | n/a | checks source validity (name, URL, placeholders) and target preflight: no symlinks in the path, existing file carries the `agents mcp sync` marker | n/a | same as Codex | same as Codex |
+| Harness | Written for `oauth.*` |
+|---|---|
+| Claude Code | `oauth.clientId`, `oauth.callbackPort` (the secret stays in the keychain) |
+| Copilot CLI | `oauthClientId`, `oauthPublicClient`, `auth.redirectPort`. unverified: `auth.redirectPort` is not among the documented remote-server fields of the Copilot CLI reference |
+| Codex | `oauth.client_id`, `oauth.callback_port` |
+| pi | `oauth.clientId`, `oauth.callbackPort` |
+| Antigravity | `oauth.clientId`; no port setting, a configured port is left out with a warning |
+| opencode | `oauth.clientId` |
 
-Sources (Instructions and MCP): `internal/cli/harness_prompt.go` (`isKnownHarness`, `workspacePromptCandidates`, `homePromptCandidates`), `internal/cli/prompt.go`, `internal/mcpsync/mcpsync.go` (`Sync`, `Check`, `PreflightCheck`, `isOwned`), `internal/mcpsync/render.go`, `internal/cli/mcp.go`. Written targets are mode `0600`, JSON targets carry `_generatedBy`, TOML targets a `# Generated by` header. `Policy.MCP` is parsed but no code reads it.
+The redirect host each harness sends is in [cli.md](cli.md#oauth-redirect-hosts).
 
-## Plugins
+### Workspaces
 
-| Dimension | Claude Code | Copilot CLI | Codex | opencode | pi | Antigravity |
-|---|---|---|---|---|---|---|
-| Registry config (`harnessPlugins`, `harnessStandalone`, `allowedHarnesses`) | checks plugin names against the registry and harness names against the allowed list | same | same | same | same | same |
-| Installed state (`plugins list`) | reads `~/.claude/plugins` installed version | reads `~/.copilot/installed-plugins`, `~/.copilot/config.json`, `~/.copilot/settings.json` | reads `~/.codex/plugins/cache/<ns>/<plugin>` | reads copies in `$XDG_CONFIG_HOME/opencode` and compares them with the checkout | reads `packages` in `~/.pi/agent/settings.json`; installed only if an entry resolves to the checkout | reads the Antigravity plugin directory |
-| Update / install (`plugins update`) | `claude plugin marketplace update`, then `plugin update`/`plugin install <name>@<ns>` | same with the `copilot` binary | `codex plugin marketplace upgrade`, `plugin add <name>@<ns>`, then the checkout's `scripts/install.mjs codex` | the checkout's `scripts/install.mjs opencode` | `pi install <checkout>` only when a plugin is missing; stale plugins follow the checkout pull | `agy plugin install <plugin dir>` plus `scripts/install.mjs antigravity` |
-| Prune (`plugins prune`) | removes superseded versions in `~/.claude/plugins/cache/<ns>` | — n/a: no prune target in code | removes superseded versions in `~/.codex/plugins/cache/<ns>` | — n/a | — n/a | removes the obsolete `api` plugin in `~/.gemini/config/plugins` |
+`agents mcp sync` (and `agents apply`, for configured workspaces) writes MCP files under a workspace root: `.mcp.json` for Claude Code, Copilot CLI and VS Code (shared, with both OAuth styles), `.codex/config.toml`, `.pi/mcp.json`, `opencode.json` (servers with an OAuth client are left out: no verified translation) and `.agents/mcp_config.json`. In Codex's user config each workspace path is also marked `trust_level = "trusted"`.
 
-Sources (Plugins): `internal/pluginreg/pluginreg.go` (`CheckRegistry`, `DefaultHarnesses`), `internal/pluginmgmt/pluginmgmt.go` (`List`, per-harness `*Version`, `FindPruneCandidates`), `internal/cli/plugins.go`, `internal/cli/plugins_update.go: harnessSteps`. `agents check` validates the plugin registry config only; installed state is `plugins list`.
+## Models
 
-## Runtime tools
+`agents` never edits plugin files. A per-agent model is written only through a harness's own user-level setting; where a harness has none, the plugin's model applies.
 
-| Dimension | Claude Code | Copilot CLI | Codex | opencode | pi | Antigravity |
-|---|---|---|---|---|---|---|
-| Usage and quota (`agents usage`) | reads Anthropic credentials, queries `api.anthropic.com` | reads GitHub Copilot credentials, queries `api.github.com` | reads OpenAI credentials, queries `chatgpt.com`; falls back to Codex rollout sessions | reads per-provider logins in opencode's auth store, queries the provider (Anthropic, OpenAI, GitHub Copilot) | reads per-provider logins in pi's `auth.json` (commands starting with `!` are never run) | reads no credential; runs `agy` for `/usage`, falls back to the agy log |
-| Doctor (`agents doctor`) | reads tier models from the policy and the usage cache; reports unknown model, tier drift, missing account, capacity, headroom, better model | reads `native.copilot.agents` models (fallback to tiers) and the same checks | reads tiers and `native.codex.model` | reads tiers and `native.opencode.defaultModel` | reads tiers and `native.pi.defaultModel` | reads tiers |
-| Models catalog (`agents models`) | Harness-independent: displays terminal tables of the model catalog (models.dev, LMArena, Epoch AI); `agents models sync` writes only the JSON catalog; `doctor` joins it to the settings above | same | same | same | same | same |
-| Init (`agents init`) | scaffolds `agents.toml` with the detected harnesses from `claude, copilot, antigravity, codex, opencode, pi` | same | same | same | same | same |
+| Harness | Per agent (`models.assign`) | Session (`models.default`) |
+|---|---|---|
+| Claude Code | n/a: no settings-level per-subagent override; the plugin's frontmatter model applies | `model`, `effortLevel` |
+| Copilot CLI | `subagents.agents."<plugin>:<agent>"` = `{model, effortLevel}` in `~/.copilot/settings.json` | `model` |
+| opencode | `agents.<agent>.model` in `opencode.jsonc` (the bare agent name; no effort field) | `model` |
+| Codex | n/a: would mean rewriting plugin-generated files | `model`, `model_reasoning_effort` |
+| pi | n/a: same | `defaultModel`, `defaultThinkingLevel` |
+| VS Code, Antigravity | n/a | n/a |
 
-Sources (Runtime tools): `internal/cli/usage*.go` and `internal/provider/*.go` (credential discovery), `internal/usage/*.go`, `internal/doctor/{doctor,checks,resolve}.go` (`harnessOrder` has no VS Code), `internal/catalog/*.go`, `internal/cli/init.go`.
-
-## Findings
-
-- `opencode.ai/config.json` has no top-level `bell` or `sandbox` key, but `OpenCodeSettings` emits both and `CheckParity` tests `bell`. Whether opencode ignores them or rejects the file is not verified.
-- `CheckParity` renders the policy and tests its own output, so for Pi (`defaultModel`/`defaultProvider` default to non-empty values) and Antigravity (`agentMode` defaults to `auto`) the checks cannot fail.
-- The Claude settings schema checked (schemastore snapshot) lists no `skipAutoPermissionPrompt`, `autoCompactWindow` or `lspServers`; `ClaudeSettings` still emits the first.
-- Codex's `realtime` and `audio` tables and the `tui.keymap.chat.toggle_voice` binding belong to `/voice`, a realtime spoken conversation (checked in codex-cli 0.167). It is not dictation into the prompt, so the policy's dictation fields have no Codex target.
-
-## Coverage summary
-
-Every GAP above, once, ranked by user impact. Format: harness - dimension - native key or feature - what `agents` would need.
-
-Security and permissions
-
-1. Copilot CLI - allowed and denied commands, URLs, protected paths - `allowedUrls`, `deniedUrls` (settings.json), `--allow-tool`/`--deny-tool` rules, `sandbox.userPolicy.filesystem.deniedPaths` - a `CopilotSettings` mapping for `allowedUrls`/`deniedUrls` and a decision where tool rules live (flags or `permissions-config.json`).
-2. opencode - all permission rules - `permission` - an `OpenCodeSettings` mapping from allow/deny/ask lists.
-3. Codex - command, URL and path rules - `permissions`, `default_permissions` - a `CodexConfig` mapping from the permission lists.
-4. Codex - autonomy to approval and sandbox - `approval_policy`, `sandbox_mode` - derive them from `autonomy.executionMode`/`sandboxMode` instead of only `native.codex`.
-5. VS Code Copilot - denied command prefixes - `chat.tools.terminal.autoApprove` - map `denyCommandPrefixes` to `false` entries like exact and pattern denies.
-6. Claude Code - allowed URLs and MCP servers - `WebFetch(domain:...)` rules, `allowedMcpServers` - map `allowedUrls` and `allowedMcp` instead of the fixed blanket allow.
-7. Antigravity - allowed URLs and MCP servers - `read_url(...)`, `mcp(...)` rules - map `allowedUrls` and `allowedMcp` instead of the fixed `*` allow.
-8. Claude Code, Copilot CLI - sandbox - `sandbox` (Claude), `sandbox.enabled` (Copilot) - map `autonomy.sandboxMode`.
-9. Copilot CLI - execution mode - `defaultMode`, `defaultPermissionMode` - map `autonomy.executionMode`.
-
-Correctness of what users see
-
-10. Claude Code, Copilot CLI, opencode - model and effort - `model`, `effortLevel`, `showThinkingSummaries`; `model`, `effortLevel`; `small_model` - render `models.tiers` and the effort fields (today `doctor` reads tiers).
-11. Claude Code, Codex, opencode, pi - context compaction - `autoCompactEnabled`, `model_auto_compact_token_limit`, `compaction`, `compaction.*` - map `context.*`.
-12. Claude Code, Copilot CLI, Codex, pi - theme - `theme`, `theme`, `tui.theme`, `theme` - map `ui.theme` (VS Code already is).
-13. Claude Code, Copilot CLI, pi - other UI fields - `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`; `terminalProgress`; `tuiMode`, `terminal.showTerminalProgress` - map `ui.*`.
-14. Claude Code, Copilot CLI, Codex, opencode - telemetry - OTEL `env`, `telemetry.*`, `otel`, `experimental.openTelemetry` - map `telemetry.*`.
-15. Copilot CLI, Codex, opencode - subagent limits - `subagents.maxDepth`, `agents.max_depth`, `experimental.subagent_depth` - map `autonomy.subagentDepth`.
-16. Copilot CLI, opencode - LSP - `lsp` configuration - render `lsp.server.*` (today only the `packages.toml` row is checked).
-17. Claude Code - native escapes - `cleanupPeriodDays`, `disableClaudeAiConnectors` - render the parsed `native.claude` fields.
-
-Convenience
-
-18. opencode - MCP - `mcp` in `opencode.json` - add an opencode target to `mcp sync`.
-
-Derived from the code at 0066e38; checked 2026-11-11.
+A tier names one native model id per harness. A harness without an id for a tier keeps its plugin or session default; there is no translation between model namespaces. Typed harness keys (`harness.codex.model`, `harness.pi.default_model`, `harness.opencode.default_model`) win over the default tier. `agents models tiers` prints the effective result; `agents check` reports an unknown tier as an error, an assignment matching no installed agent as a warning, and an assignment a harness cannot honour as info.
