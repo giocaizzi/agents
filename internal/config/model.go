@@ -115,12 +115,12 @@ func SandboxModes() []string { return []string{SandboxOff, SandboxWorkspace, San
 
 // Autonomy is how freely agents act.
 type Autonomy struct {
-	ExecutionMode            string `json:"execution_mode,omitempty"             jsonschema:"enum=ask,enum=auto,enum=full,description=How freely agents act" toml:"execution_mode,omitempty"`
-	SandboxMode              string `json:"sandbox_mode,omitempty"               jsonschema:"enum=off,enum=workspace,enum=read-only,description=Sandbox for agent commands"  toml:"sandbox_mode,omitempty"`
-	AllowNonWorkspaceAccess  bool   `json:"allow_non_workspace_access,omitempty" jsonschema:"description=Allow access outside the workspace"           toml:"allow_non_workspace_access,omitempty"`
-	SubagentDepth            int    `json:"subagent_depth,omitempty"             jsonschema:"description=Maximum subagent nesting depth"               toml:"subagent_depth,omitempty"`
-	AllowSubagentInvocations bool   `json:"allow_subagent_invocations,omitempty" jsonschema:"description=Allow agents to invoke subagents"             toml:"allow_subagent_invocations,omitempty"`
-	AskTimeout               string `json:"ask_timeout,omitempty"                jsonschema:"description=How long to wait for an answer to a question" toml:"ask_timeout,omitempty"`
+	ExecutionMode            string `json:"execution_mode,omitempty"             jsonschema:"enum=ask,enum=auto,enum=full,description=How freely agents act"                toml:"execution_mode,omitempty"`
+	SandboxMode              string `json:"sandbox_mode,omitempty"               jsonschema:"enum=off,enum=workspace,enum=read-only,description=Sandbox for agent commands" toml:"sandbox_mode,omitempty"`
+	AllowNonWorkspaceAccess  bool   `json:"allow_non_workspace_access,omitempty" jsonschema:"description=Allow access outside the workspace"                                toml:"allow_non_workspace_access,omitempty"`
+	SubagentDepth            int    `json:"subagent_depth,omitempty"             jsonschema:"description=Maximum subagent nesting depth"                                    toml:"subagent_depth,omitempty"`
+	AllowSubagentInvocations bool   `json:"allow_subagent_invocations,omitempty" jsonschema:"description=Allow agents to invoke subagents"                                  toml:"allow_subagent_invocations,omitempty"`
+	AskTimeout               string `json:"ask_timeout,omitempty"                jsonschema:"description=How long to wait for an answer to a question"                      toml:"ask_timeout,omitempty"`
 }
 
 // Permissions are the command and path rules shared by all harnesses.

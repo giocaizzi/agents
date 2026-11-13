@@ -74,9 +74,7 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 	}
 	setIf(out, "defaultPermissionMode",
 		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Copilot CLI", "defaultPermissionMode", copilotExecution()))
-	if on := b.sandboxOn(c.Autonomy.SandboxMode, "Copilot CLI", "sandbox.enabled"); on {
-		out["sandbox"] = map[string]any{keyEnabled: true}
-	}
+	setIfAny(out, "sandbox", b.sandboxEnabled(c.Autonomy.SandboxMode, "Copilot CLI", "sandbox.enabled"))
 	if mkt := MarketplaceName(c); mkt != "" {
 		plugins := map[string]any{}
 		for name, on := range PluginStates(c, config.Copilot) {

@@ -4,7 +4,7 @@
 
 Which configuration keys each harness supports. Every key is in one of three states per harness:
 
-- ✓ **rendered**: `agents apply` writes the key to the harness (the target is listed under the harness below).
+- ✓ **rendered**: `agents apply` writes the key to the harness (the target is listed under the harness below, with the value mapping where a shared enum maps to native values).
 - — **unsupported**: the harness has no native setting for it, so the key has no effect there. `agents check` reports it as info.
 - planned: the harness has a native setting that agents does not write yet. `agents check` warns.
 
@@ -20,8 +20,8 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `models.assign` | — | ✓ | ✓ | — | ✓ | — | — |
 | `models.default_effort_level` | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | `models.show_thinking_summaries` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
-| `autonomy.execution_mode` | planned | planned | planned | planned | — | — | ✓ |
-| `autonomy.sandbox_mode` | planned | planned | planned | planned | — | — | planned |
+| `autonomy.execution_mode` | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
+| `autonomy.sandbox_mode` | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
 | `autonomy.allow_non_workspace_access` | planned | — | planned | — | ✓ | — | ✓ |
 | `autonomy.subagent_depth` | — | ✓ | ✓ | — | ✓ | — | — |
 | `autonomy.allow_subagent_invocations` | — | — | ✓ | — | — | — | — |
@@ -136,6 +136,8 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `models.tiers`: `~/.claude/settings.json: model`, `~/.claude/settings.json: effortLevel`
 - `models.default_effort_level`: `~/.claude/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.claude/settings.json: showThinkingSummaries`
+- `autonomy.execution_mode`: `~/.claude/settings.json: permissions.defaultMode` (https://code.claude.com/docs/en/permissions (fetched 2026-11-13): ask = default, auto = auto, full = bypassPermissions; acceptEdits, plan and dontAsk are not shared values; harness.claude.default_mode wins)
+- `autonomy.sandbox_mode`: `~/.claude/settings.json: sandbox.enabled` (https://code.claude.com/docs/en/settings-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default off; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns)
 - `autonomy.ask_timeout`: `~/.claude/settings.json: askUserQuestionTimeout`
 - `permissions.allow_commands`: `~/.claude/settings.json: permissions.allow`
 - `permissions.allowed_urls`: `~/.claude/settings.json: permissions.allow`
@@ -191,8 +193,6 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 
 **Planned**
 
-- `autonomy.execution_mode`: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
-- `autonomy.sandbox_mode`: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
 - `autonomy.allow_non_workspace_access`: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 
 **Not supported**
@@ -217,6 +217,8 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `models.assign`: `~/.copilot/settings.json: subagents`
 - `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
+- `autonomy.execution_mode`: `~/.copilot/settings.json: defaultPermissionMode` (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): ask = manual, auto = assisted (model review of eligible requests, the rest still prompts), full = allow-all)
+- `autonomy.sandbox_mode`: `~/.copilot/settings.json: sandbox.enabled` (https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default false; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns)
 - `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `permissions.allowed_urls`: `~/.copilot/settings.json: allowedUrls`
 - `notifications.terminal_bell`: `~/.copilot/settings.json: beep`
@@ -234,8 +236,6 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 
 **Planned**
 
-- `autonomy.execution_mode`: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode`: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `ui.theme`: theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)
 
 **Not supported**
@@ -274,6 +274,8 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `models.assign`: `~/.copilot/settings.json: subagents`
 - `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
+- `autonomy.execution_mode`: `<Code user dir>/settings.json: chat.permissions.default`, `~/.copilot/settings.json: defaultPermissionMode` (https://code.visualstudio.com/docs/copilot/reference/copilot-settings (fetched 2026-11-13): ask = default (Manual), full = autoApprove (Allow all); auto is not written and warns, because no documented chat.permissions.default value auto-approves while a safety layer still asks (Assisted permissions is a UI level without a setting value; autopilot is an agent mode that also answers questions by itself); the ~/.copilot file gets the Copilot CLI values)
+- `autonomy.sandbox_mode`: `<Code user dir>/settings.json: chat.agent.sandbox.enabled`, `~/.copilot/settings.json: sandbox.enabled` (https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns; the ~/.copilot file gets the Copilot CLI sandbox.enabled)
 - `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `autonomy.allow_subagent_invocations`: `<Code user dir>/settings.json: chat.subagents.allowInvocationsFromSubagents`
 - `permissions.allow_commands`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
@@ -304,8 +306,6 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 
 **Planned**
 
-- `autonomy.execution_mode`: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode`: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.allow_non_workspace_access`: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `telemetry.protocol`: github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)
 - `telemetry.log_tool_content`: github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)
@@ -340,6 +340,8 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `models.default`: `~/.codex/config.toml: model`, `~/.codex/config.toml: model_reasoning_effort`
 - `models.tiers`: `~/.codex/config.toml: model`, `~/.codex/config.toml: model_reasoning_effort`
 - `models.default_effort_level`: `~/.codex/config.toml: model_reasoning_effort`
+- `autonomy.execution_mode`: `~/.codex/config.toml: approval_policy` (https://developers.openai.com/codex/config-reference (fetched 2026-11-13): auto = on-request, full = never; ask is not written and warns, because untrusted is retired and on-request is the only interactive policy; harness.codex.approval_policy wins)
+- `autonomy.sandbox_mode`: `~/.codex/config.toml: sandbox_mode` (https://developers.openai.com/codex/config-reference (fetched 2026-11-13): off = danger-full-access, workspace = workspace-write, read-only = read-only; harness.codex.sandbox_mode wins)
 - `permissions.allow_commands`: `~/.codex/rules/agents.rules`
 - `permissions.allow_command_patterns`: `~/.codex/rules/agents.rules`
 - `permissions.deny_command_patterns`: `~/.codex/rules/agents.rules`
@@ -367,8 +369,6 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 **Planned**
 
 - `models.show_thinking_summaries`: ambiguous: a boolean maps to model_reasoning_summary (auto, concise, detailed, none) or hide_agent_reasoning (boolean); true cannot pick between auto and detailed, and false is the default
-- `autonomy.execution_mode`: approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name; a shared name such as auto would be an invalid Codex value
-- `autonomy.sandbox_mode`: ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value
 - `ui.theme`: ambiguous: tui.theme is a syntax-highlighting theme in kebab-case, not a colour theme, so a shared name such as dark would be an invalid Codex value
 - `telemetry.log_tool_content`: ambiguous: otel.tool_result.max_bytes limits the logged tool result in bytes and there is no boolean; the options are to map true to the default limit or to leave it unsupported
 - `plugins.registry`: ambiguous: marketplaces.<name>.source takes a git location and agents plugins registers the marketplace through the installer; the config.toml value format for the owner/repo registry is not documented (https://developers.openai.com/codex/config-reference, checked 2026-11-13)
@@ -438,12 +438,13 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 
 **Not supported**
 
+- https://opencode.ai/docs/config (fetched 2026-11-13): no sandbox setting: `autonomy.sandbox_mode`
+- https://opencode.ai/docs/permissions (fetched 2026-11-13): no permission or approval mode setting; permissions is a rule list (allow, ask or deny per action and resource, default ask), which agents renders from permissions.*, so a mode would have to be a synthesized catch-all rule: `autonomy.execution_mode`
 - language server entries have no such field: `lsp.servers.*.filetypes`
 - no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented compaction trigger size: `context.auto_compact_window`
 - no documented per-rule message: `permissions.reasons`
 - no documented per-turn token limit: `context.max_turn_tokens`
-- no documented permission mode setting: `autonomy.execution_mode`
 - no documented prompt cache lifetime setting: `context.prompt_cache_ttl`, `context.subagent_prompt_cache_ttl`
 - no documented reasoning effort setting: `models.default_effort_level`
 - no documented response token limit: `context.max_tokens`
@@ -461,7 +462,6 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - no public client flag in the documented MCP server fields: `mcp.servers.*.oauth.public_client`
 - plugins entries are npm, git or directory plugins by their own id, with no registry of harness plugins and no enabled map to fill; agents plugins installs harness plugins instead (https://opencode.ai/docs/plugins): `plugins.registry`, `plugins.enabled`, `plugins.disabled`
 - the formatter section runs a command with $FILE over file extensions and is separate from lsp, so a language server cannot be asked to format (https://opencode.ai/docs/formatters): `lsp.servers.*.format`
-- the harness has no sandbox: `autonomy.sandbox_mode`
 
 ### pi
 
@@ -494,6 +494,8 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 
 **Not supported**
 
+- https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/docs/settings.md (fetched 2026-11-13): no permission or approval mode setting: `autonomy.execution_mode`
+- https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/docs/settings.md (fetched 2026-11-13): no sandbox setting: `autonomy.sandbox_mode`
 - language server entries have no such field: `lsp.servers.*.filetypes`, `lsp.servers.*.format`
 - no documented MCP approval setting: `permissions.allowed_mcp`
 - no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
@@ -503,7 +505,6 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 - no documented path deny rules: `permissions.deny_read`, `permissions.deny_write`
 - no documented per-rule message: `permissions.reasons`
 - no documented per-turn token limit: `context.max_turn_tokens`
-- no documented permission mode setting: `autonomy.execution_mode`
 - no documented prompt cache lifetime setting: `context.prompt_cache_ttl`, `context.subagent_prompt_cache_ttl`
 - no documented response token limit: `context.max_tokens`
 - no documented setting for Output style.: `ui.output_style`
@@ -520,7 +521,6 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 - no documented voice input setting: `voice.enabled`, `voice.mode`, `voice.auto_submit`, `voice.language`
 - no public client flag in the documented MCP server fields: `mcp.servers.*.oauth.public_client`
 - no settings-level per-agent model; the plugin's own model applies: `models.assign`
-- the harness has no sandbox: `autonomy.sandbox_mode`
 
 ### Antigravity
 
@@ -529,7 +529,8 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 **Rendered**
 
 - `instructions`: `~/.gemini/config/AGENTS.md`
-- `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`
+- `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`, `~/.gemini/antigravity-cli/settings.json: toolPermission` (https://antigravity.google/docs/settings (fetched 2026-11-13): ask = agentMode default, auto = agentMode auto, full = agentMode auto with toolPermission always-proceed (agentMode alone still pauses risky commands); harness.antigravity.agent_mode and tool_permission win)
+- `autonomy.sandbox_mode`: `~/.gemini/antigravity-cli/settings.json: enableTerminalSandbox` (https://antigravity.google/docs/settings (fetched 2026-11-13): enableTerminalSandbox is a boolean that agents always writes; workspace = true, off = false, read-only has no equivalent: false is kept and it warns; harness.antigravity.enable_terminal_sandbox true also turns it on)
 - `autonomy.allow_non_workspace_access`: `~/.gemini/antigravity-cli/settings.json: allowNonWorkspaceAccess`
 - `permissions.allow_commands`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
 - `permissions.allowed_urls`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
@@ -551,10 +552,6 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `harness.antigravity.enable_terminal_sandbox`: `~/.gemini/antigravity-cli/settings.json: enableTerminalSandbox`
 - `harness.antigravity.allow_non_workspace_access`: `~/.gemini/antigravity-cli/settings.json: allowNonWorkspaceAccess`
 - `harness.antigravity.allow`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
-
-**Planned**
-
-- `autonomy.sandbox_mode`: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 
 **Not supported**
 
@@ -590,15 +587,6 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 The harness supports the setting natively and agents does not write it yet. `agents check` warns when such a key is set.
 
 - `models.show_thinking_summaries` on Codex: ambiguous: a boolean maps to model_reasoning_summary (auto, concise, detailed, none) or hide_agent_reasoning (boolean); true cannot pick between auto and detailed, and false is the default
-- `autonomy.execution_mode` on Claude Code: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
-- `autonomy.execution_mode` on Copilot CLI: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
-- `autonomy.execution_mode` on VS Code: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
-- `autonomy.execution_mode` on Codex: approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name; a shared name such as auto would be an invalid Codex value
-- `autonomy.sandbox_mode` on Claude Code: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
-- `autonomy.sandbox_mode` on Copilot CLI: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode` on VS Code: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode` on Codex: ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value
-- `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 - `autonomy.allow_non_workspace_access` on Claude Code: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `permissions.allowed_mcp` on opencode: ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)

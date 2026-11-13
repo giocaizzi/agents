@@ -9,10 +9,12 @@ import (
 // is never approximated: nothing is written for that harness and the render
 // warns. The same tables are documented as evidence in internal/feature.
 
-// Shared keys, as the warnings name them.
+// Shared keys, as the warnings name them, and the native name that is auto.
 const (
-	keyExecution = "autonomy.execution_mode"
-	keySandbox   = "autonomy.sandbox_mode"
+	nativeAuto    = "auto"
+	nativeDefault = "default"
+	keyExecution  = "autonomy.execution_mode"
+	keySandbox    = "autonomy.sandbox_mode"
 )
 
 // nativeMode looks the value of a shared key up in table. An empty value is
@@ -29,6 +31,15 @@ func (b *builder) nativeMode(shared, value, harness, key string, table map[strin
 	return ""
 }
 
+// sandboxEnabled is the {enabled: true} object of a harness whose sandbox is
+// a nested boolean, or nil when the shared mode does not turn it on.
+func (b *builder) sandboxEnabled(value, harness, key string) map[string]any {
+	if b.sandboxOn(value, harness, key) {
+		return map[string]any{keyEnabled: true}
+	}
+	return nil
+}
+
 // sandboxOn maps the shared sandbox mode to an on/off native setting:
 // workspace is on, off is off, and read-only has no equivalent (warned, so
 // off here too).
@@ -40,7 +51,7 @@ func (b *builder) sandboxOn(value, harness, key string) bool {
 // Execution mode tables: ask, auto, full to the native value. Absent = none.
 
 func claudeExecution() map[string]string {
-	return map[string]string{config.ExecutionAsk: "default", config.ExecutionAuto: "auto", config.ExecutionFull: "bypassPermissions"}
+	return map[string]string{config.ExecutionAsk: nativeDefault, config.ExecutionAuto: nativeAuto, config.ExecutionFull: "bypassPermissions"}
 }
 
 func copilotExecution() map[string]string {
@@ -48,7 +59,7 @@ func copilotExecution() map[string]string {
 }
 
 func vscodeExecution() map[string]string {
-	return map[string]string{config.ExecutionAsk: "default", config.ExecutionFull: "autoApprove"}
+	return map[string]string{config.ExecutionAsk: nativeDefault, config.ExecutionFull: "autoApprove"}
 }
 
 func codexExecution() map[string]string {
@@ -62,5 +73,5 @@ func codexSandbox() map[string]string {
 // antigravityExecution is agentMode. full also sets toolPermission to
 // always-proceed, since agentMode alone still pauses risky commands.
 func antigravityExecution() map[string]string {
-	return map[string]string{config.ExecutionAsk: "default", config.ExecutionAuto: "auto", config.ExecutionFull: "auto"}
+	return map[string]string{config.ExecutionAsk: nativeDefault, config.ExecutionAuto: nativeAuto, config.ExecutionFull: "auto"}
 }

@@ -81,7 +81,7 @@ const intro = `# Feature matrix
 
 Which configuration keys each harness supports. Every key is in one of three states per harness:
 
-- ✓ **rendered**: ` + "`agents apply`" + ` writes the key to the harness (the target is listed under the harness below).
+- ✓ **rendered**: ` + "`agents apply`" + ` writes the key to the harness (the target is listed under the harness below, with the value mapping where a shared enum maps to native values).
 - — **unsupported**: the harness has no native setting for it, so the key has no effect there. ` + "`agents check`" + ` reports it as info.
 - planned: the harness has a native setting that agents does not write yet. ` + "`agents check`" + ` warns.
 
@@ -116,7 +116,11 @@ func harnessNotes(b *bytes.Buffer, h string) {
 		}
 		switch c.Status {
 		case StatusRendered:
-			rendered = append(rendered, fmt.Sprintf("- `%s`: %s", f.Key, targets(c.Target)))
+			line := fmt.Sprintf("- `%s`: %s", f.Key, targets(c.Target))
+			if d := Detail(h, c); d != "" {
+				line += " (" + d + ")" // the table of values the shared key maps to
+			}
+			rendered = append(rendered, line)
 		case StatusPlanned:
 			planned = append(planned, fmt.Sprintf("- `%s`: %s", f.Key, Detail(h, c)))
 		case StatusUnsupported:

@@ -63,6 +63,12 @@ type pair struct {
 // rd is a rendered cell.
 func rd(h, target string) pair { return pair{h, Cell{Status: StatusRendered, Target: target}} }
 
+// rdv is a rendered cell whose evidence is the table mapping the shared values
+// to the native ones, with the documentation it comes from.
+func rdv(h, target, what string) pair {
+	return pair{h, Cell{Status: StatusRendered, Target: target, Evidence: evidence(h, what)}}
+}
+
 // pl is a planned cell: the harness has the setting, agents does not write it.
 func pl(h, what string) pair { return pair{h, Cell{Status: StatusPlanned, Evidence: reason(h, what)}} }
 

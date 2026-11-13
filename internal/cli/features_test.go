@@ -77,7 +77,7 @@ func TestFeatures_JSON(t *testing.T) {
 		}
 		if f.Key == "autonomy.execution_mode" {
 			found = true
-			if c := f.Cells["codex"]; c["status"] != "planned" || c["evidence"] == "" {
+			if c := f.Cells["codex"]; c["status"] != "rendered" || c["target"] == "" || c["evidence"] == "" {
 				t.Errorf("autonomy.execution_mode codex cell = %v", c)
 			}
 		}

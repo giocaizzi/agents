@@ -160,8 +160,8 @@ func checkCell(t *testing.T, h string, c feature.Cell) {
 	t.Helper()
 	switch c.Status {
 	case feature.StatusRendered:
-		if c.Target == "" || c.Evidence != "" {
-			t.Errorf("%s: a rendered cell needs a target and no evidence: %+v", h, c)
+		if c.Target == "" {
+			t.Errorf("%s: a rendered cell needs a target: %+v", h, c)
 		}
 	case feature.StatusUnsupported, feature.StatusPlanned:
 		if c.Evidence == "" || c.Target != "" {
@@ -408,7 +408,7 @@ func TestPlanned(t *testing.T) {
 			t.Errorf("%s has no planned cell", f.Key)
 		}
 	}
-	if !slices.ContainsFunc(planned, func(f feature.Feature) bool { return f.Key == "autonomy.execution_mode" }) {
-		t.Error("autonomy.execution_mode is planned for codex (ambiguous)")
+	if !slices.ContainsFunc(planned, func(f feature.Feature) bool { return f.Key == "autonomy.allow_non_workspace_access" }) {
+		t.Error("autonomy.allow_non_workspace_access is planned for claude (ambiguous)")
 	}
 }
