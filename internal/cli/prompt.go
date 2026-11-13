@@ -217,8 +217,3 @@ func (d Deps) runPromptCheck(args []string) int {
 	}
 	return exitOK
 }
-
-// resolveHarnessPrompt serves render -part prompt, which prompt show replaces.
-func (d Deps) resolveHarnessPrompt(_, _, _ string) (string, string, error) {
-	return "", "", errors.New("use agents prompt show")
-}
