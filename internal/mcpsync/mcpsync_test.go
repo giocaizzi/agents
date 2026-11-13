@@ -764,59 +764,56 @@ func TestSync_OAuthBothStyles(t *testing.T) {
 	}
 }
 
+func TestParseAndValidate_OAuthClientIDRejectsEscapes(t *testing.T) {
+	t.Parallel()
+
+	for _, id := range []string{`a\u0007b`, `a\u007fb`, `a\"b`, `a\\b`, `a\nb`} {
+		for _, style := range []string{`"oauth":{"clientId":"` + id + `"}`, `"oauthClientId":"` + id + `"`} {
+			t.Run(style, func(t *testing.T) {
+				t.Parallel()
+				_, err := mcpsync.ParseAndValidate(strings.NewReader(
+					`{"mcpServers":{"s":{"url":"https://a.example.com",`+style+`}}}`), "acct")
+				if err == nil || !strings.Contains(err.Error(), "oauth client id must not contain") {
+					t.Errorf("error = %v, want a client id error", err)
+				}
+			})
+		}
+	}
+}
+
+// Rendering escapes any string, so the Codex file stays valid TOML even for
+// values that ParseAndValidate does not reject.
 func TestRenderCodex_OAuthClientIDStaysValidTOML(t *testing.T) {
 	t.Parallel()
 
-	// Either fix is fine: reject the client id at parse time, or render it
-	// as a TOML basic string that parses back to the same value. Both hold.
-	t.Run("control character in oauth.clientId is rejected", func(t *testing.T) {
-		t.Parallel()
-		for _, id := range []string{`a\u0007b`, `a\u007fb`, `a\"b`, `a\\b`, `a\nb`} {
-			for _, key := range []string{"oauth", "flat"} {
-				entry := `"oauth":{"clientId":"` + id + `"}`
-				if key == "flat" {
-					entry = `"oauthClientId":"` + id + `"`
-				}
-				_, err := mcpsync.ParseAndValidate(strings.NewReader(
-					`{"mcpServers":{"s":{"url":"https://a.example.com",`+entry+`}}}`), "acct")
-				if err == nil || !strings.Contains(err.Error(), "oauth client id must not contain") {
-					t.Errorf("%s %s: error = %v, want a client id error", key, id, err)
-				}
-			}
-		}
-	})
-
-	t.Run("rendering escapes any string", func(t *testing.T) {
-		t.Parallel()
-		const nasty = "a\a\x7f\"\\\n\tb"
-		servers := map[string]mcpsync.ServerEntry{
-			"s": {
-				Type: "http", URL: "https://a.example.com",
-				Headers: map[string]string{nasty: nasty},
-				OAuth:   &mcpsync.OAuth{ClientID: nasty},
-			},
-			"l": {Type: "stdio", Command: nasty, Args: []string{nasty}, Env: map[string]string{nasty: nasty}},
-		}
-		var got struct {
-			MCPServers map[string]struct {
-				Command string            `toml:"command"`
-				Args    []string          `toml:"args"`
-				Env     map[string]string `toml:"env"`
-				Headers map[string]string `toml:"http_headers"`
-				OAuth   struct {
-					ClientID string `toml:"client_id"`
-				} `toml:"oauth"`
-			} `toml:"mcp_servers"`
-		}
-		if err := toml.Unmarshal(mcpsync.RenderCodex(servers), &got); err != nil {
-			t.Fatalf("rendered Codex config is not valid TOML: %v", err)
-		}
-		s, l := got.MCPServers["s"], got.MCPServers["l"]
-		if s.OAuth.ClientID != nasty || s.Headers[nasty] != nasty {
-			t.Errorf("http round-trip: client_id %q, headers %q", s.OAuth.ClientID, s.Headers)
-		}
-		if l.Command != nasty || len(l.Args) != 1 || l.Args[0] != nasty || l.Env[nasty] != nasty {
-			t.Errorf("stdio round-trip: %+v", l)
-		}
-	})
+	const nasty = "a\a\x7f\"\\\n\tb"
+	servers := map[string]mcpsync.ServerEntry{
+		"s": {
+			Type: "http", URL: "https://a.example.com",
+			Headers: map[string]string{nasty: nasty},
+			OAuth:   &mcpsync.OAuth{ClientID: nasty},
+		},
+		"l": {Type: "stdio", Command: nasty, Args: []string{nasty}, Env: map[string]string{nasty: nasty}},
+	}
+	var got struct {
+		MCPServers map[string]struct {
+			Command string            `toml:"command"`
+			Args    []string          `toml:"args"`
+			Env     map[string]string `toml:"env"`
+			Headers map[string]string `toml:"http_headers"`
+			OAuth   struct {
+				ClientID string `toml:"client_id"`
+			} `toml:"oauth"`
+		} `toml:"mcp_servers"`
+	}
+	if err := toml.Unmarshal(mcpsync.RenderCodex(servers), &got); err != nil {
+		t.Fatalf("rendered Codex config is not valid TOML: %v", err)
+	}
+	s, l := got.MCPServers["s"], got.MCPServers["l"]
+	if s.OAuth.ClientID != nasty || s.Headers[nasty] != nasty {
+		t.Errorf("http round-trip: client_id %q, headers %q", s.OAuth.ClientID, s.Headers)
+	}
+	if l.Command != nasty || len(l.Args) != 1 || l.Args[0] != nasty || l.Env[nasty] != nasty {
+		t.Errorf("stdio round-trip: %+v", l)
+	}
 }
