@@ -18,8 +18,8 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `models.default` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.tiers` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.assign` | — | ✓ | ✓ | — | ✓ | — | — |
-| `models.default_effort_level` | ✓ | planned | — | planned | — | planned | — |
-| `models.show_thinking_summaries` | ✓ | planned | planned | planned | — | planned | — |
+| `models.default_effort_level` | ✓ | planned | — | planned | — | ✓ | — |
+| `models.show_thinking_summaries` | ✓ | planned | planned | planned | — | ✓ | — |
 | `autonomy.execution_mode` | planned | planned | planned | planned | — | — | ✓ |
 | `autonomy.sandbox_mode` | planned | planned | planned | planned | — | — | planned |
 | `autonomy.allow_non_workspace_access` | planned | — | planned | — | planned | — | ✓ |
@@ -27,8 +27,8 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `autonomy.allow_subagent_invocations` | — | — | planned | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
 | `autonomy.mode` | planned | planned | planned | planned | planned | planned | planned |
-| `permissions.allow_commands` | planned | — | ✓ | planned | planned | — | planned |
-| `permissions.allowed_urls` | planned | ✓ | ✓ | — | planned | — | planned |
+| `permissions.allow_commands` | planned | — | ✓ | planned | planned | — | ✓ |
+| `permissions.allowed_urls` | planned | ✓ | ✓ | — | planned | — | ✓ |
 | `permissions.allow_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_read` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_write` | ✓ | — | — | — | ✓ | — | ✓ |
@@ -36,22 +36,22 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `permissions.deny_command_exact` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
 | `permissions.deny_command_prefixes` | ✓ | — | planned | planned | ✓ | — | ✓ |
 | `permissions.ask_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
-| `permissions.allowed_mcp` | planned | — | — | — | planned | — | planned |
+| `permissions.allowed_mcp` | planned | — | — | — | planned | — | ✓ |
 | `permissions.reasons` | — | — | — | planned | — | — | — |
-| `context.auto_compact` | planned | — | planned | — | planned | planned | — |
+| `context.auto_compact` | planned | — | planned | — | planned | ✓ | — |
 | `context.auto_compact_window` | ✓ | — | — | — | — | planned | — |
 | `context.prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.subagent_prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.max_turn_tokens` | — | — | — | — | — | — | — |
 | `context.max_tokens` | planned | — | — | — | — | — | — |
-| `ui.theme` | ✓ | planned | ✓ | planned | planned | planned | planned |
+| `ui.theme` | ✓ | planned | ✓ | planned | planned | ✓ | ✓ |
 | `ui.tui_mode` | ✓ | — | — | — | — | — | — |
 | `ui.view_mode` | ✓ | — | — | — | — | — | — |
 | `ui.output_style` | ✓ | — | — | — | — | — | — |
 | `ui.show_turn_duration` | ✓ | — | — | — | — | — | — |
 | `ui.progress_bar` | ✓ | — | — | — | — | — | — |
 | `ui.time_format` | ✓ | — | — | — | — | — | — |
-| `notifications.terminal_bell` | ✓ | ✓ | ✓ | ✓ | — | — | planned |
+| `notifications.terminal_bell` | ✓ | ✓ | ✓ | ✓ | — | — | ✓ |
 | `voice.enabled` | ✓ | ✓ | ✓ | — | — | — | — |
 | `voice.mode` | ✓ | planned | — | — | — | — | — |
 | `voice.auto_submit` | ✓ | planned | — | — | — | — | — |
@@ -487,6 +487,10 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 - `instructions`: `~/.pi/agent/AGENTS.md`
 - `models.default`: `~/.pi/agent/settings.json: defaultModel`, `~/.pi/agent/settings.json: defaultThinkingLevel`
 - `models.tiers`: `~/.pi/agent/settings.json: defaultModel`, `~/.pi/agent/settings.json: defaultThinkingLevel`
+- `models.default_effort_level`: `~/.pi/agent/settings.json: defaultThinkingLevel`
+- `models.show_thinking_summaries`: `~/.pi/agent/settings.json: hideThinkingBlock`
+- `context.auto_compact`: `~/.pi/agent/settings.json: compaction.enabled`
+- `ui.theme`: `~/.pi/agent/settings.json: theme`
 - `plugins.registry`: `~/.pi/agent/settings.json: packages`
 - `plugins.enabled`: `~/.pi/agent/settings.json: packages`
 - `plugins.disabled`: `~/.pi/agent/settings.json: packages`
@@ -501,12 +505,8 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 
 **Planned**
 
-- `models.default_effort_level`: defaultThinkingLevel (agents writes it only from a tier today)
-- `models.show_thinking_summaries`: hideThinkingBlock
 - `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `context.auto_compact`: compaction.enabled
 - `context.auto_compact_window`: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
-- `ui.theme`: theme
 
 **Not supported**
 
@@ -547,6 +547,8 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `instructions`: `~/.gemini/config/AGENTS.md`
 - `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`
 - `autonomy.allow_non_workspace_access`: `~/.gemini/antigravity-cli/settings.json: allowNonWorkspaceAccess`
+- `permissions.allow_commands`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
+- `permissions.allowed_urls`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
 - `permissions.allow_command_patterns`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
 - `permissions.deny_read`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
 - `permissions.deny_write`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
@@ -554,6 +556,9 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `permissions.deny_command_exact`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
 - `permissions.deny_command_prefixes`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
 - `permissions.ask_command_prefixes`: `~/.gemini/antigravity-cli/settings.json: permissions.ask`
+- `permissions.allowed_mcp`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
+- `ui.theme`: `~/.gemini/antigravity-cli/settings.json: colorScheme`
+- `notifications.terminal_bell`: `~/.gemini/antigravity-cli/settings.json: notifications`
 - `mcp.servers`: `~/.gemini/config/mcp_config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.agents/mcp_config.json: mcpServers`
 - `harness.antigravity.settings`: `~/.gemini/antigravity-cli/settings.json: (any key)`
@@ -565,13 +570,8 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 
 **Planned**
 
-- `autonomy.sandbox_mode`: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name)
+- `autonomy.sandbox_mode`: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 - `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `permissions.allow_commands`: permissions.allow command(...)
-- `permissions.allowed_urls`: permissions.allow read_url(...)
-- `permissions.allowed_mcp`: permissions.allow mcp(...)
-- `ui.theme`: colorScheme
-- `notifications.terminal_bell`: notifications
 
 **Not supported**
 
@@ -608,11 +608,9 @@ The harness supports the setting natively and agents does not write it yet. `age
 
 - `models.default_effort_level` on Copilot CLI: effortLevel in settings.json (agents writes it only from a tier today)
 - `models.default_effort_level` on Codex: model_reasoning_effort (agents writes it only from a tier today)
-- `models.default_effort_level` on pi: defaultThinkingLevel (agents writes it only from a tier today)
 - `models.show_thinking_summaries` on Copilot CLI: showReasoning
 - `models.show_thinking_summaries` on VS Code: chat.agent.thinkingStyle
 - `models.show_thinking_summaries` on Codex: model_reasoning_summary and hide_agent_reasoning
-- `models.show_thinking_summaries` on pi: hideThinkingBlock
 - `autonomy.execution_mode` on Claude Code: permissions.defaultMode (agents writes it from harness.claude.default_mode; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.execution_mode` on Copilot CLI: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.execution_mode` on VS Code: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
@@ -621,7 +619,7 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `autonomy.sandbox_mode` on Copilot CLI: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode` on VS Code: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode` on Codex: sandbox_mode (agents writes it from harness.codex.sandbox_mode)
-- `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name)
+- `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 - `autonomy.allow_non_workspace_access` on Claude Code: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `autonomy.allow_non_workspace_access` on opencode: permission external_directory
@@ -637,30 +635,23 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `permissions.allow_commands` on Claude Code: permissions.allow Bash(...) rules
 - `permissions.allow_commands` on Codex: prefix_rule with decision allow
 - `permissions.allow_commands` on opencode: permission bash allow
-- `permissions.allow_commands` on Antigravity: permissions.allow command(...)
 - `permissions.allowed_urls` on Claude Code: permissions.allow WebFetch(domain:...) rules
 - `permissions.allowed_urls` on opencode: permission webfetch
-- `permissions.allowed_urls` on Antigravity: permissions.allow read_url(...)
 - `permissions.deny_command_exact` on Codex: prefix_rule with decision forbidden
 - `permissions.deny_command_prefixes` on VS Code: chat.tools.terminal.autoApprove entries set to false
 - `permissions.deny_command_prefixes` on Codex: prefix_rule with decision forbidden
 - `permissions.ask_command_prefixes` on Codex: prefix_rule with decision prompt
 - `permissions.allowed_mcp` on Claude Code: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
 - `permissions.allowed_mcp` on opencode: permission actions for MCP tools
-- `permissions.allowed_mcp` on Antigravity: permissions.allow mcp(...)
 - `permissions.reasons` on Codex: prefix_rule justification
 - `context.auto_compact` on Claude Code: autoCompactEnabled
 - `context.auto_compact` on VS Code: github.copilot.chat.summarizeAgentConversationHistory.enabled
 - `context.auto_compact` on opencode: compaction.auto
-- `context.auto_compact` on pi: compaction.enabled
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `context.max_tokens` on Claude Code: env CLAUDE_CODE_MAX_OUTPUT_TOKENS
 - `ui.theme` on Copilot CLI: theme
 - `ui.theme` on Codex: tui.theme
 - `ui.theme` on opencode: ambiguous: theme is not among the researched opencode keys; verify against its config docs
-- `ui.theme` on pi: theme
-- `ui.theme` on Antigravity: colorScheme
-- `notifications.terminal_bell` on Antigravity: notifications
 - `voice.mode` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
 - `voice.auto_submit` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
 - `voice.language` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
