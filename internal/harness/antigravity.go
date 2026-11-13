@@ -14,7 +14,7 @@ import (
 func renderAntigravity(c *config.Config, b *builder) error {
 	a := c.Harness.Antigravity
 	settings := map[string]any{}
-	if perms := antigravityPermissions(c); len(perms) > 0 {
+	if perms := antigravityPermissions(c, b); len(perms) > 0 {
 		settings["permissions"] = perms
 	}
 	// The typed fields win over the shared modes.
@@ -56,9 +56,9 @@ func renderAntigravity(c *config.Config, b *builder) error {
 // native syntax. command() matches a token prefix and treats * as a literal:
 // a trailing " *" becomes the prefix, and a pattern with an inner * cannot be
 // expressed, so it is skipped.
-func antigravityPermissions(c *config.Config) map[string]any {
+func antigravityPermissions(c *config.Config, b *builder) map[string]any {
 	p := c.Permissions
-	allow := antigravityAllow(c)
+	allow := antigravityAllow(c, b)
 
 	var deny []string
 	for _, pat := range p.DenyCommandPatterns {
@@ -92,13 +92,21 @@ func antigravityPermissions(c *config.Config) map[string]any {
 
 // antigravityAllow is the typed allow rules, then the shared commands, URLs
 // and MCP servers as command(), read_url() and mcp() rules.
-func antigravityAllow(c *config.Config) []string {
+func antigravityAllow(c *config.Config, b *builder) []string {
 	p := c.Permissions
+	unexpressible := unexpressibleDenies(&p)
 	allow := append([]string(nil), c.Harness.Antigravity.Allow...)
 	for _, pat := range slices.Concat(p.AllowCommands, p.AllowCommandPatterns) {
-		if prefix := strings.TrimSuffix(pat, " *"); !strings.Contains(prefix, "*") {
-			allow = appendUnique(allow, "command("+prefix+")")
+		prefix := strings.TrimSuffix(pat, " *")
+		if strings.Contains(prefix, "*") {
+			continue
 		}
+		// command() matches word prefixes only: skip an allow that an
+		// inexpressible deny would have overridden (see overlap.go).
+		if words, ok := prefixWords(pat); ok && b.allowOverlapsDeny("Antigravity", "permissions.allow_commands", pat, words, unexpressible) {
+			continue
+		}
+		allow = appendUnique(allow, "command("+prefix+")")
 	}
 	for _, u := range p.AllowedURLs {
 		if host, ok := antigravityHost(u); ok {

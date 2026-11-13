@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -42,9 +43,9 @@ func TestAntigravityPermissions(t *testing.T) {
 		DenyWrite:            []string{"**/.ssh/**"},
 	}
 	c.Harness.Antigravity.Allow = []string{"mcp(*)"}
-	got := antigravityPermissions(c)
+	got := antigravityPermissions(c, &builder{})
 	want := map[string]any{
-		"allow": []any{"mcp(*)", "command(git push origin)"},
+		"allow": []any{"mcp(*)"}, // command(git push origin) overlaps the inexpressible deny "git push * main"
 		"ask":   []any{"command(bw)", "command(bw *)"},
 		"deny": []any{
 			"command(gh pr merge *)", "command(git push origin main)", "command(env)",
@@ -68,7 +69,7 @@ func TestAntigravitySharedAllowRules(t *testing.T) {
 		},
 		AllowedMCP: []string{"docs", "crm/search", "*"},
 	}
-	got := antigravityPermissions(c)
+	got := antigravityPermissions(c, &builder{})
 	want := map[string]any{"allow": []any{
 		"command(git status)", "command(make)",
 		"read_url(github.com)", "read_url(example.org)", "read_url(docs.example.com)", "read_url(localhost:3000)",
@@ -91,5 +92,35 @@ func TestRenderAntigravityUI(t *testing.T) {
 	managed, _ := targetAt(t, b, "/home/u/.gemini/antigravity-cli/settings.json").Managed.(map[string]any)
 	if managed["colorScheme"] != "tokyo night" || managed["notifications"] != true {
 		t.Errorf("colorScheme/notifications = %v/%v", managed["colorScheme"], managed["notifications"])
+	}
+}
+
+// TestAntigravityAllowSkipsOverlappingDeny pins the shared rule (overlap.go): an
+// allow prefix is not emitted while a deny command() cannot express covers it,
+// with one warning per skipped allow; non-overlapping allows stay.
+func TestAntigravityAllowSkipsOverlappingDeny(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.Permissions = config.Permissions{
+		AllowCommands:        []string{"git *", "gh *", "make *", "gh pr view"},
+		AllowCommandPatterns: []string{"git push --force-with-lease origin *", "git push *"},
+		DenyCommandPatterns:  []string{"git push * HEAD:main", "gh pr merge * --admin*"},
+	}
+	b := &builder{}
+	got := antigravityPermissions(c, b)
+	want := []any{"command(make)", "command(gh pr view)", "command(git push --force-with-lease origin)"}
+	if diff := cmp.Diff(want, got["allow"]); diff != "" {
+		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+	for _, skipped := range []string{`allow "git *"`, `allow "gh *"`, `allow "git push *"`} {
+		n := 0
+		for _, w := range b.warnings {
+			if strings.Contains(w, skipped) && strings.Contains(w, "Antigravity cannot express it") {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("warnings for %s = %d, want 1: %q", skipped, n, b.warnings)
+		}
 	}
 }

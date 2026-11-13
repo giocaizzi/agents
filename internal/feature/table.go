@@ -152,6 +152,8 @@ func permissionFeatures() []Feature {
 	ocAllow := rd(opencode, at(opencodeConfig, "permissions"))
 	ocDeny := rd(opencode, at(opencodeConfig, "policies"))
 	agyAllow := rd(antigravity, at(antigravitySettings, "permissions.allow"))
+	agyCommandAllow := rdv(antigravity, at(antigravitySettings, "permissions.allow"),
+		"command() matches word prefixes only, so an allow command() rule is written only when no deny pattern command() cannot express (a wildcard before the last word) could match a command it covers; words compare position by position, a deny word with * matches anything, so git overlaps git push * HEAD:main and is skipped with a warning, git push --force-with-lease origin does not (the same rule as Codex, internal/harness/overlap.go)")
 	agyDeny := rd(antigravity, at(antigravitySettings, "permissions.deny"))
 	agyAsk := rd(antigravity, at(antigravitySettings, "permissions.ask"))
 	const noCmd = "no documented command allow or deny list"
@@ -162,7 +164,7 @@ func permissionFeatures() []Feature {
 			rd(claude, at(claudeSettings, "permissions.allow")),
 			codexAllow,
 			rd(opencode, at(opencodeConfig, "permissions")),
-			agyAllow),
+			agyCommandAllow),
 		shared("permissions.allowed_urls", "URLs agents may fetch.", "no documented URL allow list",
 			rd(copilot, at(copilotSettings, "allowedUrls")),
 			rd(vscode, all(at(vscodeSettings, "chat.tools.urls.autoApprove"), at(copilotSettings, "allowedUrls"))),
@@ -170,7 +172,7 @@ func permissionFeatures() []Feature {
 			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allow_command_patterns", "Command patterns allowed without asking.", noCmd,
-			claudeAllow, vscodeCommands, codexAllow, ocAllow, agyAllow),
+			claudeAllow, vscodeCommands, codexAllow, ocAllow, agyCommandAllow),
 		shared("permissions.deny_read", "Path globs agents may not read.", noPath,
 			claudeDeny, ocDeny, agyDeny),
 		shared("permissions.deny_write", "Path globs agents may not write.", noPath,

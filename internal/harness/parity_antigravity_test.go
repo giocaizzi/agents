@@ -14,8 +14,11 @@ func adjustAntigravity(_ parityCase, file string, want any) any {
 	// The templates allowed only the typed rules and one pattern. agents also
 	// renders permissions.allow_commands (before the patterns) and allowed_urls
 	// (host-wide entries only, as read_url).
+	// command(git) and command(gh) are left out: deny patterns with a wildcard
+	// before their last word ("git push * HEAD:main") cannot be written for
+	// command(), so the allow prefixes that overlap them are skipped.
 	cmds := []any{
-		"command(git)", "command(gh)", "command(make)", "command(uv)", "command(jq)",
+		"command(make)", "command(uv)", "command(jq)",
 		"command(npm)", "command(cargo)", "command(go)", "command(terraform)",
 	}
 	urls := []any{
