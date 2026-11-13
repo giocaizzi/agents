@@ -50,6 +50,7 @@ func vscodeSettings(c *config.Config, b *builder) map[string]any {
 		{p.AllowCommandPatterns, true},
 		{p.DenyCommandExact, false},
 		{p.DenyCommandPatterns, false},
+		{p.DenyCommandPrefixes, false},
 		{p.AskCommandPrefixes, false},
 	} {
 		for _, cmd := range list.items {
@@ -68,6 +69,18 @@ func vscodeSettings(c *config.Config, b *builder) map[string]any {
 	}
 	if c.Voice.Language != "" {
 		out["agents.voice.language"] = c.Voice.Language
+	}
+	if c.Autonomy.AllowSubagentInvocations {
+		out["chat.subagents.allowInvocationsFromSubagents"] = true
+	}
+	if c.Context.AutoCompact {
+		out["github.copilot.chat.summarizeAgentConversationHistory.enabled"] = true
+	}
+	if t := c.Telemetry; t.Enabled {
+		out["github.copilot.chat.otel.enabled"] = true
+		if t.Endpoint != "" {
+			out["github.copilot.chat.otel.otlpEndpoint"] = t.Endpoint
+		}
 	}
 	extra := b.expandSettings("harness.vscode.settings", c.Harness.VSCode.Settings)
 	return mergeSettings(out, extra)

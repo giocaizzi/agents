@@ -4,7 +4,21 @@ package harness
 // purpose; every edit carries its reason.
 func adjustCopilot(c parityCase, file string, want any) any {
 	root, _ := want.(map[string]any)
-	if c.Start != "live" || root == nil {
+	if root == nil {
+		return want
+	}
+	if file == "settings.json" {
+		// agents now renders the default tier's effort and the subagent depth, which the old
+		// dotfile templates never wrote.
+		root["effortLevel"] = "medium"
+		sub, _ := root["subagents"].(map[string]any)
+		if sub == nil {
+			sub = map[string]any{}
+			root["subagents"] = sub
+		}
+		sub["maxDepth"] = float64(2)
+	}
+	if c.Start != "live" {
 		return want
 	}
 	switch file {
