@@ -76,6 +76,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `mcp.servers.*.oauth.callback_port` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `mcp.servers.*.oauth.public_client` | — | ✓ | ✓ | — | — | — | — |
 | `mcp.workspaces` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `mcp.workspaces.*.expand_env` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `harness.claude.settings` | ✓ |  |  |  |  |  |  |
 | `harness.copilot.settings` |  | ✓ |  |  |  |  |  |
 | `harness.vscode.settings` |  |  | ✓ |  |  |  |  |
@@ -137,7 +138,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `models.default_effort_level`: `~/.claude/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.claude/settings.json: showThinkingSummaries`
 - `autonomy.execution_mode`: `~/.claude/settings.json: permissions.defaultMode` (https://code.claude.com/docs/en/permissions (fetched 2026-11-13): ask = default, auto = auto, full = bypassPermissions; acceptEdits, plan and dontAsk are not shared values; harness.claude.default_mode wins)
-- `autonomy.sandbox_mode`: `~/.claude/settings.json: sandbox.enabled`, `~/.claude/settings.json: sandbox.autoAllowBashIfSandboxed` (https://code.claude.com/docs/en/settings-reference and https://code.claude.com/docs/en/sandboxing (fetched 2026-11-13): sandbox.enabled is a boolean, default off; sandbox.autoAllowBashIfSandboxed defaults to true and would auto-allow sandboxed Bash, so it is written false whenever the sandbox is managed and execution_mode is ask or unset (nothing extra for auto or full); workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note)
+- `autonomy.sandbox_mode`: `~/.claude/settings.json: sandbox.enabled`, `~/.claude/settings.json: sandbox.autoAllowBashIfSandboxed` (https://code.claude.com/docs/en/settings-reference and https://code.claude.com/docs/en/sandboxing (fetched 2026-11-13): sandbox.enabled is a boolean, default off; sandbox.autoAllowBashIfSandboxed defaults to true and would auto-allow sandboxed Bash, so it is written false whenever the sandbox is managed and the effective defaultMode (harness.claude.default_mode, else the execution_mode mapping) is anything but auto or bypassPermissions, or unset; workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note)
 - `autonomy.ask_timeout`: `~/.claude/settings.json: askUserQuestionTimeout`
 - `permissions.allow_commands`: `~/.claude/settings.json: permissions.allow`
 - `permissions.allowed_urls`: `~/.claude/settings.json: permissions.allow`
@@ -184,6 +185,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `mcp.servers`: `~/.claude.json: mcpServers`
 - `mcp.servers.*.oauth.callback_port`: `~/.claude.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.claude.settings`: `~/.claude/settings.json: (any key)`
 - `harness.claude.default_mode`: `~/.claude/settings.json: permissions.defaultMode`
 - `harness.claude.skip_auto_permission_prompt`: `~/.claude/settings.json: skipAutoPermissionPrompt`
@@ -232,6 +234,7 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `mcp.servers.*.oauth.callback_port`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.servers.*.oauth.public_client`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.copilot.settings`: `~/.copilot/settings.json: (any key)`
 
 **Planned**
@@ -275,7 +278,7 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
 - `autonomy.execution_mode`: `<Code user dir>/settings.json: chat.permissions.default`, `~/.copilot/settings.json: defaultPermissionMode` (https://code.visualstudio.com/docs/copilot/reference/copilot-settings (fetched 2026-11-13): ask = default (Manual), full = autoApprove (Allow all); auto is not written and warns, because no documented chat.permissions.default value auto-approves while a safety layer still asks (Assisted permissions is a UI level without a setting value; autopilot is an agent mode that also answers questions by itself); the ~/.copilot file gets the Copilot CLI values)
-- `autonomy.sandbox_mode`: `<Code user dir>/settings.json: chat.agent.sandbox.enabled`, `~/.copilot/settings.json: sandbox.enabled` (https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; the ~/.copilot file gets the Copilot CLI sandbox.enabled; the docs say sandboxed commands are approved automatically but document no setting for it, so nothing extra is written)
+- `autonomy.sandbox_mode`: `<Code user dir>/settings.json: chat.agent.sandbox.enabled`, `~/.copilot/settings.json: sandbox.enabled` (https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; the ~/.copilot file gets the Copilot CLI sandbox.enabled; for the Copilot harness, sandboxing and approvals are separate layers (the docs describe automatic approval of sandboxed commands only for the deprecated Local harness), so nothing extra is written)
 - `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `autonomy.allow_subagent_invocations`: `<Code user dir>/settings.json: chat.subagents.allowInvocationsFromSubagents`
 - `permissions.allow_commands`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
@@ -302,6 +305,7 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `mcp.servers.*.oauth.callback_port`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.servers.*.oauth.public_client`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.vscode.settings`: `<Code user dir>/settings.json: (any key)`
 
 **Planned**
@@ -342,8 +346,8 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `models.default_effort_level`: `~/.codex/config.toml: model_reasoning_effort`
 - `autonomy.execution_mode`: `~/.codex/config.toml: approval_policy` (https://developers.openai.com/codex/config-reference (fetched 2026-11-13): auto = on-request, full = never; ask is not written and warns, because untrusted is retired and on-request is the only interactive policy; harness.codex.approval_policy wins)
 - `autonomy.sandbox_mode`: `~/.codex/config.toml: sandbox_mode` (https://developers.openai.com/codex/config-reference (fetched 2026-11-13): off = danger-full-access, workspace = workspace-write, read-only = read-only; harness.codex.sandbox_mode wins)
-- `permissions.allow_commands`: `~/.codex/rules/agents.rules`
-- `permissions.allow_command_patterns`: `~/.codex/rules/agents.rules`
+- `permissions.allow_commands`: `~/.codex/rules/agents.rules` (agents rule, not a Codex setting: Codex rules match command prefixes only, so an allow prefix_rule is written only when no deny or ask pattern Codex cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way)
+- `permissions.allow_command_patterns`: `~/.codex/rules/agents.rules` (agents rule, not a Codex setting: Codex rules match command prefixes only, so an allow prefix_rule is written only when no deny or ask pattern Codex cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way)
 - `permissions.deny_command_patterns`: `~/.codex/rules/agents.rules`
 - `permissions.deny_command_exact`: `~/.codex/rules/agents.rules`
 - `permissions.deny_command_prefixes`: `~/.codex/rules/agents.rules`
@@ -360,6 +364,7 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `mcp.servers`: `~/.codex/config.toml: mcp_servers`
 - `mcp.servers.*.oauth.callback_port`: `~/.codex/config.toml: mcp_servers`
 - `mcp.workspaces`: `<workspace>/.codex/config.toml: mcp_servers`, `~/.codex/config.toml: projects`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.codex/config.toml: mcp_servers`
 - `harness.codex.settings`: `~/.codex/config.toml: (any key)`
 - `harness.codex.model`: `~/.codex/config.toml: model`
 - `harness.codex.model_reasoning_effort`: `~/.codex/config.toml: model_reasoning_effort`
@@ -429,6 +434,7 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - `mcp.servers`: `~/.config/opencode/opencode.jsonc: mcp`
 - `mcp.servers.*.oauth.callback_port`: `~/.config/opencode/opencode.jsonc: mcp`
 - `mcp.workspaces`: `<workspace>/opencode.json: mcp`
+- `mcp.workspaces.*.expand_env`: `<workspace>/opencode.json: mcp`
 - `harness.opencode.settings`: `~/.config/opencode/opencode.jsonc: (any key)`
 
 **Planned**
@@ -482,6 +488,7 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 - `mcp.servers`: `~/.pi/agent/mcp.json: mcpServers`
 - `mcp.servers.*.oauth.callback_port`: `~/.pi/agent/mcp.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.pi/mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.pi/mcp.json: mcpServers`
 - `harness.pi.settings`: `~/.pi/agent/settings.json: (any key)`
 - `harness.pi.default_provider`: `~/.pi/agent/settings.json: defaultProvider`
 - `harness.pi.default_model`: `~/.pi/agent/settings.json: defaultModel`
@@ -532,9 +539,9 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `autonomy.execution_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`, `~/.gemini/antigravity-cli/settings.json: toolPermission` (https://antigravity.google/docs/settings (fetched 2026-11-13): ask = agentMode default, auto = agentMode auto, full = agentMode auto with toolPermission always-proceed (agentMode alone still pauses risky commands), the toolPermission only when harness.antigravity.agent_mode is unset; the typed agent_mode and tool_permission win)
 - `autonomy.sandbox_mode`: `~/.gemini/antigravity-cli/settings.json: enableTerminalSandbox` (https://antigravity.google/docs/settings (fetched 2026-11-13): enableTerminalSandbox is a boolean that agents always writes; workspace = true, off = false, read-only is approximated toward the stricter side: true, with a note; harness.antigravity.enable_terminal_sandbox wins, true or false)
 - `autonomy.allow_non_workspace_access`: `~/.gemini/antigravity-cli/settings.json: allowNonWorkspaceAccess`
-- `permissions.allow_commands`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
+- `permissions.allow_commands`: `~/.gemini/antigravity-cli/settings.json: permissions.allow` (command() matches word prefixes only, so an allow command() rule is written only when no deny or ask pattern command() cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way (the same rule as Codex, internal/harness/overlap.go))
 - `permissions.allowed_urls`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
-- `permissions.allow_command_patterns`: `~/.gemini/antigravity-cli/settings.json: permissions.allow`
+- `permissions.allow_command_patterns`: `~/.gemini/antigravity-cli/settings.json: permissions.allow` (command() matches word prefixes only, so an allow command() rule is written only when no deny or ask pattern command() cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way (the same rule as Codex, internal/harness/overlap.go))
 - `permissions.deny_read`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
 - `permissions.deny_write`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
 - `permissions.deny_command_patterns`: `~/.gemini/antigravity-cli/settings.json: permissions.deny`
@@ -546,6 +553,7 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `notifications.terminal_bell`: `~/.gemini/antigravity-cli/settings.json: notifications`
 - `mcp.servers`: `~/.gemini/config/mcp_config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.agents/mcp_config.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.agents/mcp_config.json: mcpServers`
 - `harness.antigravity.settings`: `~/.gemini/antigravity-cli/settings.json: (any key)`
 - `harness.antigravity.agent_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`
 - `harness.antigravity.tool_permission`: `~/.gemini/antigravity-cli/settings.json: toolPermission`

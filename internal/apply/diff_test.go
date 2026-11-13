@@ -163,7 +163,7 @@ func TestDiffHeadersNeverRedacted(t *testing.T) {
 	t.Parallel()
 	// The secrets also appear in the path and the hunk header.
 	path := "/home/u1/f1.json"
-	got := unifiedDiff(path, "a = 1\n", "a = 2\n", func(l string) string { return redact(l, []string{"1", "f1", "@@"}) })
+	got := unifiedDiff(path, "a = 1\n", "a = 2\n", func(_ byte, l string) string { return redact(l, []string{"1", "f1", "@@"}) })
 	for _, want := range []string{"--- " + path + "\n", "+++ " + path + "\n", "@@ -1 +1 @@\n"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("header %q was altered:\n%s", want, got)

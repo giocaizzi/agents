@@ -7,7 +7,9 @@ import (
 // The shared enums autonomy.execution_mode and autonomy.sandbox_mode map to
 // each harness's native values below. A value with no exact native equivalent
 // is not approximated (nothing is written for that harness and the render
-// warns), except sandbox read-only on an on/off sandbox, which maps to on. The same tables are documented as evidence in internal/feature.
+// warns), except sandbox read-only on an on/off sandbox, which maps to on
+// with a note. The same tables are documented as evidence in
+// internal/feature.
 
 // Shared keys, as the warnings name them, and the native name that is auto.
 const (
@@ -46,7 +48,7 @@ func (b *builder) sandboxEnabled(value, harness, key string) map[string]any {
 // never off.
 func (b *builder) sandboxOn(value, harness, key string) bool {
 	if value == config.SandboxReadOnly {
-		b.warnf("note: %s = %q: %s has only an on/off sandbox (%s), so read-only is approximated by the sandbox being on", keySandbox, value, harness, key)
+		b.notef("%s = %q: %s has only an on/off sandbox (%s), so read-only is approximated by the sandbox being on", keySandbox, value, harness, key)
 		return true
 	}
 	table := map[string]string{config.SandboxWorkspace: "on", config.SandboxOff: "off"}

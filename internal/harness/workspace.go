@@ -38,7 +38,15 @@ func renderWorkspaces(_ *config.Config, b *builder, selected []config.Harness) e
 	}
 	for _, w := range b.workspaces() {
 		for _, h := range names {
-			servers := b.workspaceEntries("mcp.workspaces."+w.Name+".servers", h, w.Servers)
+			var servers map[string]mcpsync.ServerEntry
+			if w.ExpandEnv {
+				servers = make(map[string]mcpsync.ServerEntry, len(w.Servers))
+				for name, s := range w.Servers {
+					servers[name] = serverEntry(s)
+				}
+			} else {
+				servers = b.workspaceEntries("mcp.workspaces."+w.Name+".servers", h, w.Servers)
+			}
 			targets, warnings := WorkspaceTargets(w.Path, servers, []string{h}, false)
 			for _, t := range targets {
 				b.add(t)

@@ -30,6 +30,10 @@ func adjustCodex(c parityCase, file string, want any) any {
 // templates hard-coded prose for the lease-push rules and wrote only the
 // command patterns; agents also renders allow_commands, deny_command_exact,
 // deny_command_prefixes and ask_command_prefixes, with generic justifications.
+// It leaves out the allow rules for git and gh, which overlap deny patterns
+// Codex cannot express ("git push * HEAD:main", "gh pr merge * --admin*"),
+// and the lease-push allow: the deny * spans words, so
+// "git push --force-with-lease origin HEAD:main" matches both.
 func codexParityRules() string {
 	var sb strings.Builder
 	sb.WriteString("# Managed by agents from permissions: do not edit.\n")
@@ -41,10 +45,9 @@ func codexParityRules() string {
 		fmt.Fprintf(&sb, "prefix_rule(\n    pattern = [%s],\n    decision = %q,\n    justification = %q,\n    match = [%q],\n)\n",
 			strings.Join(quoted, ","), decision, justification, strings.Join(words, " "))
 	}
-	for _, cmd := range []string{"git", "gh", "make", "uv", "jq", "npm", "cargo", "go", "terraform"} {
+	for _, cmd := range []string{"make", "uv", "jq", "npm", "cargo", "go", "terraform"} {
 		rule("allow", "Allowed by the agents permissions.", cmd)
 	}
-	rule("allow", "Allowed by the agents permissions.", "git", "push", "--force-with-lease", "origin")
 	for _, branch := range []string{"main", "master"} {
 		rule("forbidden", "Denied by the agents permissions.", "git", "push", "--force-with-lease", "origin", branch)
 	}

@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/giocaizzi/agents/internal/apply"
-	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
 	"github.com/giocaizzi/agents/internal/term"
 )
@@ -24,7 +23,7 @@ func (d Deps) runApply(_ context.Context, args []string) int {
 		fmt.Fprintln(d.Stderr, err)
 		return exitFindings
 	}
-	if findings := config.Validate(r.Config); finding.HasErrors(findings) {
+	if findings := d.validate(r); finding.HasErrors(findings) {
 		sortFindings(findings)
 		d.printFindings(findings)
 		return exitFindings
@@ -32,6 +31,9 @@ func (d Deps) runApply(_ context.Context, args []string) int {
 	plan, err := d.renderPlan(r)
 	for _, w := range plan.Warnings {
 		fmt.Fprintf(d.Stderr, "warning: %s\n", w)
+	}
+	for _, n := range plan.Notes {
+		fmt.Fprintf(d.Stderr, "note: %s\n", n)
 	}
 	if err != nil {
 		fmt.Fprintln(d.Stderr, err)

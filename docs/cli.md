@@ -86,9 +86,9 @@ How apply treats files:
 - **State manifest.** `agents` records the keys it wrote in each file in `<state>/apply.json`. Only keys listed there are ever removed: a key you dropped from the config disappears from the live file on the next apply, a key `agents` never wrote is never touched. A file `agents` created and no longer produces is deleted, unless you edited it (then it is reported as `drift`, left in place and forgotten by the manifest). Losing the manifest loses removals, not your files.
 - **One-time migration.** The first apply of a path that has no manifest entry also deletes the few keys an earlier tool wrote there (for example the local Claude marketplace entry of 0.2 and opencode `mcp.<name>` entries now written under `mcp.servers`). Every later deletion comes from the manifest.
 - **Formats.** JSON, JSONC and TOML files are edited in place: comments, key order and unrelated formatting are preserved and new keys are appended. An unchanged file is not rewritten.
-- **Diffs.** `-n` prints a unified diff in which values of keys `agents` does not manage show as `unmanaged` and every secret as `redacted`; a file that cannot be scanned prints "diff unavailable" rather than the raw text. The old value of a managed key removed from the config prints as `«removed»` when a segment of its path contains `env`, `headers`, `args`, `authorization`, `token`, `secret`, `key`, `password` or `credential` (case-insensitive), because the manifest holds no values and the secret it held is no longer known.
+- **Diffs.** `-n` prints a unified diff in which values of keys `agents` does not manage show as `unmanaged` and every secret as `redacted`; a file that cannot be scanned prints "diff unavailable" rather than the raw text. The old value of a managed key removed from the config prints as `«removed»` on the `-` line that held it, whatever its path, because the manifest holds no values and the secret it held is no longer known.
 - **Concurrent edits.** Each write is atomic and compares the file with what was read just before; if another program changed it meanwhile the write is refused with an error and nothing is overwritten. Re-run `agents apply`.
-- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode. Symlinked targets are refused.
+- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode, except one that receives expanded secrets (`expand_env`), which is tightened to `0600` before the write. Symlinked targets are refused. On Windows `0600` is not enforced: chmod only clears the read-only attribute, so a file holding secrets relies on the user profile's ACLs, and a read-only file is made writable and overwritten.
 
 The files per harness are in [parity.md](parity.md#what-each-harness-receives). The VS Code `settings.json` is a check-only target: `agents` compares it and reports `drift` but never writes it.
 
@@ -109,6 +109,8 @@ Instruction layers; see [Editing instructions](#editing-instructions).
 |---|---|
 | `mcp sync [-n] [-account id] [path]` | Without a path, write the MCP files of every configured workspace (`mcp.workspaces`). With a path, write that directory's native MCP files from its `.mcp.json` for the selected harnesses |
 | `mcp add [-type t] [-env K=V] [-header 'H: V'] [-dir d] [-no-sync] [-account id] <name> <commandOrUrl> [args...]` | Add or update a server in `<dir>/.mcp.json`, then sync unless `-no-sync` |
+
+A workspace with `expand_env = true` gets expanded values (plaintext, `0600`) for every harness; `mcp sync` refuses it before writing when the workspace is inside a git work tree.
 
 `mcp sync` only touches the harnesses currently selected in `harnesses`. It does not remove the workspace file of a harness you dropped; delete that file by hand.
 

@@ -28,7 +28,7 @@ func (d Deps) runCheck(ctx context.Context, args []string) int {
 		return exitFindings
 	}
 
-	findings := config.Validate(r.Config)
+	findings := d.validate(r)
 	findings = append(findings, d.pluginFindings(ctx, r)...)
 	findings = append(findings, d.modelFindings(r)...)
 	findings = append(findings, d.featureFindings(r)...)
@@ -38,6 +38,9 @@ func (d Deps) runCheck(ctx context.Context, args []string) int {
 	}
 	for _, w := range plan.Warnings {
 		findings = append(findings, finding.Warn("render", "%s", w))
+	}
+	for _, n := range plan.Notes {
+		findings = append(findings, finding.Note("render", "%s", n))
 	}
 	if *live {
 		findings = append(findings, liveFindings(r, plan.Targets)...)

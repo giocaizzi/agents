@@ -109,11 +109,11 @@ func autonomyFeatures() []Feature {
 		shared("autonomy.sandbox_mode", "Sandbox for agent commands: off, workspace or read-only.",
 			noSandbox,
 			rdv(claude, all(at(claudeSettings, "sandbox.enabled"), at(claudeSettings, "sandbox.autoAllowBashIfSandboxed")),
-				"https://code.claude.com/docs/en/settings-reference and https://code.claude.com/docs/en/sandboxing (fetched 2026-11-13): sandbox.enabled is a boolean, default off; sandbox.autoAllowBashIfSandboxed defaults to true and would auto-allow sandboxed Bash, so it is written false whenever the sandbox is managed and execution_mode is ask or unset (nothing extra for auto or full); workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note"),
+				"https://code.claude.com/docs/en/settings-reference and https://code.claude.com/docs/en/sandboxing (fetched 2026-11-13): sandbox.enabled is a boolean, default off; sandbox.autoAllowBashIfSandboxed defaults to true and would auto-allow sandboxed Bash, so it is written false whenever the sandbox is managed and the effective defaultMode (harness.claude.default_mode, else the execution_mode mapping) is anything but auto or bypassPermissions, or unset; workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note"),
 			rdv(copilot, at(copilotSettings, "sandbox.enabled"),
 				"https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default false; workspace = true, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; no setting that auto-approves sandboxed commands is documented, so nothing extra is written"),
 			rdv(vscode, all(at(vscodeSettings, "chat.agent.sandbox.enabled"), at(copilotSettings, "sandbox.enabled")),
-				"https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; the ~/.copilot file gets the Copilot CLI sandbox.enabled; the docs say sandboxed commands are approved automatically but document no setting for it, so nothing extra is written"),
+				"https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only is approximated toward the stricter side: sandbox on, with a note; the ~/.copilot file gets the Copilot CLI sandbox.enabled; for the Copilot harness, sandboxing and approvals are separate layers (the docs describe automatic approval of sandboxed commands only for the deprecated Local harness), so nothing extra is written"),
 			rdv(codex, at(codexConfig, "sandbox_mode"),
 				"https://developers.openai.com/codex/config-reference (fetched 2026-11-13): off = danger-full-access, workspace = workspace-write, read-only = read-only; harness.codex.sandbox_mode wins"),
 			rdv(antigravity, at(antigravitySettings, "enableTerminalSandbox"),
@@ -147,9 +147,13 @@ func permissionFeatures() []Feature {
 	claudeAsk := rd(claude, at(claudeSettings, "permissions.ask"))
 	vscodeCommands := rd(vscode, at(vscodeSettings, "chat.tools.terminal.autoApprove"))
 	codexRule := rd(codex, at(codexRules))
+	codexAllow := rdv(codex, at(codexRules),
+		"agents rule, not a Codex setting: Codex rules match command prefixes only, so an allow prefix_rule is written only when no deny or ask pattern Codex cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way")
 	ocAllow := rd(opencode, at(opencodeConfig, "permissions"))
 	ocDeny := rd(opencode, at(opencodeConfig, "policies"))
 	agyAllow := rd(antigravity, at(antigravitySettings, "permissions.allow"))
+	agyCommandAllow := rdv(antigravity, at(antigravitySettings, "permissions.allow"),
+		"command() matches word prefixes only, so an allow command() rule is written only when no deny or ask pattern command() cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way (the same rule as Codex, internal/harness/overlap.go)")
 	agyDeny := rd(antigravity, at(antigravitySettings, "permissions.deny"))
 	agyAsk := rd(antigravity, at(antigravitySettings, "permissions.ask"))
 	const noCmd = "no documented command allow or deny list"
@@ -158,9 +162,9 @@ func permissionFeatures() []Feature {
 		shared("permissions.allow_commands", "Commands allowed without asking.", noCmd,
 			vscodeCommands,
 			rd(claude, at(claudeSettings, "permissions.allow")),
-			rd(codex, at(codexRules)),
+			codexAllow,
 			rd(opencode, at(opencodeConfig, "permissions")),
-			agyAllow),
+			agyCommandAllow),
 		shared("permissions.allowed_urls", "URLs agents may fetch.", "no documented URL allow list",
 			rd(copilot, at(copilotSettings, "allowedUrls")),
 			rd(vscode, all(at(vscodeSettings, "chat.tools.urls.autoApprove"), at(copilotSettings, "allowedUrls"))),
@@ -168,7 +172,7 @@ func permissionFeatures() []Feature {
 			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allow_command_patterns", "Command patterns allowed without asking.", noCmd,
-			claudeAllow, vscodeCommands, codexRule, ocAllow, agyAllow),
+			claudeAllow, vscodeCommands, codexAllow, ocAllow, agyCommandAllow),
 		shared("permissions.deny_read", "Path globs agents may not read.", noPath,
 			claudeDeny, ocDeny, agyDeny),
 		shared("permissions.deny_write", "Path globs agents may not write.", noPath,
@@ -372,6 +376,14 @@ func mcpFeatures() []Feature {
 			rd(copilot, at("<workspace>/.mcp.json", mcpServer)),
 			rd(vscode, at("<workspace>/.mcp.json", mcpServer)),
 			rd(codex, all(at("<workspace>/.codex/config.toml", "mcp_servers"), at(codexConfig, "projects"))),
+			rd(opencode, at("<workspace>/opencode.json", "mcp")),
+			rd(pi, at("<workspace>/.pi/mcp.json", mcpServer)),
+			rd(antigravity, at("<workspace>/.agents/mcp_config.json", mcpServer))),
+		shared("mcp.workspaces.*.expand_env", "Write expanded ${VAR} values into the files of a workspace outside any git work tree.", noMCP,
+			rd(claude, at("<workspace>/.mcp.json", mcpServer)),
+			rd(copilot, at("<workspace>/.mcp.json", mcpServer)),
+			rd(vscode, at("<workspace>/.mcp.json", mcpServer)),
+			rd(codex, at("<workspace>/.codex/config.toml", "mcp_servers")),
 			rd(opencode, at("<workspace>/opencode.json", "mcp")),
 			rd(pi, at("<workspace>/.pi/mcp.json", mcpServer)),
 			rd(antigravity, at("<workspace>/.agents/mcp_config.json", mcpServer))),

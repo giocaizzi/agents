@@ -14,7 +14,7 @@ import (
 func renderAntigravity(c *config.Config, b *builder) error {
 	a := c.Harness.Antigravity
 	settings := map[string]any{}
-	if perms := antigravityPermissions(c); len(perms) > 0 {
+	if perms := antigravityPermissions(c, b); len(perms) > 0 {
 		settings["permissions"] = perms
 	}
 	// The typed fields win over the shared modes.
@@ -56,9 +56,9 @@ func renderAntigravity(c *config.Config, b *builder) error {
 // native syntax. command() matches a token prefix and treats * as a literal:
 // a trailing " *" becomes the prefix, and a pattern with an inner * cannot be
 // expressed, so it is skipped.
-func antigravityPermissions(c *config.Config) map[string]any {
+func antigravityPermissions(c *config.Config, b *builder) map[string]any {
 	p := c.Permissions
-	allow := antigravityAllow(c)
+	allow := antigravityAllow(c, b)
 
 	var deny []string
 	for _, pat := range p.DenyCommandPatterns {
@@ -92,12 +92,21 @@ func antigravityPermissions(c *config.Config) map[string]any {
 
 // antigravityAllow is the typed allow rules, then the shared commands, URLs
 // and MCP servers as command(), read_url() and mcp() rules.
-func antigravityAllow(c *config.Config) []string {
+func antigravityAllow(c *config.Config, b *builder) []string {
 	p := c.Permissions
+	unexpressible := unexpressibleRules(&p)
 	allow := append([]string(nil), c.Harness.Antigravity.Allow...)
-	for _, pat := range slices.Concat(p.AllowCommands, p.AllowCommandPatterns) {
-		if prefix := strings.TrimSuffix(pat, " *"); !strings.Contains(prefix, "*") {
-			allow = appendUnique(allow, "command("+prefix+")")
+	for _, src := range []struct {
+		field    string
+		patterns []string
+	}{
+		{"permissions.allow_commands", p.AllowCommands},
+		{"permissions.allow_command_patterns", p.AllowCommandPatterns},
+	} {
+		for _, pat := range src.patterns {
+			if prefix, ok := antigravityCommandAllow(b, src.field, pat, unexpressible); ok {
+				allow = appendUnique(allow, "command("+prefix+")")
+			}
 		}
 	}
 	for _, u := range p.AllowedURLs {
@@ -112,6 +121,26 @@ func antigravityAllow(c *config.Config) []string {
 		allow = appendUnique(allow, "mcp("+m+")")
 	}
 	return allow
+}
+
+// antigravityCommandAllow is the command() prefix of an allowed command, and
+// false when it cannot be written: an inner * (command() takes none) or an
+// overlap with a deny or ask rule command() cannot express (see overlap.go).
+// An allow with no command words ("" or " *") covers every command, so any
+// inexpressible rule overlaps it.
+func antigravityCommandAllow(b *builder, field, pat string, unexpressible []unexpressible) (string, bool) {
+	prefix := strings.TrimSuffix(pat, " *")
+	if strings.Contains(prefix, "*") {
+		return "", false
+	}
+	words, ok := prefixWords(pat)
+	if !ok && len(strings.Fields(prefix)) == 0 {
+		words, ok = nil, true
+	}
+	if ok && b.allowOverlaps("Antigravity", field, pat, words, unexpressible) {
+		return "", false
+	}
+	return prefix, true
 }
 
 // antigravityHost is the read_url target of an allowed URL. read_url matches a

@@ -1,6 +1,9 @@
 package harness
 
 import (
+	"slices"
+	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
@@ -42,9 +45,9 @@ func TestAntigravityPermissions(t *testing.T) {
 		DenyWrite:            []string{"**/.ssh/**"},
 	}
 	c.Harness.Antigravity.Allow = []string{"mcp(*)"}
-	got := antigravityPermissions(c)
+	got := antigravityPermissions(c, &builder{})
 	want := map[string]any{
-		"allow": []any{"mcp(*)", "command(git push origin)"},
+		"allow": []any{"mcp(*)"}, // command(git push origin) overlaps the inexpressible deny "git push * main"
 		"ask":   []any{"command(bw)", "command(bw *)"},
 		"deny": []any{
 			"command(gh pr merge *)", "command(git push origin main)", "command(env)",
@@ -68,7 +71,7 @@ func TestAntigravitySharedAllowRules(t *testing.T) {
 		},
 		AllowedMCP: []string{"docs", "crm/search", "*"},
 	}
-	got := antigravityPermissions(c)
+	got := antigravityPermissions(c, &builder{})
 	want := map[string]any{"allow": []any{
 		"command(git status)", "command(make)",
 		"read_url(github.com)", "read_url(example.org)", "read_url(docs.example.com)", "read_url(localhost:3000)",
@@ -91,5 +94,82 @@ func TestRenderAntigravityUI(t *testing.T) {
 	managed, _ := targetAt(t, b, "/home/u/.gemini/antigravity-cli/settings.json").Managed.(map[string]any)
 	if managed["colorScheme"] != "tokyo night" || managed["notifications"] != true {
 		t.Errorf("colorScheme/notifications = %v/%v", managed["colorScheme"], managed["notifications"])
+	}
+}
+
+// TestAntigravityAllowSkipsOverlappingDeny pins the shared rule (overlap.go): an
+// allow prefix is not emitted while a deny command() cannot express covers it,
+// with one warning per skipped allow; non-overlapping allows stay.
+func TestAntigravityAllowSkipsOverlappingDeny(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.Permissions = config.Permissions{
+		AllowCommands:        []string{"git *", "gh *", "make *", "gh pr view"},
+		AllowCommandPatterns: []string{"git push --force-with-lease origin *", "git push *"},
+		DenyCommandPatterns:  []string{"git push * HEAD:main", "gh pr merge * --admin*"},
+	}
+	b := &builder{}
+	got := antigravityPermissions(c, b)
+	want := []any{"command(make)", "command(gh pr view)"}
+	if diff := cmp.Diff(want, got["allow"]); diff != "" {
+		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+	for _, skipped := range []string{`allow "git *"`, `allow "gh *"`, `allow "git push *"`, `allow "git push --force-with-lease origin *"`} {
+		n := 0
+		for _, w := range b.warnings {
+			if strings.Contains(w, skipped) && strings.Contains(w, "Antigravity cannot express it") {
+				n++
+			}
+		}
+		if n != 1 {
+			t.Errorf("warnings for %s = %d, want 1: %q", skipped, n, b.warnings)
+		}
+	}
+}
+
+// TestAntigravityAllowSkipsOverlappingAsk pins the rule for an ask prefix with
+// a wildcard before its last word, and that the warning names the field the
+// skipped allow came from.
+func TestAntigravityAllowSkipsOverlappingAsk(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.Permissions = config.Permissions{
+		AllowCommands:        []string{"git", "make"},
+		AllowCommandPatterns: []string{"git push *"},
+		AskCommandPrefixes:   []string{"git push * prod"},
+	}
+	b := &builder{}
+	got := antigravityPermissions(c, b)
+	if diff := cmp.Diff([]any{"command(make)"}, got["allow"]); diff != "" {
+		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+	for _, want := range []string{
+		`permissions.allow_commands: skipped, allow "git" could cover commands that ask pattern "git push * prod"`,
+		`permissions.allow_command_patterns: skipped, allow "git push *" could cover commands that ask pattern "git push * prod"`,
+	} {
+		if !slices.ContainsFunc(b.warnings, func(w string) bool { return strings.Contains(w, want) }) {
+			t.Errorf("missing warning %q in %q", want, b.warnings)
+		}
+	}
+}
+
+// TestAntigravityAllowWithoutWords: an allow that has no prefix words ("" or
+// " *", which means every command) cannot be checked against the
+// unexpressible patterns, so it must not be written as command(), a rule
+// whose empty prefix covers every command, "git push x HEAD:main" included.
+func TestAntigravityAllowWithoutWords(t *testing.T) {
+	t.Parallel()
+	for _, allow := range []string{"", " *"} {
+		t.Run("allow "+strconv.Quote(allow), func(t *testing.T) {
+			t.Parallel()
+			c := &config.Config{}
+			c.Permissions = config.Permissions{
+				AllowCommandPatterns: []string{allow},
+				DenyCommandPatterns:  []string{"git push * HEAD:main"},
+			}
+			if got := antigravityPermissions(c, &builder{})["allow"]; got != nil {
+				t.Errorf("allow = %v, want none", got)
+			}
+		})
 	}
 }

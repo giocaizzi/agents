@@ -296,6 +296,9 @@ type MCP struct {
 type Workspace struct {
 	Path    string               `json:"path,omitempty"    jsonschema:"description=Workspace directory"                     toml:"path,omitempty"`
 	Servers map[string]MCPServer `json:"servers,omitempty" jsonschema:"description=MCP servers of the workspace (any name)" toml:"servers,omitempty"`
+	// ExpandEnv writes the expanded ${VAR} values into the workspace files,
+	// for every harness. Refused when the path is inside a git work tree.
+	ExpandEnv bool `json:"expand_env,omitempty" jsonschema:"description=Write expanded ${VAR} values (secrets in plaintext) into the workspace files for every harness; refused inside a git work tree" toml:"expand_env,omitempty"`
 }
 
 // MCPServer is one MCP server: a url or a command.

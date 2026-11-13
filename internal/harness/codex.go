@@ -2,7 +2,6 @@ package harness
 
 import (
 	"fmt"
-	"slices"
 	"strings"
 
 	"github.com/giocaizzi/agents/internal/apply"
@@ -151,15 +150,25 @@ func codexOTel(t Telemetry) map[string]any {
 
 // codexRules renders ~/.codex/rules/agents.rules: one prefix_rule per command
 // pattern that is a literal prefix, optionally ending in a wildcard.
+//
+// A deny or ask pattern Codex cannot match (a wildcard before the last word,
+// as in "git push * HEAD:main") is skipped with a warning, which would leave
+// the command allowed by any allow prefix covering it. So an allow rule is not
+// emitted while such a pattern overlaps it (see overlapping), and is warned
+// once.
 func codexRules(p *config.Permissions, b *builder) string {
 	var sb strings.Builder
 	sb.WriteString("# Managed by agents from permissions: do not edit.\n")
 	seen := map[string]bool{}
+	unexpressible := unexpressibleRules(p)
 	emit := func(where string, patterns []string, decision, verb string) {
 		for _, pat := range patterns {
 			words, ok := prefixWords(pat)
 			if !ok {
 				b.warnf("%s: skipped, %q is not a command prefix Codex rules can match", where, pat)
+				continue
+			}
+			if decision == "allow" && b.allowOverlaps("Codex rules", where, pat, words, unexpressible) {
 				continue
 			}
 			key := decision + "\x00" + strings.Join(words, "\x00")
@@ -187,17 +196,4 @@ func codexRules(p *config.Permissions, b *builder) string {
 	emit("permissions.deny_command_prefixes", p.DenyCommandPrefixes, "forbidden", "Denied")
 	emit("permissions.ask_command_prefixes", p.AskCommandPrefixes, "prompt", "Confirmation required")
 	return sb.String()
-}
-
-// prefixWords splits a command pattern into words, dropping a trailing
-// wildcard word. A wildcard anywhere else cannot be a prefix.
-func prefixWords(pat string) ([]string, bool) {
-	words := strings.Fields(pat)
-	if n := len(words); n > 0 && words[n-1] == "*" {
-		words = words[:n-1]
-	}
-	if len(words) == 0 || slices.ContainsFunc(words, func(w string) bool { return strings.Contains(w, "*") }) {
-		return nil, false
-	}
-	return words, true
 }

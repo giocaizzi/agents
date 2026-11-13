@@ -36,6 +36,7 @@ type Env struct {
 type Plan struct {
 	Targets  []apply.Target
 	Warnings []string
+	Notes    []string // informational: printed as "note: ...", never a failure
 }
 
 // Render renders the targets of every selected harness and of every MCP
@@ -58,7 +59,7 @@ func Render(r *config.Resolved, env Env) (Plan, error) {
 	if err := renderWorkspaces(b.cfg, b, selected); err != nil {
 		b.errs = append(b.errs, fmt.Errorf("mcp workspaces: %w", err))
 	}
-	return Plan{Targets: b.targets, Warnings: b.warnings}, errors.Join(b.errs...)
+	return Plan{Targets: b.targets, Warnings: b.warnings, Notes: b.notes}, errors.Join(b.errs...)
 }
 
 // Selected returns the selected harnesses in canonical order, without
@@ -94,6 +95,7 @@ type builder struct {
 	profile  string
 	targets  []apply.Target
 	warnings []string
+	notes    []string
 	errs     []error
 	seen     map[string]bool // target paths already added
 	expanded map[string]bool // values substituted for ${VAR} so far
@@ -149,6 +151,14 @@ func (b *builder) warnf(format string, args ...any) {
 	w := fmt.Sprintf(format, args...)
 	if !slices.Contains(b.warnings, w) {
 		b.warnings = append(b.warnings, w)
+	}
+}
+
+// notef records an informational note, once per distinct text.
+func (b *builder) notef(format string, args ...any) {
+	n := fmt.Sprintf(format, args...)
+	if !slices.Contains(b.notes, n) {
+		b.notes = append(b.notes, n)
 	}
 }
 
@@ -299,11 +309,13 @@ func (b *builder) mcpServers() map[string]config.MCPServer {
 // Workspace is one MCP workspace with its path expanded. Its servers keep
 // their ${VAR} references, which land in committed project files: the
 // renderer rewrites or refuses them per harness. Only the OAuth client id, a
-// public value, is expanded.
+// public value, is expanded. With ExpandEnv (refused inside a git work tree)
+// every value is expanded instead.
 type Workspace struct {
-	Name    string
-	Path    string
-	Servers map[string]config.MCPServer
+	Name      string
+	Path      string
+	Servers   map[string]config.MCPServer
+	ExpandEnv bool // the servers are expanded: no ${VAR} is left
 }
 
 // workspaces returns the MCP workspaces sorted by name, expanded; a workspace
@@ -320,7 +332,11 @@ func (b *builder) workspaces() []Workspace {
 		if !ok {
 			continue
 		}
-		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.workspaceServers(where+".servers", w.Servers)})
+		servers := b.workspaceServers(where+".servers", w.Servers)
+		if w.ExpandEnv {
+			servers = b.expandServers(where+".servers", w.Servers)
+		}
+		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: servers, ExpandEnv: w.ExpandEnv})
 	}
 	return b.ws
 }
