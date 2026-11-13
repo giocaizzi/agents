@@ -54,11 +54,7 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 			fmt.Fprintf(d.Stderr, "%s: %v\n", t.Path, err)
 			return exitFindings
 		}
-		for _, secret := range t.Sensitive {
-			if secret != "" {
-				body = strings.ReplaceAll(body, secret, "«redacted»")
-			}
-		}
+		body = apply.Redact(body, t.Sensitive)
 		note := ""
 		if t.CheckOnly {
 			note = ", check only"

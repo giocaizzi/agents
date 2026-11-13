@@ -57,8 +57,12 @@ func maskText(f Format, text string, managed func([]string) bool) (string, error
 	return maskJSON(text, managed)
 }
 
-// redact replaces every secret in text, as written raw or escaped for JSON
-// (with and without HTML escaping), TOML or a URL.
+// Redact replaces every secret in text, as written raw or escaped for JSON
+// (with and without HTML escaping), TOML or a URL, with «redacted».
+func Redact(text string, secrets []string) string {
+	return redact(text, secrets)
+}
+
 func redact(text string, secrets []string) string {
 	var pairs []string
 	for _, s := range secrets {
