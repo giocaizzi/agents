@@ -13,11 +13,19 @@ func renderPi(c *config.Config, b *builder) error {
 	p := c.Harness.Pi
 	tierModel, tierEffort := sessionModel(c, config.Pi)
 	p.DefaultModel = valueOr(p.DefaultModel, tierModel) // the typed field wins over the default tier
-	p.DefaultThinkingLevel = valueOr(p.DefaultThinkingLevel, tierEffort)
+	// The typed field wins over the default tier, which wins over the shared level.
+	p.DefaultThinkingLevel = valueOr(valueOr(p.DefaultThinkingLevel, tierEffort), c.Models.DefaultEffortLevel)
 	settings := map[string]any{}
 	setIf(settings, "defaultProvider", p.DefaultProvider)
 	setIf(settings, "defaultModel", p.DefaultModel)
 	setIf(settings, "defaultThinkingLevel", p.DefaultThinkingLevel)
+	if c.Models.ShowThinkingSummaries {
+		settings["hideThinkingBlock"] = false // pi's flag is the inverse of the shared one
+	}
+	if c.Context.AutoCompact {
+		settings["compaction"] = map[string]any{"enabled": true}
+	}
+	setIf(settings, "theme", c.UI.Theme)
 
 	var packages []string
 	if dir := RegistryDir(c, b.env.Dirs); dir != "" {

@@ -282,7 +282,7 @@
       "properties": {
         "auto_compact": {
           "type": "boolean",
-          "description": "Compact the context automatically. Written to claude, vscode. Planned for opencode, pi. Not supported by copilot, codex, antigravity."
+          "description": "Compact the context automatically. Written to claude, vscode, pi. Planned for opencode. Not supported by copilot, codex, antigravity."
         },
         "auto_compact_window": {
           "type": "integer",
@@ -525,11 +525,11 @@
       "properties": {
         "default_effort_level": {
           "type": "string",
-          "description": "Default reasoning effort. Written to claude, copilot, vscode. Planned for codex, pi. Not supported by opencode, antigravity."
+          "description": "Default reasoning effort. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
         },
         "show_thinking_summaries": {
           "type": "boolean",
-          "description": "Show thinking summaries. Written to claude, copilot, vscode. Planned for codex, pi. Not supported by opencode, antigravity."
+          "description": "Show thinking summaries. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
         },
         "default": {
           "type": "string",
@@ -561,7 +561,7 @@
       "properties": {
         "terminal_bell": {
           "type": "boolean",
-          "description": "Ring the terminal bell when a turn ends. Written to claude, copilot, vscode, codex. Planned for antigravity. Not supported by opencode, pi."
+          "description": "Ring the terminal bell when a turn ends. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
         }
       },
       "additionalProperties": false,
@@ -689,14 +689,14 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Commands allowed without asking. Written to claude, vscode. Planned for codex, opencode, antigravity. Not supported by copilot, pi."
+          "description": "Commands allowed without asking. Written to claude, vscode, antigravity. Planned for codex, opencode. Not supported by copilot, pi."
         },
         "allowed_urls": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "URLs agents may fetch. Written to copilot, vscode. Planned for claude, opencode, antigravity. Not supported by codex, pi."
+          "description": "URLs agents may fetch. Written to copilot, vscode, antigravity. Planned for claude, opencode. Not supported by codex, pi."
         },
         "allow_command_patterns": {
           "items": {
@@ -752,7 +752,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "MCP servers or tools allowed without asking. Written to claude. Planned for opencode, antigravity. Not supported by copilot, vscode, codex, pi."
+          "description": "MCP servers or tools allowed without asking. Written to claude, antigravity. Planned for opencode. Not supported by copilot, vscode, codex, pi."
         },
         "reasons": {
           "additionalProperties": {
@@ -1025,7 +1025,7 @@
       "properties": {
         "theme": {
           "type": "string",
-          "description": "Colour theme. Written to claude, vscode. Planned for copilot, codex, opencode, pi, antigravity."
+          "description": "Colour theme. Written to claude, vscode, pi, antigravity. Planned for copilot, codex, opencode."
         },
         "tui_mode": {
           "type": "string",

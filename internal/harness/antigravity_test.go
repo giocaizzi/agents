@@ -56,3 +56,40 @@ func TestAntigravityPermissions(t *testing.T) {
 		t.Errorf("permissions (-want +got):\n%s", diff)
 	}
 }
+
+func TestAntigravitySharedAllowRules(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.Permissions = config.Permissions{
+		AllowCommands: []string{"git status", "make *", "a * b"},
+		AllowedURLs: []string{
+			"https://github.com/**", "https://*.example.org/*", "docs.example.com", "https://github.com/org/**",
+			"https://a.*.com/**", "http://localhost:3000/",
+		},
+		AllowedMCP: []string{"docs", "crm/search", "*"},
+	}
+	got := antigravityPermissions(c)
+	want := map[string]any{"allow": []any{
+		"command(git status)", "command(make)",
+		"read_url(github.com)", "read_url(example.org)", "read_url(docs.example.com)", "read_url(localhost:3000)",
+		"mcp(docs/*)", "mcp(crm/search)", "mcp(*)",
+	}}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("permissions (-want +got):\n%s", diff)
+	}
+}
+
+func TestRenderAntigravityUI(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.UI.Theme = "tokyo night"
+	c.Notifications.TerminalBell = true
+	b := newTestBuilder(c)
+	if err := renderAntigravity(c, b); err != nil {
+		t.Fatal(err)
+	}
+	managed, _ := targetAt(t, b, "/home/u/.gemini/antigravity-cli/settings.json").Managed.(map[string]any)
+	if managed["colorScheme"] != "tokyo night" || managed["notifications"] != true {
+		t.Errorf("colorScheme/notifications = %v/%v", managed["colorScheme"], managed["notifications"])
+	}
+}

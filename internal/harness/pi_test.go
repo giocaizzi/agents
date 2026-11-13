@@ -95,3 +95,58 @@ func TestRenderPiMCPKeepsCallbackPort(t *testing.T) {
 		t.Errorf("mcp.json (-want +got):\n%s", diff)
 	}
 }
+
+func TestRenderPiSharedSettings(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name  string
+		build func(*config.Config)
+		want  map[string]any
+	}{
+		{
+			name: "shared values",
+			build: func(c *config.Config) {
+				c.Models.DefaultEffortLevel = "high"
+				c.Models.ShowThinkingSummaries = true
+				c.Context.AutoCompact = true
+				c.UI.Theme = "dark"
+			},
+			want: map[string]any{
+				"defaultThinkingLevel": "high", "hideThinkingBlock": false,
+				"compaction": map[string]any{"enabled": true}, "theme": "dark",
+			},
+		},
+		{
+			name: "typed field wins over the shared level",
+			build: func(c *config.Config) {
+				c.Models.DefaultEffortLevel = "high"
+				c.Harness.Pi.DefaultThinkingLevel = "low"
+			},
+			want: map[string]any{"defaultThinkingLevel": "low"},
+		},
+		{
+			name: "default tier wins over the shared level",
+			build: func(c *config.Config) {
+				c.Models.DefaultEffortLevel = "high"
+				c.Models.Default = "main"
+				c.Models.Tiers = map[string]config.Tier{"main": {Pi: "m", Effort: "xhigh"}}
+			},
+			want: map[string]any{"defaultModel": "m", "defaultThinkingLevel": "xhigh"},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := &config.Config{}
+			tt.build(c)
+			b := newTestBuilder(c)
+			if err := renderPi(c, b); err != nil {
+				t.Fatal(err)
+			}
+			got := targetAt(t, b, "/home/u/.pi/agent/settings.json").Managed
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("settings (-want +got):\n%s", diff)
+			}
+		})
+	}
+}

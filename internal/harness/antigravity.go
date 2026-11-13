@@ -24,6 +24,10 @@ func renderAntigravity(c *config.Config, b *builder) error {
 	setIf(settings, "agentMode", mode)
 	setIf(settings, "toolPermission", a.ToolPermission)
 	settings["enableTerminalSandbox"] = a.EnableTerminalSandbox
+	setIf(settings, "colorScheme", c.UI.Theme)
+	if c.Notifications.TerminalBell {
+		settings["notifications"] = true
+	}
 	settings["allowNonWorkspaceAccess"] = a.AllowNonWorkspaceAccess || c.Autonomy.AllowNonWorkspaceAccess
 	deepMerge(settings, a.Settings)
 
@@ -48,12 +52,7 @@ func renderAntigravity(c *config.Config, b *builder) error {
 // expressed, so it is skipped.
 func antigravityPermissions(c *config.Config) map[string]any {
 	p := c.Permissions
-	allow := append([]string(nil), c.Harness.Antigravity.Allow...)
-	for _, pat := range p.AllowCommandPatterns {
-		if prefix := strings.TrimSuffix(pat, " *"); !strings.Contains(prefix, "*") {
-			allow = appendUnique(allow, "command("+prefix+")")
-		}
-	}
+	allow := antigravityAllow(c)
 
 	var deny []string
 	for _, pat := range p.DenyCommandPatterns {
@@ -83,6 +82,50 @@ func antigravityPermissions(c *config.Config) map[string]any {
 		}
 	}
 	return out
+}
+
+// antigravityAllow is the typed allow rules, then the shared commands, URLs
+// and MCP servers as command(), read_url() and mcp() rules.
+func antigravityAllow(c *config.Config) []string {
+	p := c.Permissions
+	allow := append([]string(nil), c.Harness.Antigravity.Allow...)
+	for _, pat := range slices.Concat(p.AllowCommands, p.AllowCommandPatterns) {
+		if prefix := strings.TrimSuffix(pat, " *"); !strings.Contains(prefix, "*") {
+			allow = appendUnique(allow, "command("+prefix+")")
+		}
+	}
+	for _, u := range p.AllowedURLs {
+		if host, ok := antigravityHost(u); ok {
+			allow = appendUnique(allow, "read_url("+host+")")
+		}
+	}
+	for _, m := range p.AllowedMCP {
+		if !strings.Contains(m, "/") && m != "*" {
+			m += "/*" // a bare name is a server: all its tools
+		}
+		allow = appendUnique(allow, "mcp("+m+")")
+	}
+	return allow
+}
+
+// antigravityHost is the read_url target of an allowed URL. read_url matches a
+// hostname and its subdomains and ignores the path, so only a URL that covers
+// a whole host (no path, or a trailing /, /* or /**) can be expressed, and a
+// leading "*." is dropped because the bare domain already covers subdomains.
+func antigravityHost(u string) (string, bool) {
+	_, rest, found := strings.Cut(u, "://")
+	if !found {
+		rest = u
+	}
+	host, path, _ := strings.Cut(rest, "/")
+	if path != "" && path != "*" && path != "**" {
+		return "", false
+	}
+	host = strings.TrimPrefix(host, "*.")
+	if host == "" || strings.Contains(host, "*") {
+		return "", false
+	}
+	return host, true
 }
 
 // prefixRules is command(p) for a single-word prefix and command(p *) for all.
