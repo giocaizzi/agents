@@ -52,7 +52,7 @@ Paths expand a leading `~`, `~/` or `~\` (the Windows form works on every OS) to
 Where secrets can land:
 
 - **User-level files** (`~/.claude.json`, `~/.codex/config.toml`, ...) receive expanded values. A new file is created with mode `0600`; the mode of an existing file is kept. Diffs print every expanded secret as `redacted`.
-- **Workspace files** (`agents mcp sync` and `mcp.workspaces`: `.mcp.json`, `.codex/config.toml`, `.pi/mcp.json`, `opencode.json`, `.agents/mcp_config.json`) usually get committed, so they never hold an expanded value. A `${VAR}` stays a reference where the harness expands it itself (Claude Code, Copilot CLI and VS Code in `.mcp.json`; opencode as `{env:VAR}`); for Codex, pi and Antigravity, which do not expand references in a project file, the server is skipped with a warning.
+- **Workspace files** (`agents mcp sync` and `mcp.workspaces`: `.mcp.json`, `.codex/config.toml`, `.pi/mcp.json`, `opencode.json`, `.agents/mcp_config.json`) usually get committed, so they never hold an expanded value. A `${VAR}` stays a reference where the harness expands it itself (Claude Code, Copilot CLI and VS Code in `.mcp.json`; opencode as `{env:VAR}`); for Codex, pi and Antigravity, which do not expand references in a project file, the server is skipped with a warning. A workspace with `expand_env = true` is the opt-in exception (see [MCP](#mcp)).
 - OAuth client secrets have no config key: they live only in the harness's own keyring.
 
 Which keys each harness writes, and which it has no setting for, is in the [feature matrix](features.md); `agents check` reports a key set in the config that a selected harness ignores.
@@ -205,6 +205,9 @@ The registry is checked out under `<data>/registries/<owner>/<repo>`; `agents pl
 | `servers.<name>` | table | User-level servers, written to every selected harness |
 | `workspaces.<name>.path` | string | Workspace directory (required) |
 | `workspaces.<name>.servers.<server>` | table | Servers synced to that workspace's native files |
+| `workspaces.<name>.expand_env` | bool | Write expanded `${VAR}` values instead of references, for every harness (default `false`) |
+
+`expand_env = true` writes the expanded values of that workspace's servers into its files for every harness, so Codex, pi and Antigravity get the servers back and the skip warning no longer fires. The values, secrets included, land in plaintext in files written `0600`; `apply -n` and `render` still redact them. Use it for a workspace outside any repository, such as a scratch ops folder. `check`, `apply` and `mcp sync` refuse it (error at `mcp.workspaces.<name>.expand_env`) when the expanded workspace path is inside a git work tree (a `.git` entry in the path or any ancestor), since the files could be committed. Without it, workspace files keep references as described above.
 
 A server (user or workspace) has exactly one of `url` or `command`:
 
