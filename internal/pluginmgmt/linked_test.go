@@ -3,10 +3,16 @@ package pluginmgmt_test
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"github.com/giocaizzi/agents/internal/pluginmgmt"
 )
+
+// q returns s as a quoted string literal (valid JSON for a path) (Windows paths carry backslashes).
+func q(s string) string {
+	return strconv.Quote(s)
+}
 
 func writeTree(t *testing.T, root string, files map[string]string) {
 	t.Helper()
@@ -69,25 +75,25 @@ func TestPiVersion(t *testing.T) {
 			return `{"packages": ["` + filepath.ToSlash(rel) + `"]}`
 		}, "dev-tools", "1.2.0"},
 		{"absolute path", func(checkout, _ string) string {
-			return `{"packages": ["git:example/harness", "` + checkout + `"]}`
+			return `{"packages": ["git:example/harness", ` + q(checkout) + `]}`
 		}, "dev-tools", "1.2.0"},
 		{"object form", func(checkout, _ string) string {
-			return `{"packages": [{"source": "` + checkout + `"}]}`
+			return `{"packages": [{"source": ` + q(checkout) + `}]}`
 		}, "guard", "2.0.0"},
 		{"home path", func(_, _ string) string {
 			return `{"packages": ["~/checkout"]}`
 		}, "dev-tools", "1.2.0"},
 		{"symlinked path", func(_, home string) string {
-			return `{"packages": ["` + filepath.Join(home, "link") + `"]}`
+			return `{"packages": [` + q(filepath.Join(home, "link")) + `]}`
 		}, "dev-tools", "1.2.0"},
 		{"plugin without version", func(checkout, _ string) string {
-			return `{"packages": ["` + checkout + `"]}`
+			return `{"packages": [` + q(checkout) + `]}`
 		}, "unversioned", "linked"},
 		{"git entry only", func(_, _ string) string {
 			return `{"packages": ["git:example/harness", "npm:example"]}`
 		}, "dev-tools", ""},
 		{"another directory", func(_, home string) string {
-			return `{"packages": ["` + filepath.Join(home, "elsewhere") + `"]}`
+			return `{"packages": [` + q(filepath.Join(home, "elsewhere")) + `]}`
 		}, "dev-tools", ""},
 		{"unparsable", func(_, _ string) string { return `{` }, "dev-tools", ""},
 		{"no settings file", func(_, _ string) string { return "" }, "dev-tools", ""},

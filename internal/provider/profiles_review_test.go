@@ -164,7 +164,7 @@ func TestExpiredNoteNamesLabelAndDirectory(t *testing.T) {
 				f.files[filepath.FromSlash("/x/work/.credentials.json")] = claudeCredsFor("fake-tok-w", "max", past)
 			},
 			read: readClaude,
-			want: []string{"token expired, open claude (CLAUDE_CONFIG_DIR=" + filepath.FromSlash("/x/work") + ") to refresh"},
+			want: []string{"token expired, open claude (CLAUDE_CONFIG_DIR=" + shellQuote(filepath.FromSlash("/x/work")) + ") to refresh"},
 		},
 		{
 			name: "codex",

@@ -3,7 +3,6 @@ package provider
 import (
 	"fmt"
 	"maps"
-	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -358,7 +357,7 @@ func checkClaudeProfile(t *testing.T, tt claudeProfileCase) {
 	}
 	maps.Copy(f.env, tt.env)
 	for p, content := range tt.files {
-		if !filepath.IsAbs(p) {
+		if !strings.HasPrefix(p, "/") {
 			p = f.path(p)
 		}
 		f.files[p] = content

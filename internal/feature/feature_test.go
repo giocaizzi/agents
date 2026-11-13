@@ -270,7 +270,7 @@ func normalizer(home string, dirs config.Dirs) func(string) string {
 		p = strings.Replace(p, filepath.Join(home, "ws"), "<workspace>", 1)
 		p = strings.Replace(p, dirs.Data, "<data dir>", 1)
 		p = strings.Replace(p, filepath.Join(home, ".config", "Code", "User"), "<Code user dir>", 1)
-		return strings.Replace(p, home, "~", 1)
+		return filepath.ToSlash(strings.Replace(p, home, "~", 1))
 	}
 }
 
