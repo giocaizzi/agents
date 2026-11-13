@@ -21,7 +21,8 @@ func renderCodex(c *config.Config, b *builder) error {
 	h := c.Harness.Codex
 	tierModel, tierEffort := sessionModel(c, config.Codex)
 	h.Model = valueOr(h.Model, tierModel) // the typed field wins over the default tier
-	h.ModelReasoningEffort = valueOr(h.ModelReasoningEffort, tierEffort)
+	// The typed field wins, then the default tier's effort, then models.default_effort_level.
+	h.ModelReasoningEffort = valueOr(h.ModelReasoningEffort, valueOr(tierEffort, c.Models.DefaultEffortLevel))
 	for k, v := range map[string]string{
 		keyModel:                 h.Model,
 		"model_reasoning_effort": h.ModelReasoningEffort,
@@ -34,6 +35,9 @@ func renderCodex(c *config.Config, b *builder) error {
 	}
 	if servers := codexServers(b.mcpServers()); len(servers) > 0 {
 		cfg["mcp_servers"] = servers
+	}
+	if plugins := codexPlugins(c); len(plugins) > 0 {
+		cfg["plugins"] = plugins
 	}
 	if t, ok := b.telemetry(config.Codex); ok {
 		cfg["otel"] = codexOTel(t)
@@ -54,6 +58,21 @@ func renderCodex(c *config.Config, b *builder) error {
 	})
 	b.instructions(config.Codex, b.home(".codex", "AGENTS.md"))
 	return nil
+}
+
+// codexPlugins renders plugins.<name>@<marketplace>.enabled for every plugin
+// enabled for Codex; plugins.disabled turns it off. The installer registers
+// the marketplace itself.
+func codexPlugins(c *config.Config) map[string]any {
+	mkt := MarketplaceName(c)
+	if mkt == "" {
+		return nil
+	}
+	out := map[string]any{}
+	for name, on := range PluginStates(c, config.Codex) {
+		out[name+"@"+mkt] = map[string]any{keyEnabled: on}
+	}
+	return out
 }
 
 // codexServers renders MCP servers as Codex mcp_servers tables.
@@ -131,7 +150,7 @@ func codexRules(p *config.Permissions, b *builder) string {
 	var sb strings.Builder
 	sb.WriteString("# Managed by agents from permissions: do not edit.\n")
 	seen := map[string]bool{}
-	emit := func(where string, patterns []string, decision, justification string) {
+	emit := func(where string, patterns []string, decision, verb string) {
 		for _, pat := range patterns {
 			words, ok := prefixWords(pat)
 			if !ok {
@@ -143,6 +162,10 @@ func codexRules(p *config.Permissions, b *builder) string {
 				continue
 			}
 			seen[key] = true
+			justification := p.Reasons[pat]
+			if justification == "" {
+				justification = verb + " by the agents permissions."
+			}
 			quoted := make([]string, len(words))
 			for i, w := range words {
 				quoted[i] = fmt.Sprintf("%q", w)
@@ -151,8 +174,13 @@ func codexRules(p *config.Permissions, b *builder) string {
 				strings.Join(quoted, ","), decision, justification, strings.Join(words, " "))
 		}
 	}
-	emit("permissions.allow_command_patterns", p.AllowCommandPatterns, "allow", "Allowed by the agents permissions.")
-	emit("permissions.deny_command_patterns", p.DenyCommandPatterns, "forbidden", "Denied by the agents permissions.")
+	emit("permissions.allow_commands", p.AllowCommands, "allow", "Allowed")
+	emit("permissions.allow_command_patterns", p.AllowCommandPatterns, "allow", "Allowed")
+	emit("permissions.deny_command_patterns", p.DenyCommandPatterns, "forbidden", "Denied")
+	// Codex matches prefixes only, so an exact line also blocks its extensions.
+	emit("permissions.deny_command_exact", p.DenyCommandExact, "forbidden", "Denied")
+	emit("permissions.deny_command_prefixes", p.DenyCommandPrefixes, "forbidden", "Denied")
+	emit("permissions.ask_command_prefixes", p.AskCommandPrefixes, "prompt", "Confirmation required")
 	return sb.String()
 }
 

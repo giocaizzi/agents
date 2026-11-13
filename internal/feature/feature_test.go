@@ -408,7 +408,7 @@ func TestPlanned(t *testing.T) {
 			t.Errorf("%s has no planned cell", f.Key)
 		}
 	}
-	if !slices.ContainsFunc(planned, func(f feature.Feature) bool { return f.Key == "permissions.reasons" }) {
-		t.Error("permissions.reasons is planned for codex")
+	if !slices.ContainsFunc(planned, func(f feature.Feature) bool { return f.Key == "autonomy.execution_mode" }) {
+		t.Error("autonomy.execution_mode is planned for codex (ambiguous)")
 	}
 }

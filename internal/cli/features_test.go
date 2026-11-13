@@ -73,15 +73,15 @@ func TestFeatures_JSON(t *testing.T) {
 				t.Errorf("%s lists a cell for %s", f.Key, h)
 			}
 		}
-		if f.Key == "permissions.reasons" {
+		if f.Key == "autonomy.execution_mode" {
 			found = true
 			if c := f.Cells["codex"]; c["status"] != "planned" || c["evidence"] == "" {
-				t.Errorf("permissions.reasons codex cell = %v", c)
+				t.Errorf("autonomy.execution_mode codex cell = %v", c)
 			}
 		}
 	}
 	if !found {
-		t.Error("permissions.reasons is missing")
+		t.Error("autonomy.execution_mode is missing")
 	}
 }
 
