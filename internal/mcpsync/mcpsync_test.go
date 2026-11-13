@@ -701,9 +701,21 @@ func TestWarnings(t *testing.T) {
 			},
 		},
 		{
-			name: "client id only",
+			name: "public client id only",
 			servers: map[string]mcpsync.ServerEntry{
-				"a": {Type: "http", OAuth: &mcpsync.OAuth{ClientID: "example-client"}, OAuthClientID: "example-client"},
+				"a": {Type: "http", OAuth: &mcpsync.OAuth{ClientID: "example-client"}, OAuthPublicClient: new(true)},
+			},
+		},
+		{
+			name: "confidential client, flag false or unset",
+			servers: map[string]mcpsync.ServerEntry{
+				"unset": {Type: "http", OAuth: &mcpsync.OAuth{ClientID: "example-client"}},
+				"false": {Type: "http", OAuthClientID: "example-client", OAuthPublicClient: new(false)},
+				"none":  {Type: "http", URL: "https://a.example.com"},
+			},
+			want: []string{
+				`server "false": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
+				`server "unset": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
 			},
 		},
 	}
@@ -735,7 +747,10 @@ func TestSync_OAuthBothStyles(t *testing.T) {
 	if len(outputs) != 3 {
 		t.Fatalf("expected 3 outputs, got %d", len(outputs))
 	}
-	want := []string{`antigravity: server "docs": callback port 8765 not supported, left out (register https://antigravity.google/oauth-callback as a redirect URI)`}
+	want := []string{
+		`antigravity: server "docs": callback port 8765 not supported, left out (register https://antigravity.google/oauth-callback as a redirect URI)`,
+		`server "docs": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
+	}
 	if diff := cmp.Diff(want, warnings); diff != "" {
 		t.Errorf("warnings mismatch (-want +got):\n%s", diff)
 	}
@@ -752,29 +767,56 @@ func TestSync_OAuthBothStyles(t *testing.T) {
 func TestRenderCodex_OAuthClientIDStaysValidTOML(t *testing.T) {
 	t.Parallel()
 
-	t.Run("xfail: control character in oauth.clientId corrupts the Codex TOML", func(t *testing.T) {
+	// Either fix is fine: reject the client id at parse time, or render it
+	// as a TOML basic string that parses back to the same value. Both hold.
+	t.Run("control character in oauth.clientId is rejected", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: clientId is neither validated nor TOML-escaped; Go quoting writes \\a, which TOML rejects")
+		for _, id := range []string{`a\u0007b`, `a\u007fb`, `a\"b`, `a\\b`, `a\nb`} {
+			for _, key := range []string{"oauth", "flat"} {
+				entry := `"oauth":{"clientId":"` + id + `"}`
+				if key == "flat" {
+					entry = `"oauthClientId":"` + id + `"`
+				}
+				_, err := mcpsync.ParseAndValidate(strings.NewReader(
+					`{"mcpServers":{"s":{"url":"https://a.example.com",`+entry+`}}}`), "acct")
+				if err == nil || !strings.Contains(err.Error(), "oauth client id must not contain") {
+					t.Errorf("%s %s: error = %v, want a client id error", key, id, err)
+				}
+			}
+		}
+	})
 
-		// Either fix is fine: reject the client id at parse time, or render it
-		// as a TOML basic string that parses back to the same value.
-		src, err := mcpsync.ParseAndValidate(strings.NewReader(
-			`{"mcpServers":{"s":{"url":"https://a.example.com","oauth":{"clientId":"a\u0007b"}}}}`), "acct")
-		if err != nil {
-			return
+	t.Run("rendering escapes any string", func(t *testing.T) {
+		t.Parallel()
+		const nasty = "a\a\x7f\"\\\n\tb"
+		servers := map[string]mcpsync.ServerEntry{
+			"s": {
+				Type: "http", URL: "https://a.example.com",
+				Headers: map[string]string{nasty: nasty},
+				OAuth:   &mcpsync.OAuth{ClientID: nasty},
+			},
+			"l": {Type: "stdio", Command: nasty, Args: []string{nasty}, Env: map[string]string{nasty: nasty}},
 		}
 		var got struct {
 			MCPServers map[string]struct {
-				OAuth struct {
+				Command string            `toml:"command"`
+				Args    []string          `toml:"args"`
+				Env     map[string]string `toml:"env"`
+				Headers map[string]string `toml:"http_headers"`
+				OAuth   struct {
 					ClientID string `toml:"client_id"`
 				} `toml:"oauth"`
 			} `toml:"mcp_servers"`
 		}
-		if err := toml.Unmarshal(mcpsync.RenderCodex(src.MCPServers), &got); err != nil {
+		if err := toml.Unmarshal(mcpsync.RenderCodex(servers), &got); err != nil {
 			t.Fatalf("rendered Codex config is not valid TOML: %v", err)
 		}
-		if diff := cmp.Diff("a\ab", got.MCPServers["s"].OAuth.ClientID); diff != "" {
-			t.Errorf("client_id round-trip (-want +got):\n%s", diff)
+		s, l := got.MCPServers["s"], got.MCPServers["l"]
+		if s.OAuth.ClientID != nasty || s.Headers[nasty] != nasty {
+			t.Errorf("http round-trip: client_id %q, headers %q", s.OAuth.ClientID, s.Headers)
+		}
+		if l.Command != nasty || len(l.Args) != 1 || l.Args[0] != nasty || l.Env[nasty] != nasty {
+			t.Errorf("stdio round-trip: %+v", l)
 		}
 	})
 }

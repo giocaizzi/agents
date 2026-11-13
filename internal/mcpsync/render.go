@@ -26,6 +26,33 @@ func RenderCodex(servers map[string]ServerEntry) []byte {
 	return []byte(b.String())
 }
 
+// tomlQuote renders s as a TOML basic string. Go's %q is not enough: it
+// writes escapes such as \a and \x7f that TOML rejects.
+func tomlQuote(s string) string {
+	var b strings.Builder
+	b.WriteByte('"')
+	for _, r := range s {
+		switch {
+		case r == '"':
+			b.WriteString(`\"`)
+		case r == '\\':
+			b.WriteString(`\\`)
+		case r == '\n':
+			b.WriteString(`\n`)
+		case r == '\t':
+			b.WriteString(`\t`)
+		case r == '\r':
+			b.WriteString(`\r`)
+		case r < 0x20 || r == 0x7f:
+			fmt.Fprintf(&b, `\u%04X`, r)
+		default:
+			b.WriteRune(r)
+		}
+	}
+	b.WriteByte('"')
+	return b.String()
+}
+
 func renderCodexServer(b *strings.Builder, name string, entry ServerEntry) {
 	if entry.URL != "" {
 		renderCodexHTTPServer(b, name, entry)
@@ -37,25 +64,25 @@ func renderCodexServer(b *strings.Builder, name string, entry ServerEntry) {
 }
 
 func renderCodexHTTPServer(b *strings.Builder, name string, entry ServerEntry) {
-	fmt.Fprintf(b, "\n[mcp_servers.%q]\nurl = %q\n", name, entry.URL)
+	fmt.Fprintf(b, "\n[mcp_servers.%s]\nurl = %s\n", tomlQuote(name), tomlQuote(entry.URL))
 	if len(entry.Headers) > 0 {
-		fmt.Fprintf(b, "\n[mcp_servers.%q.http_headers]\n", name)
+		fmt.Fprintf(b, "\n[mcp_servers.%s.http_headers]\n", tomlQuote(name))
 		hdrKeys := make([]string, 0, len(entry.Headers))
 		for k := range entry.Headers {
 			hdrKeys = append(hdrKeys, k)
 		}
 		slices.Sort(hdrKeys)
 		for _, k := range hdrKeys {
-			fmt.Fprintf(b, "%q = %q\n", k, entry.Headers[k])
+			fmt.Fprintf(b, "%s = %s\n", tomlQuote(k), tomlQuote(entry.Headers[k]))
 		}
 	}
 	clientID, port := entry.oauthClient()
 	if clientID == "" && port == 0 {
 		return
 	}
-	fmt.Fprintf(b, "\n[mcp_servers.%q.oauth]\n", name)
+	fmt.Fprintf(b, "\n[mcp_servers.%s.oauth]\n", tomlQuote(name))
 	if clientID != "" {
-		fmt.Fprintf(b, "client_id = %q\n", clientID)
+		fmt.Fprintf(b, "client_id = %s\n", tomlQuote(clientID))
 	}
 	if port != 0 {
 		fmt.Fprintf(b, "callback_port = %d\n", port)
@@ -63,23 +90,23 @@ func renderCodexHTTPServer(b *strings.Builder, name string, entry ServerEntry) {
 }
 
 func renderCodexStdioServer(b *strings.Builder, name string, entry ServerEntry) {
-	fmt.Fprintf(b, "\n[mcp_servers.%q]\ncommand = %q\n", name, entry.Command)
+	fmt.Fprintf(b, "\n[mcp_servers.%s]\ncommand = %s\n", tomlQuote(name), tomlQuote(entry.Command))
 	if len(entry.Args) > 0 {
 		quoted := make([]string, len(entry.Args))
 		for i, a := range entry.Args {
-			quoted[i] = fmt.Sprintf("%q", a)
+			quoted[i] = tomlQuote(a)
 		}
 		fmt.Fprintf(b, "args = [%s]\n", strings.Join(quoted, ", "))
 	}
 	if len(entry.Env) > 0 {
-		fmt.Fprintf(b, "\n[mcp_servers.%q.env]\n", name)
+		fmt.Fprintf(b, "\n[mcp_servers.%s.env]\n", tomlQuote(name))
 		envKeys := make([]string, 0, len(entry.Env))
 		for k := range entry.Env {
 			envKeys = append(envKeys, k)
 		}
 		slices.Sort(envKeys)
 		for _, k := range envKeys {
-			fmt.Fprintf(b, "%q = %q\n", k, entry.Env[k])
+			fmt.Fprintf(b, "%s = %s\n", tomlQuote(k), tomlQuote(entry.Env[k]))
 		}
 	}
 }
