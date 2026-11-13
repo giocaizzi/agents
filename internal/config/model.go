@@ -393,7 +393,7 @@ type PiSettings struct {
 type AntigravitySettings struct {
 	AgentMode               string         `json:"agent_mode,omitempty"                 jsonschema:"description=Agent mode"                                              toml:"agent_mode,omitempty"`
 	ToolPermission          string         `json:"tool_permission,omitempty"            jsonschema:"description=Tool permission level"                                   toml:"tool_permission,omitempty"`
-	EnableTerminalSandbox   bool           `json:"enable_terminal_sandbox,omitempty"    jsonschema:"description=Sandbox the terminal"                                    toml:"enable_terminal_sandbox,omitempty"`
+	EnableTerminalSandbox   *bool          `json:"enable_terminal_sandbox,omitempty"    jsonschema:"description=Sandbox the terminal"                                    toml:"enable_terminal_sandbox,omitempty"`
 	AllowNonWorkspaceAccess bool           `json:"allow_non_workspace_access,omitempty" jsonschema:"description=Allow access outside the workspace"                      toml:"allow_non_workspace_access,omitempty"`
 	Allow                   []string       `json:"allow,omitempty"                      jsonschema:"description=Extra allow rules in native syntax"                      toml:"allow,omitempty"`
 	Settings                map[string]any `json:"settings,omitempty"                   jsonschema:"description=Native settings merged as is (any key)"                  toml:"settings,omitempty"`

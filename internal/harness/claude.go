@@ -160,7 +160,7 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	set("disableClaudeAiConnectors", cl.DisableClaudeAIConnectors)
 	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
 	s[keyPermissions] = claudePermissions(c, b)
-	setIfAny(s, "sandbox", b.sandboxEnabled(c.Autonomy.SandboxMode, "Claude Code", "sandbox.enabled"))
+	setIfAny(s, "sandbox", claudeSandbox(c, b))
 
 	env := map[string]any{}
 	if tel, on := b.telemetry(config.Claude); on {
@@ -172,6 +172,18 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	setIfAny(s, "env", env)
 	deepMerge(s, b.expandSettings("harness.claude.settings", cl.Settings))
 	return s
+}
+
+// claudeSandbox is the sandbox object: enabled for the shared workspace mode.
+// autoAllowBashIfSandboxed defaults to true and would skip the prompts that
+// ask wants (and an unset mode must not silently widen), so it is written
+// false unless execution_mode is auto or full.
+func claudeSandbox(c *config.Config, b *builder) map[string]any {
+	sandbox := b.sandboxEnabled(c.Autonomy.SandboxMode, "Claude Code", "sandbox.enabled")
+	if sandbox != nil && (c.Autonomy.ExecutionMode == "" || c.Autonomy.ExecutionMode == config.ExecutionAsk) {
+		sandbox["autoAllowBashIfSandboxed"] = false
+	}
+	return sandbox
 }
 
 // claudePermissions maps the shared permission rules to Claude's schema.

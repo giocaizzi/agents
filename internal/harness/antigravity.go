@@ -21,12 +21,15 @@ func renderAntigravity(c *config.Config, b *builder) error {
 	setIf(settings, "agentMode", valueOr(a.AgentMode,
 		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Antigravity", "agentMode", antigravityExecution())))
 	toolPermission := a.ToolPermission
-	if c.Autonomy.ExecutionMode == config.ExecutionFull {
+	if c.Autonomy.ExecutionMode == config.ExecutionFull && a.AgentMode == "" { // only when agentMode comes from the shared value
 		toolPermission = valueOr(toolPermission, "always-proceed") // agentMode auto alone still pauses risky commands
 	}
 	setIf(settings, "toolPermission", toolPermission)
 	sandbox := b.sandboxOn(c.Autonomy.SandboxMode, "Antigravity", "enableTerminalSandbox")
-	settings["enableTerminalSandbox"] = a.EnableTerminalSandbox || sandbox // always written, so off is false
+	if a.EnableTerminalSandbox != nil { // the typed field wins, true or false
+		sandbox = *a.EnableTerminalSandbox
+	}
+	settings["enableTerminalSandbox"] = sandbox // always written, so off is false
 	setIf(settings, "colorScheme", c.UI.Theme)
 	if c.Notifications.TerminalBell {
 		settings["notifications"] = true

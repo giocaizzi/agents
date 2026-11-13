@@ -53,7 +53,7 @@ func TestSharedModes(t *testing.T) {
 		{"claude unset keeps auto", config.Claude, config.Autonomy{}, claudeFile, []string{"permissions", "defaultMode"}, "auto", ""},
 		{"claude sandbox workspace", config.Claude, sandbox("workspace"), claudeFile, []string{"sandbox", "enabled"}, true, ""},
 		{"claude sandbox off writes nothing", config.Claude, sandbox("off"), claudeFile, []string{"sandbox", "enabled"}, nil, ""},
-		{"claude sandbox read-only warns", config.Claude, sandbox("read-only"), claudeFile, []string{"sandbox", "enabled"}, nil, "Claude Code has no exact equivalent"},
+		{"claude sandbox read-only maps to on with a note", config.Claude, sandbox("read-only"), claudeFile, []string{"sandbox", "enabled"}, true, "note: autonomy.sandbox_mode = \"read-only\": Claude Code"},
 
 		{"copilot ask", config.Copilot, exec("ask"), copilotFile, []string{"defaultPermissionMode"}, "manual", ""},
 		{"copilot auto", config.Copilot, exec("auto"), copilotFile, []string{"defaultPermissionMode"}, "assisted", ""},
@@ -61,14 +61,14 @@ func TestSharedModes(t *testing.T) {
 		{"copilot unset", config.Copilot, config.Autonomy{}, copilotFile, []string{"defaultPermissionMode"}, nil, ""},
 		{"copilot sandbox workspace", config.Copilot, sandbox("workspace"), copilotFile, []string{"sandbox", "enabled"}, true, ""},
 		{"copilot sandbox off writes nothing", config.Copilot, sandbox("off"), copilotFile, []string{"sandbox", "enabled"}, nil, ""},
-		{"copilot sandbox read-only warns", config.Copilot, sandbox("read-only"), copilotFile, []string{"sandbox", "enabled"}, nil, "Copilot CLI has no exact equivalent"},
+		{"copilot sandbox read-only maps to on with a note", config.Copilot, sandbox("read-only"), copilotFile, []string{"sandbox", "enabled"}, true, "note: autonomy.sandbox_mode = \"read-only\": Copilot CLI"},
 
 		{"vscode ask", config.VSCode, exec("ask"), vscodeFile, []string{"chat.permissions.default"}, "default", ""},
 		{"vscode auto warns", config.VSCode, exec("auto"), vscodeFile, []string{"chat.permissions.default"}, nil, "VS Code has no exact equivalent"},
 		{"vscode full", config.VSCode, exec("full"), vscodeFile, []string{"chat.permissions.default"}, "autoApprove", ""},
 		{"vscode sandbox workspace", config.VSCode, sandbox("workspace"), vscodeFile, []string{"chat.agent.sandbox.enabled"}, "on", ""},
 		{"vscode sandbox off writes nothing", config.VSCode, sandbox("off"), vscodeFile, []string{"chat.agent.sandbox.enabled"}, nil, ""},
-		{"vscode sandbox read-only warns", config.VSCode, sandbox("read-only"), vscodeFile, []string{"chat.agent.sandbox.enabled"}, nil, "VS Code has no exact equivalent"},
+		{"vscode sandbox read-only maps to on with a note", config.VSCode, sandbox("read-only"), vscodeFile, []string{"chat.agent.sandbox.enabled"}, "on", "note: autonomy.sandbox_mode = \"read-only\": VS Code"},
 
 		{"codex ask warns", config.Codex, exec("ask"), codexFile, []string{"approval_policy"}, nil, "Codex has no exact equivalent"},
 		{"codex auto", config.Codex, exec("auto"), codexFile, []string{"approval_policy"}, "on-request", ""},
@@ -84,7 +84,7 @@ func TestSharedModes(t *testing.T) {
 		{"antigravity full tool permission", config.Antigravity, exec("full"), antigravityFile, []string{"toolPermission"}, "always-proceed", ""},
 		{"antigravity sandbox workspace", config.Antigravity, sandbox("workspace"), antigravityFile, []string{"enableTerminalSandbox"}, true, ""},
 		{"antigravity sandbox off is written false", config.Antigravity, sandbox("off"), antigravityFile, []string{"enableTerminalSandbox"}, false, ""},
-		{"antigravity sandbox read-only warns", config.Antigravity, sandbox("read-only"), antigravityFile, []string{"enableTerminalSandbox"}, false, "Antigravity has no exact equivalent"},
+		{"antigravity sandbox read-only maps to on with a note", config.Antigravity, sandbox("read-only"), antigravityFile, []string{"enableTerminalSandbox"}, true, "note: autonomy.sandbox_mode = \"read-only\": Antigravity"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -136,18 +136,68 @@ func TestTypedFieldsWinOverSharedModes(t *testing.T) {
 
 // TestClaudeSandboxKeepsAsk pins that turning Claude's sandbox on does not
 // loosen execution_mode = "ask": sandbox.autoAllowBashIfSandboxed defaults to
-// true (https://code.claude.com/docs/en/settings-reference), which runs
-// sandboxed Bash commands without a prompt.
+// true (https://code.claude.com/docs/en/sandboxing), which runs sandboxed Bash
+// commands without a prompt.
 func TestClaudeSandboxKeepsAsk(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: ask with sandbox workspace auto-allows sandboxed Bash", func(t *testing.T) {
-		t.Parallel()
-		t.Skip("xfail: sandbox_mode = workspace writes only sandbox.enabled, so Claude's default auto-allow mode skips the prompts ask asked for")
-		c := config.Config{Autonomy: config.Autonomy{ExecutionMode: "ask", SandboxMode: "workspace"}}
-		plan := renderFor(t, c, "linux", config.Claude)
-		s := findTarget(t, plan, filepath.Join("/h", ".claude", "settings.json")).Managed
-		if got := nested(s, "sandbox", "autoAllowBashIfSandboxed"); got != false {
-			t.Errorf("sandbox.autoAllowBashIfSandboxed = %v, want false under ask", got)
-		}
-	})
+	tests := []struct {
+		name string
+		exec string
+		sbx  string
+		want any // nil: the key is absent
+	}{
+		{"ask", "ask", "workspace", false},
+		{"unset", "", "workspace", false},
+		{"auto", "auto", "workspace", nil},
+		{"full", "full", "workspace", nil},
+		{"sandbox off", "ask", "off", nil},
+		{"read-only", "ask", "read-only", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := config.Config{Autonomy: config.Autonomy{ExecutionMode: tt.exec, SandboxMode: tt.sbx}}
+			plan := renderFor(t, c, "linux", config.Claude)
+			s := findTarget(t, plan, filepath.Join("/h", ".claude", "settings.json")).Managed
+			if got := nested(s, "sandbox", "autoAllowBashIfSandboxed"); got != tt.want {
+				t.Errorf("sandbox.autoAllowBashIfSandboxed = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// TestAntigravitySandboxAndToolPermission pins the typed-field precedence:
+// a typed enable_terminal_sandbox (true or false) beats the shared sandbox
+// mode, and execution_mode = full sets toolPermission only when agentMode
+// comes from the shared value.
+func TestAntigravitySandboxAndToolPermission(t *testing.T) {
+	t.Parallel()
+	yes, no := true, false
+	file := filepath.Join("/h", ".gemini", "antigravity-cli", "settings.json")
+	tests := []struct {
+		name     string
+		autonomy config.Autonomy
+		typed    config.AntigravitySettings
+		key      string
+		want     any
+	}{
+		{"sandbox unset follows workspace", config.Autonomy{SandboxMode: "workspace"}, config.AntigravitySettings{}, "enableTerminalSandbox", true},
+		{"sandbox typed true over off", config.Autonomy{SandboxMode: "off"}, config.AntigravitySettings{EnableTerminalSandbox: &yes}, "enableTerminalSandbox", true},
+		{"sandbox typed false over workspace", config.Autonomy{SandboxMode: "workspace"}, config.AntigravitySettings{EnableTerminalSandbox: &no}, "enableTerminalSandbox", false},
+		{"full sets toolPermission", config.Autonomy{ExecutionMode: "full"}, config.AntigravitySettings{}, "toolPermission", "always-proceed"},
+		{"full with typed agent_mode skips toolPermission", config.Autonomy{ExecutionMode: "full"}, config.AntigravitySettings{AgentMode: "auto"}, "toolPermission", nil},
+		{"typed tool_permission wins over full", config.Autonomy{ExecutionMode: "full"}, config.AntigravitySettings{ToolPermission: "strict"}, "toolPermission", "strict"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := config.Config{Autonomy: tt.autonomy}
+			c.Harness.Antigravity = tt.typed
+			plan := renderFor(t, c, "linux", config.Antigravity)
+			got := nested(findTarget(t, plan, file).Managed, tt.key)
+			if diff := cmp.Diff(tt.want, got); diff != "" {
+				t.Errorf("%s (-want +got):\n%s", tt.key, diff)
+			}
+		})
+	}
 }
