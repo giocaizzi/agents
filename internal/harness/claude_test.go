@@ -105,6 +105,31 @@ func TestClaudeSettingsSkipUnsetVariable(t *testing.T) {
 	}
 }
 
+func TestClaudeSettingsFromSharedKeys(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{
+		Context: config.Context{AutoCompact: true, MaxTokens: 4096},
+		Permissions: config.Permissions{
+			AllowCommands:        []string{"git status *"},
+			AllowCommandPatterns: []string{"make *"},
+			AllowedMCP:           []string{"docs", "my.server", "mcp__acme__search"},
+		},
+	}
+	s := claudeSettings(c, claudeBuilder(c, nil))
+	if got := s["autoCompactEnabled"]; got != true {
+		t.Errorf("autoCompactEnabled = %v, want true", got)
+	}
+	env, _ := s["env"].(map[string]any)
+	if diff := cmp.Diff(map[string]any{"CLAUDE_CODE_MAX_OUTPUT_TOKENS": "4096"}, env); diff != "" {
+		t.Errorf("env (-want +got):\n%s", diff)
+	}
+	perms, _ := s["permissions"].(map[string]any)
+	want := []string{"Bash(make *)", "Bash(git status *)", "mcp__docs__*", "mcp__my_server__*", "mcp__acme__search"}
+	if diff := cmp.Diff(want, perms["allow"]); diff != "" {
+		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+}
+
 func TestClaudeMCPServers(t *testing.T) {
 	t.Parallel()
 	got := claudeMCPServers(map[string]config.MCPServer{

@@ -22,6 +22,22 @@ func adjustClaude(c parityCase, file string, want any) any {
 			}}
 		}
 	}
+	// agents now also renders context.auto_compact, context.max_tokens and permissions.allow_commands
+	// (all set in the parity config) for Claude, which the dotfiles manager left out.
+	root["autoCompactEnabled"] = true
+	env, _ := root["env"].(map[string]any)
+	if env == nil {
+		env = map[string]any{}
+		root["env"] = env
+	}
+	env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = "200000"
+	if perms, ok := root["permissions"].(map[string]any); ok {
+		allow, _ := perms["allow"].([]any)
+		for _, cmd := range []string{"git", "gh", "make", "uv", "jq", "npm", "cargo", "go", "terraform"} {
+			allow = append(allow, "Bash("+cmd+" *)")
+		}
+		perms["allow"] = allow
+	}
 	// agents removes only the env keys it wrote (known from its manifest), so with telemetry
 	// off the live OTEL_OLD and CLAUDE_CODE_ENABLE_TELEMETRY stay on the first apply.
 	if c.Profile == "work" && c.Start == "live" {

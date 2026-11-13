@@ -384,7 +384,7 @@ func TestLookup(t *testing.T) {
 func TestDescribe(t *testing.T) {
 	t.Parallel()
 	got := feature.Describe("context.max_tokens")
-	for _, want := range []string{"Token limit of one response.", "Planned for claude.", "Not supported by copilot, vscode, codex, opencode, pi, antigravity."} {
+	for _, want := range []string{"Token limit of one response.", "Written to claude.", "Not supported by copilot, vscode, codex, opencode, pi, antigravity."} {
 		if !strings.Contains(got, want) {
 			t.Errorf("Describe = %q, missing %q", got, want)
 		}
