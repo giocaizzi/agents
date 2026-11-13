@@ -3,6 +3,8 @@ package apply
 import (
 	"os"
 	"path/filepath"
+	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -545,40 +547,41 @@ func TestUnifiedDiff(t *testing.T) {
 	}
 	base := lines(30)
 	tests := []struct {
-		name     string
-		old, new string
-		want     string
+		name      string
+		old, new  string
+		want      string
+		wantHunks int // when > 0, only the number of hunks is checked
 	}{
-		{"equal", "a\n", "a\n", ""},
+		{"equal", "a\n", "a\n", "", 0},
 		{
 			"create",
 			"", "a\nb\n",
-			"--- /p\n+++ /p\n@@ -0,0 +1,2 @@\n+a\n+b\n",
+			"--- /p\n+++ /p\n@@ -0,0 +1,2 @@\n+a\n+b\n", 0,
 		},
 		{
 			"change in the middle",
 			"a\nb\nc\n", "a\nX\nc\n",
-			"--- /p\n+++ /p\n@@ -1,3 +1,3 @@\n a\n-b\n+X\n c\n",
+			"--- /p\n+++ /p\n@@ -1,3 +1,3 @@\n a\n-b\n+X\n c\n", 0,
 		},
 		{
 			"missing trailing newline",
 			"a\nb", "a\nb\n",
-			"--- /p\n+++ /p\n@@ -1,2 +1,2 @@\n a\n-b\n\\ No newline at end of file\n+b\n",
+			"--- /p\n+++ /p\n@@ -1,2 +1,2 @@\n a\n-b\n\\ No newline at end of file\n+b\n", 0,
 		},
 		{
 			"two far apart hunks",
 			base,
 			strings.Replace(strings.Replace(base, "lb0\n", "CHANGED\n", 1), "l"+string(rune('a'+29%26))+"1\n", "TAIL\n", 1),
-			"",
+			"", 2,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			got := unifiedDiff("/p", tt.old, tt.new)
-			if tt.want == "" && tt.name == "two far apart hunks" {
-				if n := strings.Count(got, "@@ -"); n != 2 {
-					t.Errorf("hunks = %d, want 2:\n%s", n, got)
+			if tt.wantHunks > 0 {
+				if n := strings.Count(got, "@@ -"); n != tt.wantHunks {
+					t.Errorf("hunks = %d, want %d:\n%s", n, tt.wantHunks, got)
 				}
 				return
 			}
@@ -612,4 +615,98 @@ func TestObject(t *testing.T) {
 	if len(zero.Keys) != 1 {
 		t.Error("Set on zero Object failed")
 	}
+}
+
+// TestReviewXFail holds reproductions of engine bugs found in review. Each
+// subtest is skipped until the source is fixed; drop the t.Skip to verify.
+func TestReviewXFail(t *testing.T) {
+	t.Parallel()
+
+	t.Run("xfail: an empty managed object recorded as a leaf wipes user entries once a child is managed", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: dropStale deletes the whole object a previous run managed as an empty leaf ({}), including keys the user added under it")
+		dir := t.TempDir()
+		path := filepath.Join(dir, ".claude.json")
+		// The user's own MCP servers (e.g. added with the harness's own CLI).
+		writeFileT(t, path, `{"mcpServers": {"mine": {"command": "my-mcp"}}}`)
+		e := engineIn(dir)
+		// First apply: no MCP servers configured yet, so the managed value is {}.
+		if res := runOne(t, e, Target{Path: path, Format: JSON, Managed: map[string]any{"mcpServers": map[string]any{}}}); res.Err != nil {
+			t.Fatal(res.Err)
+		}
+		// Later: one server is configured.
+		managed := map[string]any{"mcpServers": map[string]any{"docs": map[string]any{"url": "https://docs.example"}}}
+		if res := runOne(t, e, Target{Path: path, Format: JSON, Managed: managed}); res.Err != nil {
+			t.Fatal(res.Err)
+		}
+		if got := readFileT(t, path); !strings.Contains(got, `"mine"`) {
+			t.Errorf("the user's server was deleted:\n%s", got)
+		}
+	})
+
+	t.Run("xfail: an update keeps the comments of a JSONC file", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: JSONC is stripped and re-encoded as plain JSON, so every user comment is lost on the first update")
+		dir := t.TempDir()
+		path := filepath.Join(dir, "opencode.jsonc")
+		writeFileT(t, path, "{\n  // why this theme: contrast\n  \"theme\": \"x\"\n}\n")
+		if res := runOne(t, engineIn(dir), Target{Path: path, Format: JSONC, Managed: map[string]any{"new": true}}); res.Err != nil {
+			t.Fatal(res.Err)
+		}
+		if got := readFileT(t, path); !strings.Contains(got, "// why this theme: contrast") {
+			t.Errorf("comment lost:\n%s", got)
+		}
+	})
+
+	t.Run("xfail: an update keeps the live key order and comments of a TOML file", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: TOML goes through map[string]any, so live keys are re-sorted and comments dropped, against the documented 'keeps the live key order'")
+		dir := t.TempDir()
+		path := filepath.Join(dir, "config.toml")
+		writeFileT(t, path, "# my codex setup\nzeta = 1\nalpha = 2\n")
+		if res := runOne(t, engineIn(dir), Target{Path: path, Format: TOML, Managed: map[string]any{"model": "m"}}); res.Err != nil {
+			t.Fatal(res.Err)
+		}
+		got := readFileT(t, path)
+		if !strings.Contains(got, "# my codex setup") {
+			t.Errorf("comment lost:\n%s", got)
+		}
+		if strings.Index(got, "zeta") > strings.Index(got, "alpha") {
+			t.Errorf("live key order not kept:\n%s", got)
+		}
+	})
+}
+
+// TestReviewXFailDiffMemory runs alone (not parallel): it measures
+// process-wide allocation.
+//
+//nolint:paralleltest // measures process-wide allocation
+func TestReviewXFailDiffMemory(t *testing.T) {
+	t.Run("xfail: updating a large file does not allocate a quadratic diff table", func(t *testing.T) {
+		t.Skip("xfail: unifiedDiff builds an O(n*m) LCS table for every changed target, even when not a dry run; ~1.2 GB for a 12k-line file changed at both ends")
+		dir := t.TempDir()
+		path := filepath.Join(dir, "state.json")
+		var sb strings.Builder
+		sb.WriteString("{\n  \"model\": \"old\",\n  \"projects\": {\n")
+		const n = 12000
+		for i := range n {
+			sep := ","
+			if i == n-1 {
+				sep = ""
+			}
+			sb.WriteString("    \"/p/" + strconv.Itoa(i) + "\": " + strconv.Itoa(i) + sep + "\n")
+		}
+		sb.WriteString("  }\n}\n")
+		writeFileT(t, path, sb.String())
+		var before, after runtime.MemStats
+		runtime.ReadMemStats(&before)
+		res := runOne(t, engineIn(dir), Target{Path: path, Format: JSON, Managed: map[string]any{"model": "new", "added": 1}})
+		runtime.ReadMemStats(&after)
+		if res.Err != nil {
+			t.Fatal(res.Err)
+		}
+		if got := after.TotalAlloc - before.TotalAlloc; got > 64<<20 {
+			t.Errorf("allocated %d MiB to update a %d-line file", got>>20, n)
+		}
+	})
 }
