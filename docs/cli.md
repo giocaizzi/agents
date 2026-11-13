@@ -110,6 +110,8 @@ Instruction layers; see [Editing instructions](#editing-instructions).
 | `mcp sync [-n] [-account id] [path]` | Without a path, write the MCP files of every configured workspace (`mcp.workspaces`). With a path, write that directory's native MCP files from its `.mcp.json` for the selected harnesses |
 | `mcp add [-type t] [-env K=V] [-header 'H: V'] [-dir d] [-no-sync] [-account id] <name> <commandOrUrl> [args...]` | Add or update a server in `<dir>/.mcp.json`, then sync unless `-no-sync` |
 
+`mcp sync` only touches the harnesses currently selected in `harnesses`. It does not remove the workspace file of a harness you dropped; delete that file by hand.
+
 `-account` (default `$MCP_CONNECTOR_ACCOUNT`) fills the account placeholder of a `.mcp.json` source. Workspace files go through the same apply engine as every other target, so they get the same diffs, symlink refusal and merge rules. If the sync of `mcp add` fails, `.mcp.json` has already changed; fix the error and run `agents mcp sync <dir>`.
 
 A `.mcp.json` source may declare a pre-registered OAuth client in Claude Code's style (`"oauth": {"clientId", "callbackPort"}`) or Copilot CLI's (`"oauthClientId"`, `"oauthPublicClient"`, `"auth": {"redirectPort"}`); per field the nested value wins. A client secret is never accepted or written. In `config.toml` the same client is `oauth.client_id`, `oauth.callback_port` and `oauth.public_client`.
