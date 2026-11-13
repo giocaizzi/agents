@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -33,7 +34,7 @@ func renderFor(t *testing.T, c config.Config, goos string, hs ...config.Harness)
 func findTarget(t *testing.T, plan Plan, path string) apply.Target {
 	t.Helper()
 	for _, tg := range plan.Targets {
-		if tg.Path == path {
+		if tg.Path == filepath.FromSlash(path) {
 			return tg
 		}
 	}
@@ -228,7 +229,7 @@ func TestCopilotReviewXFail(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if got := info.Mode().Perm(); got != 0o600 {
+		if got := info.Mode().Perm(); got != 0o600 && runtime.GOOS != "windows" {
 			t.Errorf("mode = %v, want 0600", got)
 		}
 	})

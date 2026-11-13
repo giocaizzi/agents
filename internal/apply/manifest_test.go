@@ -2,6 +2,7 @@ package apply
 
 import (
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -13,7 +14,7 @@ func TestManifestEmptyContainerLeafIsIgnored(t *testing.T) {
 	e := engineIn(dir)
 	writeFileT(t, path, `{"mcpServers": {"mine": {"command": "x"}}, "tags": []}`)
 	// A manifest from before empty containers stopped being recorded.
-	writeFileT(t, e.StatePath, `{"version":1,"files":{"`+path+`":{"keys":[["mcpServers"],["tags"]]}}}`)
+	writeFileT(t, e.StatePath, `{"version":1,"files":{`+strconv.Quote(path)+`:{"keys":[["mcpServers"],["tags"]]}}}`)
 	managed := map[string]any{"mcpServers": map[string]any{"docs": map[string]any{"url": "u"}}}
 	res := runOne(t, e, Target{Path: path, Format: JSON, Managed: managed})
 	if res.Err != nil {

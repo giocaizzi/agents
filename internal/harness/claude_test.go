@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -25,7 +26,7 @@ func claudeBuilder(c *config.Config, env map[string]string) *builder {
 func claudeTarget(t *testing.T, b *builder, path string) apply.Target {
 	t.Helper()
 	for _, tg := range b.targets {
-		if tg.Path == path {
+		if tg.Path == filepath.FromSlash(path) {
 			return tg
 		}
 	}

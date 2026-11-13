@@ -3,6 +3,7 @@ package cli
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/giocaizzi/agents/internal/provider"
@@ -10,6 +11,9 @@ import (
 
 func TestCodexFallbackWithGlobMetacharactersInHome(t *testing.T) {
 	t.Parallel()
+	if runtime.GOOS == "windows" {
+		t.Skip("* and ? are not valid in Windows file names")
+	}
 	f := testFetcher(t, nil)
 	home := filepath.Join(f.home, "[h*me]?")
 	writeCodexRollout(t, filepath.Join(home, ".codex"), 42)

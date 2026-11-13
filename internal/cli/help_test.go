@@ -93,8 +93,9 @@ func TestHelpGoldens(t *testing.T) {
 			if e != nil {
 				t.Fatal(e)
 			}
-			if out.String() != string(want) {
-				t.Errorf("help differs from %s (-want +got):\n-%s\n+%s", file, want, &out)
+			wantText := strings.ReplaceAll(string(want), "\r\n", "\n")
+			if out.String() != wantText {
+				t.Errorf("help differs from %s (-want +got):\n-%s\n+%s", file, wantText, &out)
 			}
 		})
 	}
