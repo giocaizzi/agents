@@ -1,6 +1,6 @@
 # Harness parity matrix
 
-What `agents apply` writes for each config key on each harness. Derived from `internal/harness`, not from other docs. Keys are described in [config.md](config.md).
+What `agents apply` writes for each config key on each harness. Derived from `internal/harness`, not from other docs. Keys are described in [config.md](config.md); [features.md](features.md) is the generated per-key support matrix with evidence, and this page adds the translation details.
 
 ## Reading the matrix
 
@@ -24,7 +24,7 @@ Every harness also gets `harness.<name>.settings`, merged as-is into its native 
 | pi | `~/.pi/agent/settings.json`, `mcp.json`, `AGENTS.md` |
 | Antigravity | `~/.gemini/antigravity-cli/settings.json`, `~/.gemini/config/mcp_config.json`, `~/.gemini/config/AGENTS.md` |
 
-JSON targets keep the live key order and append new keys; an unchanged target is not rewritten; a symlinked target is refused. The old local Claude marketplace keys (`lsp@dotfiles`) are removed once.
+JSON targets keep the live key order and append new keys; an unchanged target is not rewritten; a symlinked target is refused. Keys an earlier tool wrote and `agents` no longer writes (the old local Claude marketplace entry, opencode `mcp.<name>` servers) are removed once, on the first apply of the file; see [cli.md](cli.md#apply).
 
 ## Dimensions
 

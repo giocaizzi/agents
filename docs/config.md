@@ -27,12 +27,13 @@ schema_version = 1
 Lowest to highest:
 
 1. defaults (`schema_version = 1`, `instructions.dir` = `<config dir>/instructions`)
-2. the user `config.toml`
-3. the project `agents.toml`: searched from the working directory up to the git root (the nearest file wins; outside a repository only the working directory is searched)
-4. the `[os.<goos>]` overlay for the running OS (`darwin`, `linux`, `windows`)
-5. the selected profile's overlay (`[profiles.<name>]`)
-6. environment: `AGENTS_CONFIG` (picks the user file, layer 2), `AGENTS_PROFILE`, `AGENTS_HARNESSES`
-7. flags: `-file`, `-profile`, `-harnesses`
+2. the user `config.toml` (or the file named by `AGENTS_CONFIG` or `-file`)
+3. the `[os.<goos>]` overlay for the running OS (`darwin`, `linux`, `windows`)
+4. the selected profile's overlay (`[profiles.<name>]`)
+5. environment: `AGENTS_PROFILE` and `AGENTS_HARNESSES` (`AGENTS_CONFIG` chooses the file of layer 2)
+6. flags: `-file`, `-profile`, `-harnesses`
+
+There is no project-level config file: a directory's own `agents.toml` is never read, so cloning a repository cannot change what `agents apply` writes into your home directory ([design.md](design.md#project-config-is-not-read)).
 
 Tables merge key by key; scalars and arrays replace. `agents config show -origin` prints the layer that set each key.
 
@@ -40,11 +41,21 @@ The profile is chosen by `-profile`, else `AGENTS_PROFILE`, else the `profile` k
 
 Harnesses: when `harnesses` is unset in every layer, agents selects those whose home exists (`~/.claude`, `~/.copilot`, the VS Code user directory, `~/.codex`, `~/.config/opencode`, `~/.pi`, `~/.gemini/antigravity-cli`). `config show -origin` reports `auto-detect`. Valid names: `claude`, `copilot`, `vscode`, `codex`, `opencode`, `pi`, `antigravity`.
 
-## Environment references
+## Variables, paths and secrets
 
-`${VAR}` (only that form) is expanded at `apply` time in: MCP server `url`, `command`, `args`, `env`, `headers` and `oauth.client_id`; workspace paths; `instructions.dir`; every string inside `harness.<h>.settings`; `telemetry.endpoint`. An unset or empty variable skips that entry and prints a warning (`mcp.servers.docs: skipped, ${DOCS_TOKEN} is unset`); the rest of the apply proceeds. Paths also expand a leading `~`. OAuth client secrets have no config key: they live only in the harness's own keyring.
+`${VAR}` (only that form) is expanded at `apply` time in: user-level MCP server `url`, `command`, `args`, `env`, `headers` and `oauth.client_id`; workspace paths; `instructions.dir`; every string inside `harness.<h>.settings`; `telemetry.endpoint`. An unset or empty variable skips that entry and prints a warning (`mcp.servers.docs: skipped, ${DOCS_TOKEN} is unset`); the rest of the apply proceeds.
 
-Some keys are accepted and validated but no harness renders them yet: `autonomy.sandbox_mode`, `autonomy.allow_subagent_invocations`, `context.max_turn_tokens`, `context.max_tokens`, `permissions.allowed_mcp`, `lsp.servers.<name>.filetypes` and `.format`. They stay readable through `agents config show -json` for other tools. [parity.md](parity.md) lists what each harness receives for the rest.
+`$${VAR}` is the escape: it yields the literal text `${VAR}`, for a value the harness expands itself later (for example a hook command that reads `${CLAUDE_PROJECT_DIR}`).
+
+Paths expand a leading `~`, `~/` or `~\` (the Windows form works on every OS) to the home directory.
+
+Where secrets can land:
+
+- **User-level files** (`~/.claude.json`, `~/.codex/config.toml`, ...) receive expanded values. A new file is created with mode `0600`; the mode of an existing file is kept. Diffs print every expanded secret as `redacted`.
+- **Workspace files** (`agents mcp sync` and `mcp.workspaces`: `.mcp.json`, `.codex/config.toml`, `.pi/mcp.json`, `opencode.json`, `.agents/mcp_config.json`) usually get committed, so they never hold an expanded value. A `${VAR}` stays a reference where the harness expands it itself (Claude Code, Copilot CLI and VS Code in `.mcp.json`; opencode as `{env:VAR}`); for Codex, pi and Antigravity, which do not expand references in a project file, the server is skipped with a warning.
+- OAuth client secrets have no config key: they live only in the harness's own keyring.
+
+Which keys each harness writes, and which it has no setting for, is in the [feature matrix](features.md); `agents check` reports a key set in the config that a selected harness ignores.
 
 ## Top level
 
@@ -80,7 +91,7 @@ Shared rules, translated to each harness's own syntax (Claude `Bash(...)`/`Read(
 | `deny_command_prefixes` | array of string | Denied command prefixes |
 | `ask_command_prefixes` | array of string | Prefixes that always ask |
 | `allowed_mcp` | array of string | MCP servers or tools allowed without asking |
-| `reasons` | table of string | Message shown when a rule matches, keyed by a pattern listed in one of the command lists above (validated; no harness renders it yet) |
+| `reasons` | table of string | Message shown when a rule matches, keyed by a pattern listed in one of the command lists above (validated; the [feature matrix](features.md) lists the harnesses that render it) |
 
 ## `[models]`
 
@@ -111,7 +122,9 @@ Catalog (`models.catalog`), used by `agents models` and `agents doctor`:
 | `ignore` | array of string | Models to ignore |
 | `aliases.<provider>.<name>` | string | Model aliases per provider |
 
-How tiers reach each harness is in [parity.md](parity.md#models); the ownership split is in [design.md](design.md).
+### Model tiers
+
+A tier names one native model id per harness. `models.default` names the tier of each harness's main session model; `models.assign` maps agent ids (`<plugin>:<agent>`, globs allowed) to tiers. A harness without an id for a tier keeps its plugin or session default: model ids are never translated between harnesses. Typed harness keys (`harness.codex.model`, `harness.pi.default_model`) win over the default tier. `agents models tiers` prints the effective result; `agents check` reports an unknown tier as an error. How tiers reach each harness is in [parity.md](parity.md#models); the ownership split is in [design.md](design.md#model-ownership-split).
 
 ## `[context]`, `[ui]`, `[notifications]`, `[voice]`
 
@@ -131,7 +144,7 @@ How tiers reach each harness is in [parity.md](parity.md#models); the ownership 
 | `voice.auto_submit` | bool | Submit the transcript automatically |
 | `voice.language` | string | Dictation language (BCP 47) |
 
-Which harnesses honour which voice fields is in [voice.md](voice.md).
+Which harnesses honour which voice fields is in [voice.md](voice.md) and the [feature matrix](features.md).
 
 ## `[telemetry]`
 
@@ -174,12 +187,12 @@ Layer lists are `profiles.<p>.instructions` (every harness of that profile), `ha
 
 | Key | Type | Meaning |
 |---|---|---|
-| `registry` | string | Plugin registry repository (`owner/repo`) |
+| `registry` | string | Plugin registry repository (`owner/repo`); plugin sources are configuration, never built in |
 | `enabled.<plugin>` | array of harness names | Harnesses the plugin is enabled for |
 | `disabled` | array of string | Plugins that stay off (written as disabled) |
 | `standalone.<name>`, `external.<name>` | table | Plugins outside any registry: `source`, `path`, `harnesses` (array), `version` |
 
-The registry is checked out under `<data>/registries/<repo>`; `agents plugins update` pulls it at most every 24 hours. pi receives that checkout as a package, and the opencode installer runs from it. `harness.pi.packages` lists only extra pi packages.
+The registry is checked out under `<data>/registries/<owner>/<repo>`; `agents plugins update` pulls it at most every 24 hours. pi receives that checkout as a package, and the opencode installer runs from it. `harness.pi.packages` lists only extra pi packages.
 
 ## `[mcp]`
 

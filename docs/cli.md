@@ -79,7 +79,16 @@ Writes the native files of every selected harness.
 |---|---|
 | `-n` | Print the diff of each target and write nothing |
 
-Each target is reported as `create`, `update`, `unchanged`, `drift` (a check-only target that differs), `refused` (a symlink) or `error`. The engine merges only managed keys, keeps the live key order and appends new keys, rewrites nothing that is unchanged, and records the managed keys in `<state>/apply.json` so that a key dropped from the config is removed next time. Warnings (a skipped `${VAR}`, a language server not on `PATH`) print to stderr.
+Each target is reported as `create`, `update`, `unchanged`, `delete` (a file `agents` made and no longer produces), `drift` (a check-only target that differs, or a retired text file you edited), `refused` (a symlink) or `error`. Warnings (a skipped `${VAR}`, a language server not on `PATH`) print to stderr.
+
+How apply treats files:
+
+- **State manifest.** `agents` records the keys it wrote in each file in `<state>/apply.json`. Only keys listed there are ever removed: a key you dropped from the config disappears from the live file on the next apply, a key `agents` never wrote is never touched. A file `agents` created and no longer produces is deleted, unless you edited it (then it is reported as `drift`, left in place and forgotten by the manifest). Losing the manifest loses removals, not your files.
+- **One-time migration.** The first apply of a path that has no manifest entry also deletes the few keys an earlier tool wrote there (for example the local Claude marketplace entry of 0.2 and opencode `mcp.<name>` entries now written under `mcp.servers`). Every later deletion comes from the manifest.
+- **Formats.** JSON, JSONC and TOML files are edited in place: comments, key order and unrelated formatting are preserved and new keys are appended. An unchanged file is not rewritten.
+- **Diffs.** `-n` prints a unified diff in which values of keys `agents` does not manage show as `unmanaged` and every secret as `redacted`; a file that cannot be scanned prints "diff unavailable" rather than the raw text.
+- **Concurrent edits.** Each write is atomic and compares the file with what was read just before; if another program changed it meanwhile the write is refused with an error and nothing is overwritten. Re-run `agents apply`.
+- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode. Symlinked targets are refused.
 
 The files per harness are in [parity.md](parity.md#what-each-harness-receives). The VS Code `settings.json` is a check-only target: `agents` compares it and reports `drift` but never writes it.
 
@@ -101,7 +110,7 @@ Instruction layers; see [Editing instructions](#editing-instructions).
 | `mcp sync [-n] [-account id] [path]` | Without a path, write the MCP files of every configured workspace (`mcp.workspaces`). With a path, write that directory's native MCP files from its `.mcp.json` for the selected harnesses |
 | `mcp add [-type t] [-env K=V] [-header 'H: V'] [-dir d] [-no-sync] [-account id] <name> <commandOrUrl> [args...]` | Add or update a server in `<dir>/.mcp.json`, then sync unless `-no-sync` |
 
-`-account` (default `$MCP_CONNECTOR_ACCOUNT`) fills the account placeholder of a `.mcp.json` source. Workspace and project files go through the same apply engine as every other target, so they get the same diffs, symlink refusal and merge rules. If the sync of `mcp add` fails, `.mcp.json` has already changed; fix the error and run `agents mcp sync <dir>`.
+`-account` (default `$MCP_CONNECTOR_ACCOUNT`) fills the account placeholder of a `.mcp.json` source. Workspace files go through the same apply engine as every other target, so they get the same diffs, symlink refusal and merge rules. If the sync of `mcp add` fails, `.mcp.json` has already changed; fix the error and run `agents mcp sync <dir>`.
 
 A `.mcp.json` source may declare a pre-registered OAuth client in Claude Code's style (`"oauth": {"clientId", "callbackPort"}`) or Copilot CLI's (`"oauthClientId"`, `"oauthPublicClient"`, `"auth": {"redirectPort"}`); per field the nested value wins. A client secret is never accepted or written. In `config.toml` the same client is `oauth.client_id`, `oauth.callback_port` and `oauth.public_client`.
 
@@ -168,16 +177,19 @@ In `models tiers` a cell is the tier's model id, `plugin default` (the tier has 
 
 ### Everyday apply
 
-Edit the config, then `agents check`, `agents apply -n`, `agents apply`. A dotfiles repository can run a plain `agents apply` after its package installs; nothing else is needed.
+Edit the config, then `agents check`, `agents apply -n`, `agents apply`. Another tool (a dotfiles repository, a provisioning script) can write `config.toml` and run a plain `agents apply`; nothing else couples them.
 
 ### Preview a change
 
-`agents apply -n` prints the unified diff of each target and writes nothing; `agents render -harness claude` lists the managed keys of one harness. `agents config show -origin` shows which layer (user file, project file, OS overlay, profile, environment, flag) set a value.
+`agents apply -n` prints the unified diff of each target and writes nothing; `agents render -harness claude` lists the managed keys of one harness. `agents config show -origin` shows which layer (user file, OS overlay, profile, environment, flag) set a value.
 
 ### Recover from drift or a refused symlink
 
 - `agents check -live` lists native files that differ from what `apply` would write. Review each, then run `agents apply -n` to see what would change. Keys that `agents` does not manage are never touched, so a difference there is not drift.
 - `refused <path>` means the target is a symlink. `agents` does not write through symlinks, because the file would change in the place the link points to. Replace the link with a regular file (move the content, remove the link, `agents apply`), or stop managing that file with the tool that created the link. The exit status stays 1 until it is resolved.
+- A text file (an instruction file) reported as `drift` was written by `agents`, is no longer produced and was edited since. It is yours now and is not deleted; remove it yourself if you do not want it.
+- A write refused because the file changed during the apply means another program was writing it; re-run `agents apply`.
+- Never edit `<state>/apply.json` by hand. Deleting it is safe: the next apply treats every file as new, removes nothing it wrote earlier and repeats the one-time migration.
 - A check-only target (the VS Code `settings.json`) reports `drift` when its managed keys differ. Edit the file yourself; `agents` will not.
 - An `error` result names the file and the cause (unreadable file, invalid JSON, a layer failing to render). Fix it and re-run; targets that succeeded are already recorded.
 
@@ -204,3 +216,14 @@ The composed text is written whole to `~/.claude/CLAUDE.md`, `~/.copilot/copilot
 
 **Verify:** `agents plugins list` shows no `↑`. A `?` means the upstream comparison was unavailable.
 **Rollback:** none for updates or pruning; restore the checkout revision and reinstall with the harness's own tooling.
+
+### Upgrading from 0.2
+
+0.3 is a standalone tool. What changed and what to do:
+
+1. **Config location.** The config is `$XDG_CONFIG_HOME/agents/config.toml` (`~/.config/agents/config.toml`; `%APPDATA%\agents\config.toml` on Windows). Run `agents init -print` for a starter, move your settings over, then `agents check`. `AGENTS_CONFIG` or `-file` points at another file.
+2. **No project config.** A project-level `agents.toml` is no longer read. Move what it set into the user config (a profile or `[os.<goos>]` overlay if it is machine-specific).
+3. **Registry checkout.** The plugin registry is now checked out at `<data>/registries/<owner>/<repo>` (set `plugins.registry = "owner/repo"`). Run `agents plugins update` once to create it; the old location is not read and can be removed.
+4. **Tiers replace role-based models.** Declare tiers under `[models.tiers.<name>]` with one model id per harness, name the main one in `models.default` and map agents with `[models.assign]`. See [config.md](config.md#models).
+5. **First apply.** Run `agents apply -n`, read the diff, then `agents apply`. It records the manifest, then removes the keys 0.2 left behind that 0.3 no longer writes (the one-time migration described under [`apply`](#apply)). Everything else in your native files is kept.
+6. **Secrets in workspace files.** Workspace MCP files keep `${VAR}` references instead of expanded values; re-run `agents mcp sync` and commit nothing that holds a token.
