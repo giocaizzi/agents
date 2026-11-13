@@ -49,8 +49,12 @@ func buildDiff(t Target, managed [][]string, oldText, newText string) string {
 	}
 	secrets := append(slices.Clone(t.Sensitive), rotatedSecrets(t, oldText)...)
 	retired := retiredValues(t, managed, oldText, newText)
-	return unifiedDiff(t.Path, a, b, func(line string) string {
-		return redactWith(redactWith(line, secrets, redactedMark), retired, removedMark)
+	return unifiedDiff(t.Path, a, b, func(kind byte, line string) string {
+		line = redactWith(line, secrets, redactedMark)
+		if kind == '-' {
+			line = maskRetired(line, retired)
+		}
+		return line
 	})
 }
 
@@ -104,21 +108,29 @@ func collectRotated(m, l any, hasSecret func(string) bool, out *[]string) {
 	}
 }
 
-// credentialWords mark a path segment under which a retired managed value
-// is assumed to hold a credential (case-insensitive substring match).
-func credentialWords() []string {
-	return []string{
-		"env", "environment", "headers", "args", "authorization",
-		"token", "secret", "key", "password", "credential",
+// maskRetired replaces, on a removed line, each retired value written as a
+// whole JSON or TOML string (quoted, raw or escaped) with «removed». Matching
+// the quoted string keeps a short value from altering other text on the line.
+func maskRetired(line string, retired []string) string {
+	var args []string
+	for _, v := range retired {
+		toml := tomlString(v)
+		forms := []string{`"` + jsonInner(v, false) + `"`, `"` + jsonInner(v, true) + `"`, toml}
+		for _, f := range forms {
+			args = append(args, f, `"`+removedMark+`"`)
+		}
 	}
+	if len(args) == 0 {
+		return line
+	}
+	return strings.NewReplacer(args...).Replace(line)
 }
 
 // retiredValues returns the string leaves that managed paths held in oldText
-// and no longer hold in newText, when a segment of the path names a
-// credential. A key dropped from the config (an MCP server or header removed)
-// leaves its secret out of Sensitive, and the manifest holds no values, so
-// the path is the only signal: such a value prints as «removed» on the -
-// line, whatever it was.
+// and no longer hold anywhere in newText. A key dropped from the config (an
+// MCP server or header removed) leaves its secret out of Sensitive, and the
+// manifest holds no values, so every retired managed string is masked on the
+// - line that held it, whatever its path.
 func retiredValues(t Target, managed [][]string, oldText, newText string) []string {
 	if t.Format == Text {
 		return nil
@@ -128,18 +140,12 @@ func retiredValues(t Target, managed [][]string, oldText, newText string) []stri
 	if errO != nil || errN != nil {
 		return nil
 	}
+	kept := map[string]bool{}
+	for _, s := range stringLeaves(newDoc, nil) {
+		kept[s] = true
+	}
 	var out []string
 	for _, p := range managed {
-		if !slices.ContainsFunc(p, func(seg string) bool {
-			seg = strings.ToLower(seg)
-			return slices.ContainsFunc(credentialWords(), func(w string) bool { return strings.Contains(seg, w) })
-		}) {
-			continue
-		}
-		kept := map[string]bool{}
-		for _, s := range stringLeaves(getPath(newDoc, p), nil) {
-			kept[s] = true
-		}
 		for _, s := range stringLeaves(getPath(oldDoc, p), nil) {
 			if !kept[s] {
 				out = append(out, s)
@@ -236,9 +242,9 @@ func jsonInner(s string, html bool) string {
 }
 
 // unifiedDiff returns a unified diff of old and new, or "" when they are equal.
-// mask, when set, rewrites each content line; the file and hunk header lines
+// mask, when set, rewrites each content line given its op kind; the file and hunk header lines
 // are never passed through it.
-func unifiedDiff(path, oldText, newText string, mask func(string) string) string {
+func unifiedDiff(path, oldText, newText string, mask func(kind byte, line string) string) string {
 	if oldText == newText {
 		return ""
 	}
@@ -257,7 +263,7 @@ func unifiedDiff(path, oldText, newText string, mask func(string) string) string
 			}
 			text := op.text
 			if mask != nil {
-				text = mask(text)
+				text = mask(op.kind, text)
 			}
 			body.WriteByte(op.kind)
 			body.WriteString(text)
