@@ -151,16 +151,16 @@ func codexOTel(t Telemetry) map[string]any {
 // codexRules renders ~/.codex/rules/agents.rules: one prefix_rule per command
 // pattern that is a literal prefix, optionally ending in a wildcard.
 //
-// A deny pattern Codex cannot match (a wildcard before the last word, as in
-// "git push * HEAD:main") is skipped with a warning, which would leave the
-// command allowed by any allow prefix covering it. So an allow rule is not
-// emitted while such a deny overlaps it (see overlappingDeny), and is warned
+// A deny or ask pattern Codex cannot match (a wildcard before the last word,
+// as in "git push * HEAD:main") is skipped with a warning, which would leave
+// the command allowed by any allow prefix covering it. So an allow rule is not
+// emitted while such a pattern overlaps it (see overlapping), and is warned
 // once.
 func codexRules(p *config.Permissions, b *builder) string {
 	var sb strings.Builder
 	sb.WriteString("# Managed by agents from permissions: do not edit.\n")
 	seen := map[string]bool{}
-	unexpressible := unexpressibleDenies(p)
+	unexpressible := unexpressibleRules(p)
 	emit := func(where string, patterns []string, decision, verb string) {
 		for _, pat := range patterns {
 			words, ok := prefixWords(pat)
@@ -168,7 +168,7 @@ func codexRules(p *config.Permissions, b *builder) string {
 				b.warnf("%s: skipped, %q is not a command prefix Codex rules can match", where, pat)
 				continue
 			}
-			if decision == "allow" && b.allowOverlapsDeny("Codex rules", where, pat, words, unexpressible) {
+			if decision == "allow" && b.allowOverlaps("Codex rules", where, pat, words, unexpressible) {
 				continue
 			}
 			key := decision + "\x00" + strings.Join(words, "\x00")

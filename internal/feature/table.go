@@ -148,12 +148,12 @@ func permissionFeatures() []Feature {
 	vscodeCommands := rd(vscode, at(vscodeSettings, "chat.tools.terminal.autoApprove"))
 	codexRule := rd(codex, at(codexRules))
 	codexAllow := rdv(codex, at(codexRules),
-		"agents rule, not a Codex setting: Codex rules match command prefixes only, so an allow prefix_rule is written only when no deny pattern Codex cannot express (a wildcard before the last word) could match a command it covers; words compare position by position, a deny word with * matches anything, so git overlaps git push * HEAD:main and is skipped with a warning, git push --force-with-lease origin does not")
+		"agents rule, not a Codex setting: Codex rules match command prefixes only, so an allow prefix_rule is written only when no deny or ask pattern Codex cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way")
 	ocAllow := rd(opencode, at(opencodeConfig, "permissions"))
 	ocDeny := rd(opencode, at(opencodeConfig, "policies"))
 	agyAllow := rd(antigravity, at(antigravitySettings, "permissions.allow"))
 	agyCommandAllow := rdv(antigravity, at(antigravitySettings, "permissions.allow"),
-		"command() matches word prefixes only, so an allow command() rule is written only when no deny pattern command() cannot express (a wildcard before the last word) could match a command it covers; words compare position by position, a deny word with * matches anything, so git overlaps git push * HEAD:main and is skipped with a warning, git push --force-with-lease origin does not (the same rule as Codex, internal/harness/overlap.go)")
+		"command() matches word prefixes only, so an allow command() rule is written only when no deny or ask pattern command() cannot express (a wildcard before the last word) could match a command it covers; a * spans words, so an allow that agrees with the pattern's literal words before its first * word over their common length overlaps it: git and git push --force-with-lease origin overlap git push * HEAD:main and are skipped with a warning, make does not; an ask_command_prefixes entry written with a wildcard before its last word blocks allows the same way (the same rule as Codex, internal/harness/overlap.go)")
 	agyDeny := rd(antigravity, at(antigravitySettings, "permissions.deny"))
 	agyAsk := rd(antigravity, at(antigravitySettings, "permissions.ask"))
 	const noCmd = "no documented command allow or deny list"

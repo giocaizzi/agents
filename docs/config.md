@@ -81,7 +81,7 @@ Any other value of the two modes is rejected. Each harness maps them to its own 
 
 ## `[permissions]`
 
-Shared rules, translated to each harness's own syntax (Claude `Bash(...)`/`Read(...)`/`Edit(...)`, Antigravity `command(...)`, Codex rules file, opencode permissions and policies, VS Code auto-approve maps). A rule a harness cannot express is left out with a warning. When that rule is a deny, Codex and Antigravity (which match command prefixes only) also leave out every allow prefix that could cover a command the deny forbids, such as `git` against `git push * HEAD:main`, and warn for each, so a skipped deny never leaves its command allowed.
+Shared rules, translated to each harness's own syntax (Claude `Bash(...)`/`Read(...)`/`Edit(...)`, Antigravity `command(...)`, Codex rules file, opencode permissions and policies, VS Code auto-approve maps). A rule a harness cannot express is left out with a warning. When that rule is a deny or an ask (`ask_command_prefixes`), Codex and Antigravity (which match command prefixes only) also leave out every allow prefix that could cover a command it governs, and warn for each, so a skipped deny never leaves its command allowed nor a skipped ask auto-approved. A `*` spans words, so an allow overlaps a pattern when it agrees with the pattern's literal words before its first `*` word over their common length: `git` and `git push --force-with-lease origin` both overlap `git push * HEAD:main` (the latter matches `git push --force-with-lease origin HEAD:main`), `make` does not.
 
 | Key | Type | Meaning |
 |---|---|---|

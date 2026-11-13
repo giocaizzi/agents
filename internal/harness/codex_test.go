@@ -99,13 +99,15 @@ func TestCodexAllowSkippedWhenDenyUnexpressible(t *testing.T) {
 		`"git","push"`:     false,
 		`"make"`:           true,
 		`"gh","pr","view"`: true,
-		`"git","push","--force-with-lease","origin"`: true,
+		// The deny * spans words: git push --force-with-lease origin HEAD:main
+		// matches both, so the lease allow goes too.
+		`"git","push","--force-with-lease","origin"`: false,
 	} {
 		if allowed(words) != want {
 			t.Errorf("allow rule [%s] emitted = %v, want %v:\n%s", words, !want, want, got)
 		}
 	}
-	for _, skipped := range []string{`allow "git" `, `allow "gh" `, `allow "git push" `} {
+	for _, skipped := range []string{`allow "git" `, `allow "gh" `, `allow "git push" `, `allow "git push --force-with-lease origin *" `} {
 		n := 0
 		for _, w := range plan.Warnings {
 			if strings.Contains(w, skipped) && strings.Contains(w, "Codex rules cannot express it") {
@@ -115,6 +117,34 @@ func TestCodexAllowSkippedWhenDenyUnexpressible(t *testing.T) {
 		if n != 1 {
 			t.Errorf("warnings for %s = %d, want 1: %q", skipped, n, plan.Warnings)
 		}
+	}
+}
+
+// TestCodexAllowSkippedWhenAskUnexpressible pins the same rule for an ask
+// prefix with a wildcard before its last word, which Codex skips too.
+func TestCodexAllowSkippedWhenAskUnexpressible(t *testing.T) {
+	t.Parallel()
+	cfg := config.Config{Permissions: config.Permissions{
+		AllowCommands:      []string{"git", "make"},
+		AskCommandPrefixes: []string{"git push * prod"},
+	}}
+	home := t.TempDir()
+	plan := renderOne(t, cfg, config.Codex, home)
+	got, _ := planTargetAt(t, plan, filepath.Join(home, ".codex", "rules", "agents.rules")).Managed.(string)
+	if strings.Contains(got, `pattern = ["git"],`+"\n    decision = \"allow\"") {
+		t.Errorf("allow git emitted past the unexpressible ask:\n%s", got)
+	}
+	if !strings.Contains(got, `pattern = ["make"],`+"\n    decision = \"allow\"") {
+		t.Errorf("allow make missing:\n%s", got)
+	}
+	n := 0
+	for _, w := range plan.Warnings {
+		if strings.Contains(w, `allow "git" `) && strings.Contains(w, `ask pattern "git push * prod"`) {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("ask-overlap warnings = %d, want 1: %q", n, plan.Warnings)
 	}
 }
 
