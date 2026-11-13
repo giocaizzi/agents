@@ -42,10 +42,18 @@ func Validate(c Config) []finding.Finding {
 	validateLayerRefs(c, add)
 	validateModels(c.Models, add)
 	validateReasons(c.Permissions, add)
+	validateAutonomy("autonomy", c.Autonomy, add)
+	for _, o := range []struct {
+		name string
+		a    Autonomy
+	}{{"os.darwin", c.OS.Darwin.Autonomy}, {"os.linux", c.OS.Linux.Autonomy}, {"os.windows", c.OS.Windows.Autonomy}} {
+		validateAutonomy(o.name+".autonomy", o.a, add)
+	}
 	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
 		p := c.Profiles[name]
 		base := "profiles." + name
 		validatePlugins(base+".plugins", p.Plugins, add)
+		validateAutonomy(base+".autonomy", p.Autonomy, add)
 		validateServers(base+".mcp.servers", p.MCP.Servers, false, add)
 	}
 
@@ -108,6 +116,16 @@ func validateModels(m Models, add func(string, string, ...any)) {
 				add("models.tiers."+name+".efforts."+h, "unknown harness %q (want one of %s)", h, harnessList())
 			}
 		}
+	}
+}
+
+// validateAutonomy checks the two enum keys of an autonomy table.
+func validateAutonomy(where string, a Autonomy, add func(string, string, ...any)) {
+	if a.ExecutionMode != "" && !slices.Contains(ExecutionModes(), a.ExecutionMode) {
+		add(where+".execution_mode", "unknown value %q (want one of %s)", a.ExecutionMode, strings.Join(ExecutionModes(), ", "))
+	}
+	if a.SandboxMode != "" && !slices.Contains(SandboxModes(), a.SandboxMode) {
+		add(where+".sandbox_mode", "unknown value %q (want one of %s)", a.SandboxMode, strings.Join(SandboxModes(), ", "))
 	}
 }
 

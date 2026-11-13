@@ -226,7 +226,7 @@ theme = "dark"
 instructions = ["core", "dev"]
 
 [profiles.dev.autonomy]
-execution_mode = "bypass"
+execution_mode = "full"
 
 [profiles.dev.harness.claude]
 instructions = ["dev"]

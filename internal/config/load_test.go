@@ -672,6 +672,16 @@ func TestValidate(t *testing.T) {
 		{"reason for an unlisted pattern", func(c *config.Config) {
 			c.Permissions = config.Permissions{DenyCommandPrefixes: []string{"pip"}, Reasons: map[string]string{"npm": "use pnpm"}}
 		}, "permissions.reasons.npm"},
+		{"execution mode ok", func(c *config.Config) { c.Autonomy.ExecutionMode = "full" }, ""},
+		{"execution mode free name", func(c *config.Config) { c.Autonomy.ExecutionMode = "bypass" }, "autonomy.execution_mode"},
+		{"execution mode lists the allowed values", func(c *config.Config) { c.Autonomy.ExecutionMode = "x" }, "ask, auto, full"},
+		{"sandbox mode ok", func(c *config.Config) { c.Autonomy.SandboxMode = "read-only" }, ""},
+		{"sandbox mode free name", func(c *config.Config) { c.Autonomy.SandboxMode = "unrestricted" }, "autonomy.sandbox_mode"},
+		{"sandbox mode lists the allowed values", func(c *config.Config) { c.Autonomy.SandboxMode = "x" }, "off, workspace, read-only"},
+		{"profile execution mode", func(c *config.Config) {
+			c.Profiles = map[string]config.Profile{"dev": {Autonomy: config.Autonomy{ExecutionMode: "x"}}}
+		}, "profiles.dev.autonomy.execution_mode"},
+		{"os sandbox mode", func(c *config.Config) { c.OS.Linux.Autonomy.SandboxMode = "x" }, "os.linux.autonomy.sandbox_mode"},
 		{"profile overlay server may be partial", func(c *config.Config) {
 			c.Profiles = map[string]config.Profile{"dev": {MCP: config.MCP{Servers: server(config.MCPServer{Env: map[string]string{"A": "b"}})}}}
 		}, ""},

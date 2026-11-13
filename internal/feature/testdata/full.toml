@@ -9,7 +9,7 @@ harnesses = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigrav
 
 [autonomy]
 execution_mode = "auto"
-sandbox_mode = "unrestricted"
+sandbox_mode = "off"
 allow_non_workspace_access = true
 subagent_depth = 2
 allow_subagent_invocations = true

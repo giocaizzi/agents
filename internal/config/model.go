@@ -94,10 +94,29 @@ type Overlay struct {
 	Harness       HarnessTable  `json:"harness,omitzero"       jsonschema:"description=Per-harness overlay"   toml:"harness,omitzero"`
 }
 
+// Allowed values of autonomy.execution_mode and autonomy.sandbox_mode. Each
+// harness maps them to its native values (docs/features.md); a value a harness
+// cannot express exactly is not written there and warns.
+const (
+	ExecutionAsk  = "ask"
+	ExecutionAuto = "auto"
+	ExecutionFull = "full"
+
+	SandboxOff       = "off"
+	SandboxWorkspace = "workspace"
+	SandboxReadOnly  = "read-only"
+)
+
+// ExecutionModes and SandboxModes list the allowed values in order.
+func ExecutionModes() []string { return []string{ExecutionAsk, ExecutionAuto, ExecutionFull} }
+
+// SandboxModes lists the allowed values of autonomy.sandbox_mode.
+func SandboxModes() []string { return []string{SandboxOff, SandboxWorkspace, SandboxReadOnly} }
+
 // Autonomy is how freely agents act.
 type Autonomy struct {
-	ExecutionMode            string `json:"execution_mode,omitempty"             jsonschema:"description=Execution mode name"                          toml:"execution_mode,omitempty"`
-	SandboxMode              string `json:"sandbox_mode,omitempty"               jsonschema:"description=Sandbox mode name"                            toml:"sandbox_mode,omitempty"`
+	ExecutionMode            string `json:"execution_mode,omitempty"             jsonschema:"enum=ask,enum=auto,enum=full,description=How freely agents act" toml:"execution_mode,omitempty"`
+	SandboxMode              string `json:"sandbox_mode,omitempty"               jsonschema:"enum=off,enum=workspace,enum=read-only,description=Sandbox for agent commands"  toml:"sandbox_mode,omitempty"`
 	AllowNonWorkspaceAccess  bool   `json:"allow_non_workspace_access,omitempty" jsonschema:"description=Allow access outside the workspace"           toml:"allow_non_workspace_access,omitempty"`
 	SubagentDepth            int    `json:"subagent_depth,omitempty"             jsonschema:"description=Maximum subagent nesting depth"               toml:"subagent_depth,omitempty"`
 	AllowSubagentInvocations bool   `json:"allow_subagent_invocations,omitempty" jsonschema:"description=Allow agents to invoke subagents"             toml:"allow_subagent_invocations,omitempty"`
