@@ -70,13 +70,13 @@ func TestClaudeTelemetryOffRemovesKeys(t *testing.T) {
 				t.Fatal(err)
 			}
 			st := claudeTarget(t, b, "/home/u/.claude/settings.json")
-			has := slices.ContainsFunc(st.Remove, func(p []string) bool {
+			has := slices.ContainsFunc(st.Legacy, func(p []string) bool {
 				return slices.Equal(p, []string{"env", "OTEL_TRACES_EXPORTER"})
 			})
 			if has != tt.wantRmEnv {
 				t.Errorf("Remove has OTEL_TRACES_EXPORTER = %v, want %v", has, tt.wantRmEnv)
 			}
-			if !slices.ContainsFunc(st.Remove, func(p []string) bool { return slices.Equal(p, []string{"enabledPlugins", "lsp@dotfiles"}) }) {
+			if !slices.ContainsFunc(st.Legacy, func(p []string) bool { return slices.Equal(p, []string{"enabledPlugins", "lsp@dotfiles"}) }) {
 				t.Error("Remove misses the old local marketplace plugin")
 			}
 		})

@@ -120,7 +120,7 @@ func TestCopilotLSPRemovesUnrenderedServers(t *testing.T) {
 	wantRemove := [][]string{
 		{"lspServers", "gopls", "command"}, {"lspServers", "gopls", "args"}, {"lspServers", "gopls", "fileExtensions"},
 	}
-	if diff := cmp.Diff(wantRemove, tg.Remove); diff != "" {
+	if diff := cmp.Diff(wantRemove, tg.Legacy); diff != "" {
 		t.Errorf("Remove (-want +got):\n%s", diff)
 	}
 }
