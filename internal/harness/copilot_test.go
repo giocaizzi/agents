@@ -2,6 +2,7 @@ package harness
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -176,15 +177,17 @@ func TestCopilotNoServersNoMCPTarget(t *testing.T) {
 func TestCopilotReviewXFail(t *testing.T) {
 	t.Parallel()
 
-	t.Run("xfail: removing the last MCP server removes it from mcp-config.json", func(t *testing.T) {
+	t.Run("removing the last MCP server removes it from mcp-config.json", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: end to end, needs the engine to remove the keys of a target that is no longer emitted")
 		home := t.TempDir()
 		var c config.Config
 		c.MCP.Servers = map[string]config.MCPServer{"a": {Command: "a-mcp"}}
 		applyIn(t, home, c, nil, config.Copilot)
 		applyIn(t, home, config.Config{}, nil, config.Copilot)
 		data, err := os.ReadFile(filepath.Join(home, ".copilot", "mcp-config.json"))
+		if errors.Is(err, fs.ErrNotExist) {
+			return // agents created the file and deleted it once empty
+		}
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -193,7 +196,7 @@ func TestCopilotReviewXFail(t *testing.T) {
 		}
 	})
 
-	t.Run("xfail: apply keeps the user's own statusLine in settings.json", func(t *testing.T) {
+	t.Run("apply keeps the user's own statusLine in settings.json", func(t *testing.T) {
 		t.Parallel()
 		home := t.TempDir()
 		path := filepath.Join(home, ".copilot", "settings.json")
@@ -213,7 +216,7 @@ func TestCopilotReviewXFail(t *testing.T) {
 		}
 	})
 
-	t.Run("xfail: a new instruction file is private (0600)", func(t *testing.T) {
+	t.Run("a new instruction file is private (0600)", func(t *testing.T) {
 		t.Parallel()
 		home := t.TempDir()
 		var c config.Config

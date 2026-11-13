@@ -86,9 +86,8 @@ func TestApply_ReviewXFail(t *testing.T) {
 headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 `
 
-	t.Run("xfail: apply -n does not print an expanded secret", func(t *testing.T) {
+	t.Run("apply -n does not print an expanded secret", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: the dry-run diff prints the expanded ${DOCS_TOKEN} header value to stdout")
 		e := withToken(t)
 		p := e.writeConfig(t, claudeConfig+"[mcp.servers.docs]\n"+tokenServer)
 		if code := e.run("apply", "-n", "-file", p); code != 0 {

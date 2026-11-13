@@ -118,7 +118,7 @@ func (d Deps) syncMCPDir(r *config.Resolved, dir, account string, dryRun bool) i
 // result, with the diff on a dry run.
 func (d Deps) applyMCP(r *config.Resolved, targets []apply.Target, warnings []string, dryRun bool) int {
 	d.printMCPWarnings(warnings)
-	engine := apply.Engine{StatePath: filepath.Join(r.Dirs.State, "apply.json"), DryRun: dryRun}
+	engine := apply.Engine{StatePath: filepath.Join(r.Dirs.State, "apply.json"), DryRun: dryRun, Partial: true}
 	results, err := engine.Run(targets)
 	code := exitOK
 	if err != nil {
