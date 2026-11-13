@@ -160,9 +160,8 @@ func TestAntigravityAllowSkipsOverlappingAsk(t *testing.T) {
 func TestAntigravityAllowWithoutWords(t *testing.T) {
 	t.Parallel()
 	for _, allow := range []string{"", " *"} {
-		t.Run("xfail: allow "+strconv.Quote(allow), func(t *testing.T) {
+		t.Run("allow "+strconv.Quote(allow), func(t *testing.T) {
 			t.Parallel()
-			t.Skip("xfail: antigravityAllow appends command() when prefixWords fails, skipping the overlap check")
 			c := &config.Config{}
 			c.Permissions = config.Permissions{
 				AllowCommandPatterns: []string{allow},

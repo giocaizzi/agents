@@ -110,7 +110,13 @@ func antigravityAllow(c *config.Config, b *builder) []string {
 			}
 			// command() matches word prefixes only: skip an allow that an
 			// inexpressible deny or ask would have overridden (see overlap.go).
-			if words, ok := prefixWords(pat); ok && b.allowOverlaps("Antigravity", src.field, pat, words, unexpressible) {
+			// An allow with no command words ("" or " *") covers every command,
+			// so any inexpressible rule overlaps it.
+			words, ok := prefixWords(pat)
+			if !ok && len(strings.Fields(prefix)) == 0 {
+				words, ok = nil, true
+			}
+			if ok && b.allowOverlaps("Antigravity", src.field, pat, words, unexpressible) {
 				continue
 			}
 			allow = appendUnique(allow, "command("+prefix+")")
