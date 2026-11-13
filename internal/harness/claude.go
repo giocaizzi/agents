@@ -5,7 +5,9 @@ import (
 	"maps"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/giocaizzi/agents/internal/apply"
 	"github.com/giocaizzi/agents/internal/config"
@@ -124,6 +126,7 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 		set("effortLevel", effort) // only when the default tier sets one
 	}
 	set("showThinkingSummaries", c.Models.ShowThinkingSummaries)
+	set("autoCompactEnabled", c.Context.AutoCompact)
 	set("autoCompactWindow", c.Context.AutoCompactWindow)
 	set("promptCacheTtl", c.Context.PromptCacheTTL)
 	set("subagentPromptCacheTtl", c.Context.SubagentPromptCacheTTL)
@@ -152,9 +155,14 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
 	s["permissions"] = claudePermissions(c, b.env.GOOS)
 
+	env := map[string]any{}
 	if tel, on := b.telemetry(config.Claude); on {
-		s["env"] = claudeTelemetry(tel)
+		env = claudeTelemetry(tel)
 	}
+	if n := c.Context.MaxTokens; n > 0 {
+		env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = strconv.Itoa(n)
+	}
+	setIfAny(s, "env", env)
 	deepMerge(s, b.expandSettings("harness.claude.settings", cl.Settings))
 	return s
 }
@@ -163,8 +171,11 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 func claudePermissions(c *config.Config, goos string) map[string]any {
 	p := c.Permissions
 	allow := slices.Clone(c.Harness.Claude.Allow)
-	for _, pat := range p.AllowCommandPatterns {
+	for _, pat := range slices.Concat(p.AllowCommandPatterns, p.AllowCommands) {
 		allow = append(allow, "Bash("+pat+")")
+	}
+	for _, name := range p.AllowedMCP {
+		allow = append(allow, claudeMCPRule(name))
 	}
 	var deny []string
 	for _, pat := range p.DenyCommandPatterns {
@@ -204,6 +215,23 @@ func claudePermissions(c *config.Config, goos string) map[string]any {
 		}
 	}
 	return out
+}
+
+// claudeMCPRule is the allow rule for an MCP server name. Claude writes a
+// server into tool names with every character outside letters, digits, "_"
+// and "-" turned into "_", and only the wildcard form matches every server
+// name. An entry that already starts with mcp__ is a rule and stays as is.
+func claudeMCPRule(name string) string {
+	if strings.HasPrefix(name, "mcp__") {
+		return name
+	}
+	server := strings.Map(func(r rune) rune {
+		if r == '_' || r == '-' || unicode.IsDigit(r) || (r < unicode.MaxASCII && unicode.IsLetter(r)) {
+			return r
+		}
+		return '_'
+	}, name)
+	return "mcp__" + server + "__*"
 }
 
 // claudeTelemetry is the env of Claude Code's OpenTelemetry export.

@@ -282,7 +282,7 @@
       "properties": {
         "auto_compact": {
           "type": "boolean",
-          "description": "Compact the context automatically. Planned for claude, vscode, opencode, pi. Not supported by copilot, codex, antigravity."
+          "description": "Compact the context automatically. Written to claude. Planned for vscode, opencode, pi. Not supported by copilot, codex, antigravity."
         },
         "auto_compact_window": {
           "type": "integer",
@@ -302,7 +302,7 @@
         },
         "max_tokens": {
           "type": "integer",
-          "description": "Token limit of one response. Planned for claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+          "description": "Token limit of one response. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -689,7 +689,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Commands allowed without asking. Written to vscode. Planned for claude, codex, opencode, antigravity. Not supported by copilot, pi."
+          "description": "Commands allowed without asking. Written to claude, vscode. Planned for codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "allowed_urls": {
           "items": {
@@ -752,7 +752,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "MCP servers or tools allowed without asking. Planned for claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
+          "description": "MCP servers or tools allowed without asking. Written to claude. Planned for opencode, antigravity. Not supported by copilot, vscode, codex, pi."
         },
         "reasons": {
           "additionalProperties": {

@@ -27,7 +27,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `autonomy.allow_subagent_invocations` | — | — | planned | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
 | `autonomy.mode` | planned | planned | planned | planned | planned | planned | planned |
-| `permissions.allow_commands` | planned | — | ✓ | planned | planned | — | planned |
+| `permissions.allow_commands` | ✓ | — | ✓ | planned | planned | — | planned |
 | `permissions.allowed_urls` | planned | ✓ | ✓ | — | planned | — | planned |
 | `permissions.allow_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_read` | ✓ | — | — | — | ✓ | — | ✓ |
@@ -36,14 +36,14 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `permissions.deny_command_exact` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
 | `permissions.deny_command_prefixes` | ✓ | — | planned | planned | ✓ | — | ✓ |
 | `permissions.ask_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
-| `permissions.allowed_mcp` | planned | — | — | — | planned | — | planned |
+| `permissions.allowed_mcp` | ✓ | — | — | — | planned | — | planned |
 | `permissions.reasons` | — | — | — | planned | — | — | — |
-| `context.auto_compact` | planned | — | planned | — | planned | planned | — |
+| `context.auto_compact` | ✓ | — | planned | — | planned | planned | — |
 | `context.auto_compact_window` | ✓ | — | — | — | — | planned | — |
 | `context.prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.subagent_prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.max_turn_tokens` | — | — | — | — | — | — | — |
-| `context.max_tokens` | planned | — | — | — | — | — | — |
+| `context.max_tokens` | ✓ | — | — | — | — | — | — |
 | `ui.theme` | ✓ | planned | ✓ | planned | planned | planned | planned |
 | `ui.tui_mode` | ✓ | — | — | — | — | — | — |
 | `ui.view_mode` | ✓ | — | — | — | — | — | — |
@@ -139,6 +139,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `models.default_effort_level`: `~/.claude/settings.json: effortLevel`
 - `models.show_thinking_summaries`: `~/.claude/settings.json: showThinkingSummaries`
 - `autonomy.ask_timeout`: `~/.claude/settings.json: askUserQuestionTimeout`
+- `permissions.allow_commands`: `~/.claude/settings.json: permissions.allow`
 - `permissions.allow_command_patterns`: `~/.claude/settings.json: permissions.allow`
 - `permissions.deny_read`: `~/.claude/settings.json: permissions.deny`
 - `permissions.deny_write`: `~/.claude/settings.json: permissions.deny`
@@ -146,9 +147,12 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `permissions.deny_command_exact`: `~/.claude/settings.json: permissions.deny`
 - `permissions.deny_command_prefixes`: `~/.claude/settings.json: permissions.deny`
 - `permissions.ask_command_prefixes`: `~/.claude/settings.json: permissions.ask`
+- `permissions.allowed_mcp`: `~/.claude/settings.json: permissions.allow`
+- `context.auto_compact`: `~/.claude/settings.json: autoCompactEnabled`
 - `context.auto_compact_window`: `~/.claude/settings.json: autoCompactWindow`
 - `context.prompt_cache_ttl`: `~/.claude/settings.json: promptCacheTtl`
 - `context.subagent_prompt_cache_ttl`: `~/.claude/settings.json: subagentPromptCacheTtl`
+- `context.max_tokens`: `~/.claude/settings.json: env`
 - `ui.theme`: `~/.claude/settings.json: theme`
 - `ui.tui_mode`: `~/.claude/settings.json: tui`
 - `ui.view_mode`: `~/.claude/settings.json: viewMode`
@@ -187,15 +191,11 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 
 **Planned**
 
-- `autonomy.execution_mode`: permissions.defaultMode (agents writes it from harness.claude.default_mode; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode`: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.allow_non_workspace_access`: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
+- `autonomy.execution_mode`: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
+- `autonomy.sandbox_mode`: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
+- `autonomy.allow_non_workspace_access`: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 - `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `permissions.allow_commands`: permissions.allow Bash(...) rules
-- `permissions.allowed_urls`: permissions.allow WebFetch(domain:...) rules
-- `permissions.allowed_mcp`: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
-- `context.auto_compact`: autoCompactEnabled
-- `context.max_tokens`: env CLAUDE_CODE_MAX_OUTPUT_TOKENS
+- `permissions.allowed_urls`: ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path
 
 **Not supported**
 
@@ -613,16 +613,16 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `models.show_thinking_summaries` on VS Code: chat.agent.thinkingStyle
 - `models.show_thinking_summaries` on Codex: model_reasoning_summary and hide_agent_reasoning
 - `models.show_thinking_summaries` on pi: hideThinkingBlock
-- `autonomy.execution_mode` on Claude Code: permissions.defaultMode (agents writes it from harness.claude.default_mode; ambiguous: native mode names differ and the value is a free name)
+- `autonomy.execution_mode` on Claude Code: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
 - `autonomy.execution_mode` on Copilot CLI: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.execution_mode` on VS Code: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.execution_mode` on Codex: approval_policy (agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode` on Claude Code: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
+- `autonomy.sandbox_mode` on Claude Code: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
 - `autonomy.sandbox_mode` on Copilot CLI: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode` on VS Code: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode` on Codex: sandbox_mode (agents writes it from harness.codex.sandbox_mode)
 - `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.allow_non_workspace_access` on Claude Code: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
+- `autonomy.allow_non_workspace_access` on Claude Code: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `autonomy.allow_non_workspace_access` on opencode: permission external_directory
 - `autonomy.subagent_depth` on Copilot CLI: subagents.maxDepth
@@ -634,27 +634,23 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `autonomy.mode` on opencode: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `autonomy.mode` on pi: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `autonomy.mode` on Antigravity: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `permissions.allow_commands` on Claude Code: permissions.allow Bash(...) rules
 - `permissions.allow_commands` on Codex: prefix_rule with decision allow
 - `permissions.allow_commands` on opencode: permission bash allow
 - `permissions.allow_commands` on Antigravity: permissions.allow command(...)
-- `permissions.allowed_urls` on Claude Code: permissions.allow WebFetch(domain:...) rules
+- `permissions.allowed_urls` on Claude Code: ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path
 - `permissions.allowed_urls` on opencode: permission webfetch
 - `permissions.allowed_urls` on Antigravity: permissions.allow read_url(...)
 - `permissions.deny_command_exact` on Codex: prefix_rule with decision forbidden
 - `permissions.deny_command_prefixes` on VS Code: chat.tools.terminal.autoApprove entries set to false
 - `permissions.deny_command_prefixes` on Codex: prefix_rule with decision forbidden
 - `permissions.ask_command_prefixes` on Codex: prefix_rule with decision prompt
-- `permissions.allowed_mcp` on Claude Code: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
 - `permissions.allowed_mcp` on opencode: permission actions for MCP tools
 - `permissions.allowed_mcp` on Antigravity: permissions.allow mcp(...)
 - `permissions.reasons` on Codex: prefix_rule justification
-- `context.auto_compact` on Claude Code: autoCompactEnabled
 - `context.auto_compact` on VS Code: github.copilot.chat.summarizeAgentConversationHistory.enabled
 - `context.auto_compact` on opencode: compaction.auto
 - `context.auto_compact` on pi: compaction.enabled
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
-- `context.max_tokens` on Claude Code: env CLAUDE_CODE_MAX_OUTPUT_TOKENS
 - `ui.theme` on Copilot CLI: theme
 - `ui.theme` on Codex: tui.theme
 - `ui.theme` on opencode: ambiguous: theme is not among the researched opencode keys; verify against its config docs
