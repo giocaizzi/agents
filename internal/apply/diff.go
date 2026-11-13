@@ -67,8 +67,10 @@ func redact(text string, secrets []string) string {
 		}
 		pairs = append(pairs, s)
 		toml := tomlString(s)
-		forms := []string{jsonInner(s, false), jsonInner(s, true), toml[1 : len(toml)-1],
-			url.QueryEscape(s), url.PathEscape(s)}
+		forms := []string{
+			jsonInner(s, false), jsonInner(s, true), toml[1 : len(toml)-1],
+			url.QueryEscape(s), url.PathEscape(s),
+		}
 		for _, f := range forms {
 			if f != s && f != "" {
 				pairs = append(pairs, f)
