@@ -10,9 +10,8 @@ import (
 // value of a secret the managed document carries.
 func TestDiffRedactsOldSecrets(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: rotated secret in an array element", func(t *testing.T) {
+	t.Run("rotated secret in an array element", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: rotatedSecrets walks objects and strings only, so an args element keeps its old token on the - line")
 		dir := t.TempDir()
 		path := filepath.Join(dir, "s.json")
 		writeFileT(t, path, "{\n  \"s\": {\"args\": [\"--key\", \"old-token-1234\"]}\n}\n")
@@ -32,9 +31,8 @@ func TestDiffRedactsOldSecrets(t *testing.T) {
 			}
 		}
 	})
-	t.Run("xfail: retired managed key that held a secret", func(t *testing.T) {
+	t.Run("retired managed key that held a secret", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: a managed key dropped from the config (an MCP server or header removed) prints its old token on the - line; nothing marks it secret once the new document no longer carries it")
 		dir := t.TempDir()
 		path := filepath.Join(dir, "s.json")
 		e := engineIn(dir)

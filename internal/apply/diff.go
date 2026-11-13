@@ -10,7 +10,10 @@ import (
 	"strings"
 )
 
-const diffContext = 3
+const (
+	diffContext = 3
+	removedMark = "«removed»"
+)
 
 type diffOp struct {
 	kind byte // ' ', '-', '+'
@@ -45,7 +48,10 @@ func buildDiff(t Target, managed [][]string, oldText, newText string) string {
 		}
 	}
 	secrets := append(slices.Clone(t.Sensitive), rotatedSecrets(t, oldText)...)
-	return unifiedDiff(t.Path, a, b, func(line string) string { return redact(line, secrets) })
+	retired := retiredValues(t, managed, oldText, newText)
+	return unifiedDiff(t.Path, a, b, func(line string) string {
+		return redactWith(redactWith(line, secrets, redactedMark), retired, removedMark)
+	})
 }
 
 // rotatedSecrets returns the live values, in oldText, of the managed string
@@ -68,24 +74,97 @@ func rotatedSecrets(t Target, oldText string) []string {
 		return nil
 	}
 	var out []string
-	var walk func(o *Object, path []string)
-	walk = func(o *Object, path []string) {
-		for _, k := range o.Keys {
-			p := append(slices.Clone(path), k)
-			switch v := o.Values[k].(type) {
-			case *Object:
-				walk(v, p)
-			case string:
-				if !slices.ContainsFunc(t.Sensitive, func(s string) bool { return s != "" && strings.Contains(v, s) }) {
-					continue
-				}
-				if old, ok := getPath(live, p).(string); ok && old != "" {
-					out = append(out, old)
-				}
+	collectRotated(mo, live, func(v string) bool {
+		return slices.ContainsFunc(t.Sensitive, func(s string) bool { return s != "" && strings.Contains(v, s) })
+	}, &out)
+	return out
+}
+
+// collectRotated descends the managed value m and the live value l together,
+// through objects and arrays (by index), and appends the live string wherever
+// the managed one carries a secret.
+func collectRotated(m, l any, hasSecret func(string) bool, out *[]string) {
+	switch v := m.(type) {
+	case *Object:
+		if lo, ok := l.(*Object); ok {
+			for _, k := range v.Keys {
+				collectRotated(v.Values[k], lo.Values[k], hasSecret, out)
+			}
+		}
+	case []any:
+		if la, ok := l.([]any); ok {
+			for i := 0; i < len(v) && i < len(la); i++ {
+				collectRotated(v[i], la[i], hasSecret, out)
+			}
+		}
+	case string:
+		if old, ok := l.(string); ok && old != "" && hasSecret(v) {
+			*out = append(*out, old)
+		}
+	}
+}
+
+// credentialWords mark a path segment under which a retired managed value
+// is assumed to hold a credential (case-insensitive substring match).
+func credentialWords() []string {
+	return []string{
+		"env", "environment", "headers", "args", "authorization",
+		"token", "secret", "key", "password", "credential",
+	}
+}
+
+// retiredValues returns the string leaves that managed paths held in oldText
+// and no longer hold in newText, when a segment of the path names a
+// credential. A key dropped from the config (an MCP server or header removed)
+// leaves its secret out of Sensitive, and the manifest holds no values, so
+// the path is the only signal: such a value prints as «removed» on the -
+// line, whatever it was.
+func retiredValues(t Target, managed [][]string, oldText, newText string) []string {
+	if t.Format == Text {
+		return nil
+	}
+	oldDoc, errO := parseLive(t.Format, oldText)
+	newDoc, errN := parseLive(t.Format, newText)
+	if errO != nil || errN != nil {
+		return nil
+	}
+	var out []string
+	for _, p := range managed {
+		if !slices.ContainsFunc(p, func(seg string) bool {
+			seg = strings.ToLower(seg)
+			return slices.ContainsFunc(credentialWords(), func(w string) bool { return strings.Contains(seg, w) })
+		}) {
+			continue
+		}
+		kept := map[string]bool{}
+		for _, s := range stringLeaves(getPath(newDoc, p), nil) {
+			kept[s] = true
+		}
+		for _, s := range stringLeaves(getPath(oldDoc, p), nil) {
+			if !kept[s] {
+				out = append(out, s)
 			}
 		}
 	}
-	walk(mo, nil)
+	return out
+}
+
+// stringLeaves appends every non-empty string under v to out.
+func stringLeaves(v any, out []string) []string {
+	switch x := v.(type) {
+	case string:
+		if x != "" {
+			out = append(out, x)
+		}
+	case []any:
+		for _, e := range x {
+			out = stringLeaves(e, out)
+		}
+	case *Object:
+		for _, k := range x.Keys {
+			out = stringLeaves(x.Values[k], out)
+		}
+	}
 	return out
 }
 
@@ -107,6 +186,10 @@ func Redact(text string, secrets []string) string {
 }
 
 func redact(text string, secrets []string) string {
+	return redactWith(text, secrets, redactedMark)
+}
+
+func redactWith(text string, secrets []string, mark string) string {
 	var pairs []string
 	for _, s := range secrets {
 		if s == "" {
@@ -135,7 +218,7 @@ func redact(text string, secrets []string) string {
 	}
 	args := make([]string, 0, 2*len(pairs))
 	for _, p := range pairs {
-		args = append(args, p, redactedMark)
+		args = append(args, p, mark)
 	}
 	return strings.NewReplacer(args...).Replace(text)
 }
