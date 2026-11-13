@@ -83,6 +83,9 @@ Any other value of the two modes is rejected. Each harness maps them to its own 
 
 Shared rules, translated to each harness's own syntax (Claude `Bash(...)`/`Read(...)`/`Edit(...)`, Antigravity `command(...)`, Codex rules file, opencode permissions and policies, VS Code auto-approve maps). A rule a harness cannot express is left out with a warning. When that rule is a deny or an ask (`ask_command_prefixes`), Codex and Antigravity (which match command prefixes only) also leave out every allow prefix that could cover a command it governs, and warn for each, so a skipped deny never leaves its command allowed nor a skipped ask auto-approved. A `*` spans words, so an allow overlaps a pattern when it agrees with the pattern's literal words before its first `*` word over their common length: `git` and `git push --force-with-lease origin` both overlap `git push * HEAD:main` (the latter matches `git push --force-with-lease origin HEAD:main`), `make` does not.
 
+Limit: command deny patterns with a `*` (such as `git push * HEAD:main`) match by position on the command line, on every harness. An argument shift such as `git -C x push origin HEAD:main` is not matched by `git push * HEAD:main`, and matching is case-sensitive and word-based, so case and quoting differences are not caught either.
+
+
 | Key | Type | Meaning |
 |---|---|---|
 | `allow_commands` | array of string | Commands allowed without asking |
@@ -214,7 +217,6 @@ Limits of that check:
 - Symlinks are resolved on the nearest existing ancestor of the path, and both the path as written and the resolved one are checked.
 - Only a `.git` entry in the path or an ancestor is detected. A bare repository whose work tree is elsewhere (`core.worktree`, or `GIT_DIR` / `--work-tree` setups that track a home directory) is not.
 - The check runs before the write, so there is a small window between the two.
-- Command deny patterns with a `*` (such as `git push * HEAD:main`) match by position on the command line, on every harness: an argument shift such as `git -C x push origin HEAD:main` is not matched by `git push * HEAD:main`, and matching is case-sensitive and word-based, so case and quoting differences are not caught either.
 
 A server (user or workspace) has exactly one of `url` or `command`:
 
