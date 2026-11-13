@@ -1,81 +1,112 @@
 package cli_test
 
 import (
-	"bytes"
-	"context"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/giocaizzi/agents/internal/cli"
+	"github.com/google/go-cmp/cmp"
 )
 
-// A policy copy that disagrees with the real VS Code settings must fail the
-// check, because the source files are found through CHEZMOI_SOURCE_DIR and
-// not next to the copy.
-func TestCLICheck_FileCopyIsComparedWithRealSource(t *testing.T) {
-	t.Parallel()
-	homeDir := t.TempDir()
-	data, readErr := os.ReadFile(filepath.Join("..", "testdata", "harness-policy.toml"))
-	if readErr != nil {
-		t.Fatal(readErr)
-	}
-	if err := os.MkdirAll(filepath.Join(homeDir, ".chezmoidata"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoidata", "harness-policy.toml"), data, 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(homeDir, "dot_config", "Code", "User"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(homeDir, "dot_config", "Code", "User", "settings.json"), []byte(`{"dictation.enabled": true}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.MkdirAll(filepath.Join(homeDir, ".chezmoitemplates"), 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoitemplates", "claude-settings.json"), []byte(`.agents.voice.enabled .agents.voice.mode .agents.voice.autoSubmit`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	pkgToml := `[package]
-gopls = {}
-pyright = {}
-vtsls = {}
-rust-analyzer = {}
+const claudeConfig = `schema_version = 1
+harnesses = ["claude"]
 `
-	if err := os.WriteFile(filepath.Join(homeDir, ".chezmoidata", "packages.toml"), []byte(pkgToml), 0o600); err != nil {
-		t.Fatal(err)
+
+func TestCheck_Ok(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, claudeConfig)
+	if code := e.run("check", "-file", p); code != 0 {
+		t.Fatalf("exit = %d, out = %s, err = %s", code, e.out, e.errOut)
 	}
-	text := string(data)
-	i := strings.Index(text, "# --- D9")
-	if i < 0 {
-		t.Fatal("policy has no D9 voice section")
+}
+
+func TestCheck_ValidationError(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, claudeConfig+"[models]\ndefault = \"missing\"\n")
+	if code := e.run("check", "-file", p); code != 1 {
+		t.Fatalf("exit = %d, out = %s", code, e.out)
 	}
-	text = text[:i] + "[harnessPolicy.voice]\nenabled = false\nmode = \"hold\"\nlanguage = \"it\"\n"
-	copyPath := filepath.Join(t.TempDir(), "harness-policy.toml")
-	if err := os.WriteFile(copyPath, []byte(text), 0o600); err != nil {
-		t.Fatal(err)
+	if !strings.Contains(e.out.String(), "models.default") {
+		t.Errorf("out = %q", e.out)
 	}
 
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdin:  strings.NewReader(""),
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "CHEZMOI_SOURCE_DIR" {
-				return homeDir
-			}
-			return ""
-		},
+	if code := e.run("check", "-json", "-file", p); code != 1 {
+		t.Fatalf("json exit = %d", code)
 	}
-	code := d.Run(context.Background(), []string{"check", "-file", copyPath})
-	if code != 1 {
-		t.Fatalf("exit code = %d, want 1; stderr: %s", code, stderr.String())
+	var got struct {
+		Findings []map[string]string `json:"findings"`
 	}
-	if !strings.Contains(stderr.String(), "dictation.enabled") {
-		t.Errorf("stderr should mention dictation.enabled, got %q", stderr.String())
+	if err := json.Unmarshal(e.out.Bytes(), &got); err != nil {
+		t.Fatalf("%v: %s", err, e.out)
+	}
+	want := []map[string]string{{
+		"where":    "models.default",
+		"message":  `tier "missing" is not declared under models.tiers`,
+		"severity": "error",
+	}}
+	if diff := cmp.Diff(want, got.Findings); diff != "" {
+		t.Errorf("findings (-want +got):\n%s", diff)
+	}
+}
+
+func TestCheck_JsonWithNoFindingsIsAnEmptyList(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, claudeConfig)
+	if code := e.run("check", "-json", "-file", p); code != 0 {
+		t.Fatalf("exit = %d", code)
+	}
+	if got := strings.Join(strings.Fields(e.out.String()), ""); got != `{"findings":[]}` {
+		t.Errorf("out = %s", got)
+	}
+}
+
+func TestCheck_Stdin(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, claudeConfig)
+	if code := e.run("check", "-file", "-"); code != 0 {
+		t.Fatalf("exit = %d, out = %s, err = %s", code, e.out, e.errOut)
+	}
+}
+
+func TestCheck_LoadError(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, "bogus = 1\n")
+	if code := e.run("check", "-file", p); code != 1 || e.errOut.Len() == 0 {
+		t.Fatalf("exit = %d, stderr = %q", code, e.errOut)
+	}
+}
+
+func TestCheck_BadFlag(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	if code := e.run("check", "-nope"); code != 2 {
+		t.Fatalf("exit = %d, want 2", code)
+	}
+}
+
+func TestCheck_LiveDrift(t *testing.T) {
+	t.Parallel()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, claudeConfig)
+	if code := e.run("check", "-live", "-file", p); code != 1 || !strings.Contains(e.out.String(), "differs from what apply would write (create)") {
+		t.Fatalf("before apply: exit = %d, out = %s", code, e.out)
+	}
+	if code := e.run("apply", "-file", p); code != 0 {
+		t.Fatalf("apply exit = %d, err = %s", code, e.errOut)
+	}
+	if code := e.run("check", "-live", "-file", p); code != 0 {
+		t.Fatalf("after apply: exit = %d, out = %s", code, e.out)
+	}
+	if err := os.WriteFile(filepath.Join(e.home, ".claude", "settings.json"), []byte("{}\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if code := e.run("check", "-live", "-file", p); code != 1 || !strings.Contains(e.out.String(), "(update)") {
+		t.Fatalf("after edit: exit = %d, out = %s", code, e.out)
 	}
 }

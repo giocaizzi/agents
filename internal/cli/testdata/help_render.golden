@@ -5,15 +5,13 @@ USAGE
 
 OPTIONS
   -file string
-    	path to harness-policy.toml or agents.toml
+    	config file (default: $AGENTS_CONFIG, else the user config.toml); - reads stdin
   -harness string
-    	target client harness (claude, antigravity, copilot, codex, pi, opencode)
-  -os string
-    	target operating system (darwin, linux, windows)
-  -part string
-    	output granularity (permissions, settings, prompt, all)
+    	print only the targets of this harness
+  -harnesses string
+    	comma-separated harnesses to configure (overrides $AGENTS_HARNESSES)
   -profile string
-    	optional configuration profile to apply
+    	profile to select (overrides $AGENTS_PROFILE and the profile key)
   -h, --help
     Show this help and exit.
 
