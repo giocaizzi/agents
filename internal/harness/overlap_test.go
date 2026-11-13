@@ -51,7 +51,6 @@ func TestOverlappingDeny(t *testing.T) {
 	for _, tt := range spans {
 		t.Run("spans: "+tt.name, func(t *testing.T) {
 			t.Parallel()
-			t.Skip("xfail: overlappingDeny compares words position by position, but a deny * spans spaces (the deny matches " + tt.command + ")")
 			words, _ := prefixWords(tt.allow)
 			if _, got := overlapping(words, []unexpressible{{tt.deny, "deny pattern"}}); !got {
 				t.Errorf("overlapping(%q, %q) = false, want true: %q matches both", tt.allow, tt.deny, tt.command)
