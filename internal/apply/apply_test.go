@@ -581,7 +581,7 @@ func TestUnifiedDiff(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got := unifiedDiff("/p", tt.old, tt.new)
+			got := unifiedDiff("/p", tt.old, tt.new, nil)
 			if tt.wantHunks > 0 {
 				if n := strings.Count(got, "@@ -"); n != tt.wantHunks {
 					t.Errorf("hunks = %d, want %d:\n%s", n, tt.wantHunks, got)

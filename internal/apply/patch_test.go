@@ -95,6 +95,52 @@ func TestPatchInPlace(t *testing.T) {
 	}
 }
 
+// TestTOMLTableScalarSwitch checks that a managed key changing between a table
+// and a scalar is rewritten instead of failing the target.
+func TestTOMLTableScalarSwitch(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name string
+		live string
+		want map[string]any
+		out  string
+	}{
+		{
+			name: "table with sub-table to scalar",
+			live: "top = 1\n\n[otel]\nlevel = 1\n\n[otel.exporter]\nkind = \"x\"\n\n[other]\nk = 1\n",
+			want: map[string]any{"otel": "none"},
+			out:  "top = 1\notel = \"none\"\n\n\n\n[other]\nk = 1\n",
+		},
+		{
+			name: "nested table to scalar",
+			live: "[otel]\nlevel = 1\n\n[otel.exporter]\nkind = \"x\"\n",
+			want: map[string]any{"otel": map[string]any{"level": 1, "exporter": "none"}},
+			out:  "[otel]\nlevel = 1\nexporter = \"none\"\n\n",
+		},
+		{
+			name: "scalar to table",
+			live: "top = 1\notel = \"none\"\n\n[other]\nk = 1\n",
+			want: map[string]any{"otel": map[string]any{"kind": "x"}},
+			out:  "top = 1\notel = { kind = \"x\" }\n\n[other]\nk = 1\n",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			dir := t.TempDir()
+			path := filepath.Join(dir, "c.toml")
+			writeFileT(t, path, tt.live)
+			res := runOne(t, engineIn(dir), Target{Path: path, Format: TOML, Managed: tt.want})
+			if res.Err != nil {
+				t.Fatal(res.Err)
+			}
+			if diff := cmp.Diff(tt.out, readFileT(t, path)); diff != "" {
+				t.Errorf("(-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
 func TestTOMLInlineTableRewrittenWhole(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()
