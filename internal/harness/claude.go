@@ -274,19 +274,6 @@ func (b *builder) expandValue(where string, v any) (any, bool) {
 	}
 }
 
-// deepMerge merges src into dst: maps recurse, anything else replaces.
-func deepMerge(dst, src map[string]any) {
-	for k, v := range src {
-		sm, ok := v.(map[string]any)
-		dm, dok := dst[k].(map[string]any)
-		if ok && dok {
-			deepMerge(dm, sm)
-			continue
-		}
-		dst[k] = v
-	}
-}
-
 // claudeLSPPluginTargets writes the local marketplace and plugin that carry
 // the language servers.
 func claudeLSPPluginTargets(b *builder, dir string, servers []LSPServer) {
