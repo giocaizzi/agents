@@ -71,14 +71,15 @@ func modelFeatures() []Feature {
 		shared("models.default_effort_level", "Default reasoning effort of the main session.",
 			"no documented reasoning effort setting",
 			rd(claude, at(claudeSettings, "effortLevel")),
-			pl(copilot, "effortLevel in settings.json (agents writes it only from a tier today)"),
+			rd(copilot, at(copilotSettings, "effortLevel")),
+			rd(vscode, at(copilotSettings, "effortLevel")),
 			pl(codex, "model_reasoning_effort (agents writes it only from a tier today)"),
 			pl(pi, "defaultThinkingLevel (agents writes it only from a tier today)")),
 		shared("models.show_thinking_summaries", "Show the model's thinking summaries.",
 			"no documented thinking display setting",
 			rd(claude, at(claudeSettings, "showThinkingSummaries")),
-			pl(copilot, "showReasoning"),
-			pl(vscode, "chat.agent.thinkingStyle"),
+			rd(copilot, at(copilotSettings, "showReasoning")),
+			rd(vscode, at(copilotSettings, "showReasoning")),
 			pl(codex, "model_reasoning_summary and hide_agent_reasoning"),
 			pl(pi, "hideThinkingBlock")),
 	}
@@ -114,11 +115,12 @@ func autonomyFeatures() []Feature {
 		shared("autonomy.subagent_depth", "Maximum subagent nesting depth.",
 			"no documented subagent depth setting",
 			rd(opencode, at(opencodeConfig, "experimental")),
-			pl(copilot, "subagents.maxDepth"),
+			rd(copilot, at(copilotSettings, "subagents")),
+			rd(vscode, at(copilotSettings, "subagents")),
 			un(codex, "agents.max_threads limits concurrent threads, not nesting depth")),
 		shared("autonomy.allow_subagent_invocations", "Allow subagents to invoke subagents.",
 			"no documented subagent invocation setting",
-			pl(vscode, "chat.subagents.allowInvocationsFromSubagents")),
+			rd(vscode, at(vscodeSettings, "chat.subagents.allowInvocationsFromSubagents"))),
 		shared("autonomy.ask_timeout", "How long to wait for an answer to a question.",
 			"no documented timeout for questions",
 			rd(claude, at(claudeSettings, "askUserQuestionTimeout"))),
@@ -165,7 +167,7 @@ func permissionFeatures() []Feature {
 			pl(codex, "prefix_rule with decision forbidden")),
 		shared("permissions.deny_command_prefixes", "Command prefixes that are denied.", noCmd,
 			claudeDeny, ocDeny, agyDeny,
-			pl(vscode, "chat.tools.terminal.autoApprove entries set to false"),
+			vscodeCommands,
 			pl(codex, "prefix_rule with decision forbidden")),
 		shared("permissions.ask_command_prefixes", "Command prefixes that always ask.", noCmd,
 			claudeAsk, vscodeCommands, ocAllow, agyAsk,
@@ -186,7 +188,7 @@ func contextFeatures() []Feature {
 		shared("context.auto_compact", "Compact the context automatically.",
 			"no documented automatic compaction setting",
 			pl(claude, "autoCompactEnabled"),
-			pl(vscode, "github.copilot.chat.summarizeAgentConversationHistory.enabled"),
+			rd(vscode, at(vscodeSettings, "github.copilot.chat.summarizeAgentConversationHistory.enabled")),
 			pl(opencode, "compaction.auto"),
 			pl(pi, "compaction.enabled")),
 		shared("context.auto_compact_window", "Context size that triggers compaction.",
@@ -213,7 +215,7 @@ func uiFeatures() []Feature {
 		shared("ui.theme", "Colour theme.", "no documented theme setting",
 			rd(claude, at(claudeSettings, "theme")),
 			rd(vscode, at(vscodeSettings, "workbench.colorTheme")),
-			pl(copilot, "theme"),
+			pl(copilot, "theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)"),
 			pl(codex, "tui.theme"),
 			pl(pi, "theme"),
 			pl(antigravity, "colorScheme"),
@@ -236,7 +238,7 @@ func uiFeatures() []Feature {
 
 func voiceFeatures() []Feature {
 	const noVoice = "no documented voice input setting"
-	const copilotAmb = "ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only"
+	const voiceUn = "the settings reference lists no voice key (checked 2026-11-13, docs.github.com Copilot CLI config directory reference)"
 	return []Feature{
 		shared("voice.enabled", "Enable voice input.", noVoice,
 			rd(claude, at(claudeSettings, "voice")),
@@ -244,14 +246,14 @@ func voiceFeatures() []Feature {
 			rd(vscode, all(at(vscodeSettings, "dictation.enabled"), at(copilotSettings, "voice")))),
 		shared("voice.mode", "Voice mode.", noVoice,
 			rd(claude, at(claudeSettings, "voice")),
-			pl(copilot, copilotAmb)),
+			un(copilot, voiceUn)),
 		shared("voice.auto_submit", "Submit the transcript automatically.", noVoice,
 			rd(claude, at(claudeSettings, "voice")),
-			pl(copilot, copilotAmb)),
+			un(copilot, voiceUn)),
 		shared("voice.language", "Dictation language.", noVoice,
 			rd(claude, at(claudeSettings, "voice")),
 			rd(vscode, at(vscodeSettings, "agents.voice.language")),
-			pl(copilot, copilotAmb)),
+			un(copilot, voiceUn)),
 	}
 }
 
@@ -259,27 +261,31 @@ func telemetryFeatures() []Feature {
 	const noOTel = "no documented OpenTelemetry export setting"
 	const codexAmb = "ambiguous: the [otel] sub-keys for this setting were not verified"
 	type spec struct {
-		key, summary string
-		codex        pair
+		key, summary  string
+		codex, vscode pair
 	}
 	otel := rd(codex, at(codexConfig, "otel"))
+	vsOTel := func(key string) pair {
+		return rd(vscode, at(vscodeSettings, "github.copilot.chat.otel."+key))
+	}
+	vsNone := un(vscode, "the Copilot settings reference lists no such OpenTelemetry setting (checked 2026-11-13)")
 	specs := []spec{
-		{"enabled", "Export telemetry.", otel},
-		{"endpoint", "Collector endpoint.", otel},
-		{"protocol", "Export protocol.", otel},
-		{"temporality", "Metric temporality.", pl(codex, codexAmb)},
-		{"log_tool_details", "Log tool call details.", pl(codex, codexAmb)},
-		{"log_tool_content", "Log tool call content.", pl(codex, codexAmb)},
-		{"service_namespace", "Service namespace resource attribute.", pl(codex, codexAmb)},
-		{"attributes", "Extra resource attributes.", otel},
-		{"services", "Service name per harness.", pl(codex, codexAmb)},
+		{"enabled", "Export telemetry.", otel, vsOTel("enabled")},
+		{"endpoint", "Collector endpoint.", otel, vsOTel("otlpEndpoint")},
+		{"protocol", "Export protocol.", otel, pl(vscode, "github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)")},
+		{"temporality", "Metric temporality.", pl(codex, codexAmb), vsNone},
+		{"log_tool_details", "Log tool call details.", pl(codex, codexAmb), vsNone},
+		{"log_tool_content", "Log tool call content.", pl(codex, codexAmb), pl(vscode, "github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)")},
+		{"service_namespace", "Service namespace resource attribute.", pl(codex, codexAmb), vsNone},
+		{"attributes", "Extra resource attributes.", otel, vsNone},
+		{"services", "Service name per harness.", pl(codex, codexAmb), vsNone},
 	}
 	out := make([]Feature, len(specs))
 	for i, s := range specs {
 		out[i] = shared("telemetry."+s.key, s.summary, noOTel,
 			rd(claude, at(claudeSettings, "env")),
 			s.codex,
-			pl(vscode, "github.copilot.chat.otel.*"))
+			s.vscode)
 	}
 	return out
 }

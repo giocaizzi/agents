@@ -18,13 +18,13 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `models.default` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.tiers` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.assign` | — | ✓ | ✓ | — | ✓ | — | — |
-| `models.default_effort_level` | ✓ | planned | — | planned | — | planned | — |
-| `models.show_thinking_summaries` | ✓ | planned | planned | planned | — | planned | — |
+| `models.default_effort_level` | ✓ | ✓ | ✓ | planned | — | planned | — |
+| `models.show_thinking_summaries` | ✓ | ✓ | ✓ | planned | — | planned | — |
 | `autonomy.execution_mode` | planned | planned | planned | planned | — | — | ✓ |
 | `autonomy.sandbox_mode` | planned | planned | planned | planned | — | — | planned |
 | `autonomy.allow_non_workspace_access` | planned | — | planned | — | planned | — | ✓ |
-| `autonomy.subagent_depth` | — | planned | — | — | ✓ | — | — |
-| `autonomy.allow_subagent_invocations` | — | — | planned | — | — | — | — |
+| `autonomy.subagent_depth` | — | ✓ | ✓ | — | ✓ | — | — |
+| `autonomy.allow_subagent_invocations` | — | — | ✓ | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
 | `autonomy.mode` | planned | planned | planned | planned | planned | planned | planned |
 | `permissions.allow_commands` | planned | — | ✓ | planned | planned | — | planned |
@@ -34,11 +34,11 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `permissions.deny_write` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_command_exact` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
-| `permissions.deny_command_prefixes` | ✓ | — | planned | planned | ✓ | — | ✓ |
+| `permissions.deny_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
 | `permissions.ask_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
 | `permissions.allowed_mcp` | planned | — | — | — | planned | — | planned |
 | `permissions.reasons` | — | — | — | planned | — | — | — |
-| `context.auto_compact` | planned | — | planned | — | planned | planned | — |
+| `context.auto_compact` | planned | — | ✓ | — | planned | planned | — |
 | `context.auto_compact_window` | ✓ | — | — | — | — | planned | — |
 | `context.prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.subagent_prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
@@ -53,18 +53,18 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `ui.time_format` | ✓ | — | — | — | — | — | — |
 | `notifications.terminal_bell` | ✓ | ✓ | ✓ | ✓ | — | — | planned |
 | `voice.enabled` | ✓ | ✓ | ✓ | — | — | — | — |
-| `voice.mode` | ✓ | planned | — | — | — | — | — |
-| `voice.auto_submit` | ✓ | planned | — | — | — | — | — |
-| `voice.language` | ✓ | planned | ✓ | — | — | — | — |
-| `telemetry.enabled` | ✓ | — | planned | ✓ | — | — | — |
-| `telemetry.endpoint` | ✓ | — | planned | ✓ | — | — | — |
+| `voice.mode` | ✓ | — | — | — | — | — | — |
+| `voice.auto_submit` | ✓ | — | — | — | — | — | — |
+| `voice.language` | ✓ | — | ✓ | — | — | — | — |
+| `telemetry.enabled` | ✓ | — | ✓ | ✓ | — | — | — |
+| `telemetry.endpoint` | ✓ | — | ✓ | ✓ | — | — | — |
 | `telemetry.protocol` | ✓ | — | planned | ✓ | — | — | — |
-| `telemetry.temporality` | ✓ | — | planned | planned | — | — | — |
-| `telemetry.log_tool_details` | ✓ | — | planned | planned | — | — | — |
+| `telemetry.temporality` | ✓ | — | — | planned | — | — | — |
+| `telemetry.log_tool_details` | ✓ | — | — | planned | — | — | — |
 | `telemetry.log_tool_content` | ✓ | — | planned | planned | — | — | — |
-| `telemetry.service_namespace` | ✓ | — | planned | planned | — | — | — |
-| `telemetry.attributes` | ✓ | — | planned | ✓ | — | — | — |
-| `telemetry.services` | ✓ | — | planned | planned | — | — | — |
+| `telemetry.service_namespace` | ✓ | — | — | planned | — | — | — |
+| `telemetry.attributes` | ✓ | — | — | ✓ | — | — | — |
+| `telemetry.services` | ✓ | — | — | planned | — | — | — |
 | `lsp.enabled` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers.*.filetypes` | — | — | — | — | — | — | — |
@@ -217,6 +217,9 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `models.default`: `~/.copilot/settings.json: model`
 - `models.tiers`: `~/.copilot/settings.json: model`
 - `models.assign`: `~/.copilot/settings.json: subagents`
+- `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
+- `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
+- `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
 - `permissions.allowed_urls`: `~/.copilot/settings.json: allowedUrls`
 - `notifications.terminal_bell`: `~/.copilot/settings.json: beep`
 - `voice.enabled`: `~/.copilot/settings.json: voice`
@@ -233,16 +236,10 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 
 **Planned**
 
-- `models.default_effort_level`: effortLevel in settings.json (agents writes it only from a tier today)
-- `models.show_thinking_summaries`: showReasoning
 - `autonomy.execution_mode`: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode`: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.subagent_depth`: subagents.maxDepth
 - `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `ui.theme`: theme
-- `voice.mode`: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
-- `voice.auto_submit`: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
-- `voice.language`: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
+- `ui.theme`: theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)
 
 **Not supported**
 
@@ -266,6 +263,7 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - no documented setting for access outside the workspace: `autonomy.allow_non_workspace_access`
 - no documented subagent invocation setting: `autonomy.allow_subagent_invocations`
 - no documented timeout for questions: `autonomy.ask_timeout`
+- the settings reference lists no voice key (checked 2026-11-13, docs.github.com Copilot CLI config directory reference): `voice.mode`, `voice.auto_submit`, `voice.language`
 
 ### VS Code
 
@@ -277,16 +275,24 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `models.default`: `~/.copilot/settings.json: model`
 - `models.tiers`: `~/.copilot/settings.json: model`
 - `models.assign`: `~/.copilot/settings.json: subagents`
+- `models.default_effort_level`: `~/.copilot/settings.json: effortLevel`
+- `models.show_thinking_summaries`: `~/.copilot/settings.json: showReasoning`
+- `autonomy.subagent_depth`: `~/.copilot/settings.json: subagents`
+- `autonomy.allow_subagent_invocations`: `<Code user dir>/settings.json: chat.subagents.allowInvocationsFromSubagents`
 - `permissions.allow_commands`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
 - `permissions.allowed_urls`: `<Code user dir>/settings.json: chat.tools.urls.autoApprove`, `~/.copilot/settings.json: allowedUrls`
 - `permissions.allow_command_patterns`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
 - `permissions.deny_command_patterns`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
 - `permissions.deny_command_exact`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
+- `permissions.deny_command_prefixes`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
 - `permissions.ask_command_prefixes`: `<Code user dir>/settings.json: chat.tools.terminal.autoApprove`
+- `context.auto_compact`: `<Code user dir>/settings.json: github.copilot.chat.summarizeAgentConversationHistory.enabled`
 - `ui.theme`: `<Code user dir>/settings.json: workbench.colorTheme`
 - `notifications.terminal_bell`: `~/.copilot/settings.json: beep`
 - `voice.enabled`: `<Code user dir>/settings.json: dictation.enabled`, `~/.copilot/settings.json: voice`
 - `voice.language`: `<Code user dir>/settings.json: agents.voice.language`
+- `telemetry.enabled`: `<Code user dir>/settings.json: github.copilot.chat.otel.enabled`
+- `telemetry.endpoint`: `<Code user dir>/settings.json: github.copilot.chat.otel.otlpEndpoint`
 - `lsp.enabled`: `~/.copilot/lsp-config.json: lspServers`
 - `lsp.servers`: `~/.copilot/lsp-config.json: lspServers`
 - `plugins.registry`: `~/.copilot/settings.json: enabledPlugins`, `~/.copilot/settings.json: extraKnownMarketplaces`
@@ -300,23 +306,12 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 
 **Planned**
 
-- `models.show_thinking_summaries`: chat.agent.thinkingStyle
 - `autonomy.execution_mode`: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode`: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.allow_non_workspace_access`: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
-- `autonomy.allow_subagent_invocations`: chat.subagents.allowInvocationsFromSubagents
 - `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `permissions.deny_command_prefixes`: chat.tools.terminal.autoApprove entries set to false
-- `context.auto_compact`: github.copilot.chat.summarizeAgentConversationHistory.enabled
-- `telemetry.enabled`: github.copilot.chat.otel.*
-- `telemetry.endpoint`: github.copilot.chat.otel.*
-- `telemetry.protocol`: github.copilot.chat.otel.*
-- `telemetry.temporality`: github.copilot.chat.otel.*
-- `telemetry.log_tool_details`: github.copilot.chat.otel.*
-- `telemetry.log_tool_content`: github.copilot.chat.otel.*
-- `telemetry.service_namespace`: github.copilot.chat.otel.*
-- `telemetry.attributes`: github.copilot.chat.otel.*
-- `telemetry.services`: github.copilot.chat.otel.*
+- `telemetry.protocol`: github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)
+- `telemetry.log_tool_content`: github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)
 
 **Not supported**
 
@@ -327,7 +322,6 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - no documented per-rule message: `permissions.reasons`
 - no documented per-turn token limit: `context.max_turn_tokens`
 - no documented prompt cache lifetime setting: `context.prompt_cache_ttl`, `context.subagent_prompt_cache_ttl`
-- no documented reasoning effort setting: `models.default_effort_level`
 - no documented response token limit: `context.max_tokens`
 - no documented setting for Output style.: `ui.output_style`
 - no documented setting for Show a terminal progress bar.: `ui.progress_bar`
@@ -335,9 +329,9 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - no documented setting for Terminal UI mode.: `ui.tui_mode`
 - no documented setting for Time format.: `ui.time_format`
 - no documented setting for Transcript view mode.: `ui.view_mode`
-- no documented subagent depth setting: `autonomy.subagent_depth`
 - no documented timeout for questions: `autonomy.ask_timeout`
 - no documented voice input setting: `voice.mode`, `voice.auto_submit`
+- the Copilot settings reference lists no such OpenTelemetry setting (checked 2026-11-13): `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 
 ### Codex
 
@@ -606,11 +600,8 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 
 The harness supports the setting natively and agents does not write it yet. `agents check` warns when such a key is set.
 
-- `models.default_effort_level` on Copilot CLI: effortLevel in settings.json (agents writes it only from a tier today)
 - `models.default_effort_level` on Codex: model_reasoning_effort (agents writes it only from a tier today)
 - `models.default_effort_level` on pi: defaultThinkingLevel (agents writes it only from a tier today)
-- `models.show_thinking_summaries` on Copilot CLI: showReasoning
-- `models.show_thinking_summaries` on VS Code: chat.agent.thinkingStyle
 - `models.show_thinking_summaries` on Codex: model_reasoning_summary and hide_agent_reasoning
 - `models.show_thinking_summaries` on pi: hideThinkingBlock
 - `autonomy.execution_mode` on Claude Code: permissions.defaultMode (agents writes it from harness.claude.default_mode; ambiguous: native mode names differ and the value is a free name)
@@ -625,8 +616,6 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `autonomy.allow_non_workspace_access` on Claude Code: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `autonomy.allow_non_workspace_access` on opencode: permission external_directory
-- `autonomy.subagent_depth` on Copilot CLI: subagents.maxDepth
-- `autonomy.allow_subagent_invocations` on VS Code: chat.subagents.allowInvocationsFromSubagents
 - `autonomy.mode` on Claude Code: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `autonomy.mode` on Copilot CLI: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `autonomy.mode` on VS Code: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
@@ -642,7 +631,6 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `permissions.allowed_urls` on opencode: permission webfetch
 - `permissions.allowed_urls` on Antigravity: permissions.allow read_url(...)
 - `permissions.deny_command_exact` on Codex: prefix_rule with decision forbidden
-- `permissions.deny_command_prefixes` on VS Code: chat.tools.terminal.autoApprove entries set to false
 - `permissions.deny_command_prefixes` on Codex: prefix_rule with decision forbidden
 - `permissions.ask_command_prefixes` on Codex: prefix_rule with decision prompt
 - `permissions.allowed_mcp` on Claude Code: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
@@ -650,33 +638,22 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `permissions.allowed_mcp` on Antigravity: permissions.allow mcp(...)
 - `permissions.reasons` on Codex: prefix_rule justification
 - `context.auto_compact` on Claude Code: autoCompactEnabled
-- `context.auto_compact` on VS Code: github.copilot.chat.summarizeAgentConversationHistory.enabled
 - `context.auto_compact` on opencode: compaction.auto
 - `context.auto_compact` on pi: compaction.enabled
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `context.max_tokens` on Claude Code: env CLAUDE_CODE_MAX_OUTPUT_TOKENS
-- `ui.theme` on Copilot CLI: theme
+- `ui.theme` on Copilot CLI: theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)
 - `ui.theme` on Codex: tui.theme
 - `ui.theme` on opencode: ambiguous: theme is not among the researched opencode keys; verify against its config docs
 - `ui.theme` on pi: theme
 - `ui.theme` on Antigravity: colorScheme
 - `notifications.terminal_bell` on Antigravity: notifications
-- `voice.mode` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
-- `voice.auto_submit` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
-- `voice.language` on Copilot CLI: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
-- `telemetry.enabled` on VS Code: github.copilot.chat.otel.*
-- `telemetry.endpoint` on VS Code: github.copilot.chat.otel.*
-- `telemetry.protocol` on VS Code: github.copilot.chat.otel.*
-- `telemetry.temporality` on VS Code: github.copilot.chat.otel.*
+- `telemetry.protocol` on VS Code: github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)
 - `telemetry.temporality` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.log_tool_details` on VS Code: github.copilot.chat.otel.*
 - `telemetry.log_tool_details` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.log_tool_content` on VS Code: github.copilot.chat.otel.*
+- `telemetry.log_tool_content` on VS Code: github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)
 - `telemetry.log_tool_content` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.service_namespace` on VS Code: github.copilot.chat.otel.*
 - `telemetry.service_namespace` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.attributes` on VS Code: github.copilot.chat.otel.*
-- `telemetry.services` on VS Code: github.copilot.chat.otel.*
 - `telemetry.services` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
 - `lsp.servers.*.format` on opencode: formatter key (separate from lsp)
 - `plugins.registry` on Codex: plugins.<name> enabled (agents plugins installs them instead)

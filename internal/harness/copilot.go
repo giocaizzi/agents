@@ -51,13 +51,26 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 		out["beep"] = true
 	}
 	out["voice"] = map[string]any{keyEnabled: c.Voice.Enabled}
-	model, _ := sessionModel(c, config.Copilot) // no session effortLevel: model only
-	setIf(out, keyModel, model)
+	setIf(out, "effortLevel", c.Models.DefaultEffortLevel)
+	if model, effort := sessionModel(c, config.Copilot); model != "" {
+		setIf(out, keyModel, model)
+		setIf(out, "effortLevel", effort) // only when the default tier sets one
+	}
+	if c.Models.ShowThinkingSummaries {
+		out["showReasoning"] = true
+	}
 	if len(c.Permissions.AllowedURLs) > 0 {
 		out["allowedUrls"] = slices.Clone(c.Permissions.AllowedURLs)
 	}
+	subagents := map[string]any{}
 	if agents := copilotAgentModels(c, b.env.Agents); len(agents) > 0 {
-		out["subagents"] = map[string]any{keyCopilotAgents: agents}
+		subagents[keyCopilotAgents] = agents
+	}
+	if d := c.Autonomy.SubagentDepth; d > 0 {
+		subagents["maxDepth"] = int64(d)
+	}
+	if len(subagents) > 0 {
+		out["subagents"] = subagents
 	}
 	if mkt := MarketplaceName(c); mkt != "" {
 		plugins := map[string]any{}
