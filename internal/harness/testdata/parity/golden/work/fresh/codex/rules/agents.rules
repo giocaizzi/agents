@@ -1,0 +1,22 @@
+# Managed by agents from permissions: do not edit.
+prefix_rule(
+    pattern = ["git","push","--force-with-lease","origin"],
+    decision = "allow",
+    justification = "Lease pushes are allowed to feature branches.",
+    match = ["git push --force-with-lease origin feat/x"],
+    not_match = ["git push --force origin feat/x"],
+)
+prefix_rule(
+    pattern = ["git","push","--force-with-lease","origin","main"],
+    decision = "forbidden",
+    justification = "Never push to main or master; open a pull request.",
+    match = ["git push --force-with-lease origin main"],
+    not_match = ["git push --force-with-lease origin feat/x"],
+)
+prefix_rule(
+    pattern = ["git","push","--force-with-lease","origin","master"],
+    decision = "forbidden",
+    justification = "Never push to main or master; open a pull request.",
+    match = ["git push --force-with-lease origin master"],
+    not_match = ["git push --force-with-lease origin feat/x"],
+)

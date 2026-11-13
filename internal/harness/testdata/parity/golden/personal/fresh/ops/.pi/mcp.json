@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "alpha": {
+      "url": "https://alpha.acct.example.com/mcp"
+    },
+    "beta": {
+      "url": "https://beta.acct.example.com/mcp?toolset=admin"
+    }
+  }
+}
+

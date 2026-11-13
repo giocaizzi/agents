@@ -11,7 +11,7 @@ import (
 	"github.com/giocaizzi/agents/internal/term"
 )
 
-const roleCol = 9
+const tierCol = 9
 
 // renderDoctor writes the report. meta is the dim text after the title, e.g.
 // "(live)". Global findings come first, then the suggestions collapsed across
@@ -159,14 +159,14 @@ type collapsedSuggestion struct {
 	harnesses []string
 }
 
-// collapseSuggestions merges suggestions identical in role, models, reason and
-// billing, ordered by role, then by the first harness of each.
+// collapseSuggestions merges suggestions identical in tier, models, reason and
+// billing, ordered by tier, then by the first harness of each.
 func collapseSuggestions(sugs []doctor.Finding) []collapsedSuggestion {
 	var out []collapsedSuggestion
 	for _, f := range sugs {
 		i := slices.IndexFunc(out, func(c collapsedSuggestion) bool {
 			g := c.f
-			return g.Role == f.Role && g.Current.ID == f.Current.ID && g.Suggested.ID == f.Suggested.ID &&
+			return g.Tier == f.Tier && g.Current.ID == f.Current.ID && g.Suggested.ID == f.Suggested.ID &&
 				g.Reason == f.Reason && g.Billing == f.Billing
 		})
 		if i < 0 {
@@ -177,13 +177,15 @@ func collapseSuggestions(sugs []doctor.Finding) []collapsedSuggestion {
 			out[i].harnesses = append(out[i].harnesses, f.Harness)
 		}
 	}
-	roles := []string{doctor.RoleScout, doctor.RoleWorker, doctor.RoleDriver, doctor.RoleEscalate, doctor.RoleDefault}
-	rank := func(r string) int {
-		if i := slices.Index(roles, r); i >= 0 {
-			return i
+	// Tiers have free names: they sort by first appearance in the findings,
+	// which follow the config's order (default tier first, then by name).
+	var tiers []string
+	for _, f := range sugs {
+		if !slices.Contains(tiers, f.Tier) {
+			tiers = append(tiers, f.Tier)
 		}
-		return len(roles)
 	}
+	rank := func(t string) int { return slices.Index(tiers, t) }
 	for i := range out {
 		out[i].harnesses = orderHarnesses(out[i].harnesses)
 	}
@@ -191,7 +193,7 @@ func collapseSuggestions(sugs []doctor.Finding) []collapsedSuggestion {
 		return slices.Index(orderHarnesses(allHarnesses(sugs)), c.harnesses[0])
 	}
 	slices.SortStableFunc(out, func(a, b collapsedSuggestion) int {
-		if c := rank(a.f.Role) - rank(b.f.Role); c != 0 {
+		if c := rank(a.f.Tier) - rank(b.f.Tier); c != 0 {
 			return c
 		}
 		return first(a) - first(b)
@@ -278,7 +280,7 @@ func suggestLine(st term.Style, f doctor.Finding, harnesses []string) string {
 	}
 	return fmt.Sprintf("%s↑%s %s%s%s%s → %s%s%s   %s%s%s",
 		st.G, st.O,
-		st.M, term.Pad(sanitize(f.Role), roleCol), st.O,
+		st.M, term.Pad(sanitize(f.Tier), tierCol), st.O,
 		sanitize(cur.Name), st.M, sanitize(sug.Name), st.O,
 		st.D, strings.Join(parts, " · "), st.O)
 }

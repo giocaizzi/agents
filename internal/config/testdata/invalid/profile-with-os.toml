@@ -1,0 +1,4 @@
+schema_version = 1
+
+[profiles.dev.os.linux.ui]
+theme = "dark"

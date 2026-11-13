@@ -1,463 +1,243 @@
-package cli_test
+package cli
 
 import (
 	"bytes"
-	"context"
+	"encoding/json"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
-	"github.com/giocaizzi/agents/internal/cli"
+	"github.com/giocaizzi/agents/internal/pluginmgmt"
 )
 
-func setupPluginsFixture(t *testing.T) (string, string) {
-	t.Helper()
-	tmpDir := t.TempDir()
-	homeDir := filepath.Join(tmpDir, "home")
-	harnessDir := filepath.Join(tmpDir, "harness")
+// pluginEnv is a hermetic machine: every directory lives under one temp root,
+// and the registry acme/harness resolves to a checkout under the data directory.
+type pluginEnv struct {
+	root, home, checkout, cfg string
+}
 
-	// Create harness.toml
-	harnessToml := filepath.Join(tmpDir, "harness.toml")
-	content := `
-[harnessPlugins]
+const pluginConfig = `
+[plugins]
+registry = "acme/harness"
+
+[plugins.enabled]
 dev-tools = ["antigravity", "claude"]
 foundations = ["antigravity"]
 `
-	if err := os.WriteFile(harnessToml, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
-	}
 
-	// Create harness upstream plugins
-	pDir := filepath.Join(harnessDir, "plugins")
-	devToolsDir := filepath.Join(pDir, "dev-tools")
-	if err := os.MkdirAll(devToolsDir, 0o700); err != nil {
+func newPluginEnv(t *testing.T, config string) pluginEnv {
+	t.Helper()
+	root := t.TempDir()
+	e := pluginEnv{
+		root:     root,
+		home:     filepath.Join(root, "home"),
+		checkout: filepath.Join(root, "data", "agents", "registries", "acme", "harness"),
+		cfg:      filepath.Join(root, "config.toml"),
+	}
+	if err := os.WriteFile(e.cfg, []byte(config), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(devToolsDir, "plugin.json"), []byte(`{"version": "1.53.0"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	return e
+}
 
-	foundationsDir := filepath.Join(pDir, "foundations")
-	if err := os.MkdirAll(foundationsDir, 0o700); err != nil {
-		t.Fatal(err)
+func (e pluginEnv) getenv(k string) string {
+	switch k {
+	case "HOME":
+		return e.home
+	case "XDG_DATA_HOME":
+		return filepath.Join(e.root, "data")
+	case "XDG_STATE_HOME":
+		return filepath.Join(e.root, "state")
+	case "XDG_CONFIG_HOME":
+		return filepath.Join(e.root, "config")
+	case "XDG_CACHE_HOME":
+		return filepath.Join(e.root, "cache")
 	}
-	if err := os.WriteFile(filepath.Join(foundationsDir, "plugin.json"), []byte(`{"version": "1.0.0"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+	return ""
+}
 
-	// Create antigravity installed plugin
-	agyDevTools := filepath.Join(homeDir, ".gemini", "config", "plugins", "dev-tools")
-	if err := os.MkdirAll(agyDevTools, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(agyDevTools, "plugin.json"), []byte(`{"version": "1.53.0"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
+func (e pluginEnv) deps(stdout, stderr *bytes.Buffer) Deps {
+	return Deps{Stdout: stdout, Stderr: stderr, Getenv: e.getenv, GOOS: "linux"}
+}
 
-	return harnessToml, harnessDir
+// args builds the argv after "plugins", selecting claude and antigravity from this config.
+func (e pluginEnv) args(args ...string) []string {
+	return append(args, "-file", e.cfg, "-harnesses", "antigravity,claude")
+}
+
+func (e pluginEnv) run(t *testing.T, args ...string) (code int, out, errOut string) {
+	t.Helper()
+	var stdout, stderr bytes.Buffer
+	code = e.deps(&stdout, &stderr).Run(t.Context(), append([]string{"plugins"}, e.args(args...)...))
+	return code, stdout.String(), stderr.String()
+}
+
+func writePluginVersion(t *testing.T, checkout, name, version string) {
+	t.Helper()
+	writeFile(t, filepath.Join(checkout, "plugins", name, "plugin.json"), `{"version": "`+version+`"}`)
+}
+
+func writeFile(t *testing.T, path, content string) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// installedFixture has the registry at 1.53.0 and antigravity current on dev-tools.
+func installedFixture(t *testing.T) pluginEnv {
+	t.Helper()
+	e := newPluginEnv(t, pluginConfig)
+	writePluginVersion(t, e.checkout, "dev-tools", "1.53.0")
+	writePluginVersion(t, e.checkout, "foundations", "1.0.0")
+	writeFile(t, filepath.Join(e.home, ".gemini", "config", "plugins", "dev-tools", "plugin.json"), `{"version": "1.53.0"}`)
+	return e
 }
 
 func TestPluginsList(t *testing.T) {
 	t.Parallel()
-	harnessToml, harnessDir := setupPluginsFixture(t)
-
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return filepath.Dir(harnessToml)
-			}
-			return ""
-		},
-	}
-
-	code := d.Run(context.Background(), []string{
-		"plugins", "list",
-		"-file", harnessToml,
-		"-harness-dir", harnessDir,
-	})
-
+	e := installedFixture(t)
+	code, out, errOut := e.run(t, "list")
 	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+		t.Fatalf("code = %d, stderr: %s", code, errOut)
 	}
-
-	out := stdout.String()
-	if !strings.Contains(out, "agents plugins") {
-		t.Errorf("expected header in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "dev-tools") {
-		t.Errorf("expected dev-tools in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "1.53.0") {
-		t.Errorf("expected version 1.53.0 in output, got:\n%s", out)
+	for _, want := range []string{"agents plugins", "dev-tools", "1.53.0", "ANTIGRAVITY", "CLAUDE"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
 	}
 }
 
 func TestPluginsListJSON(t *testing.T) {
 	t.Parallel()
-	harnessToml, harnessDir := setupPluginsFixture(t)
-
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return filepath.Dir(harnessToml)
-			}
-			return ""
-		},
-	}
-
-	code := d.Run(context.Background(), []string{
-		"plugins", "list",
-		"-file", harnessToml,
-		"-harness-dir", harnessDir,
-		"-json",
-	})
-
+	e := installedFixture(t)
+	code, out, errOut := e.run(t, "list", "-json")
 	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+		t.Fatalf("code = %d, stderr: %s", code, errOut)
 	}
-
-	out := stdout.String()
-	if !strings.Contains(out, `"dev-tools"`) || !strings.Contains(out, `"1.53.0"`) {
-		t.Errorf("expected JSON output with dev-tools, got:\n%s", out)
+	var list []pluginmgmt.PluginInfo
+	if err := json.Unmarshal([]byte(out), &list); err != nil {
+		t.Fatalf("decode: %v\n%s", err, out)
+	}
+	if len(list) != 2 || list[0].Name != "dev-tools" || list[0].UpstreamVersion != "1.53.0" {
+		t.Errorf("list = %+v", list)
 	}
 }
 
-func TestPluginsUpdateDryRun(t *testing.T) {
+func TestPluginsListMarksStaleAndDisabled(t *testing.T) {
 	t.Parallel()
-	harnessToml, harnessDir := setupPluginsFixture(t)
+	e := newPluginEnv(t, `
+[plugins]
+registry = "acme/harness"
+disabled = ["foundations"]
 
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return filepath.Dir(harnessToml)
-			}
-			return ""
-		},
-	}
-
-	code := d.Run(context.Background(), []string{
-		"plugins", "update",
-		"-file", harnessToml,
-		"-harness-dir", harnessDir,
-		"-n",
-	})
-
-	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
-	}
-
-	out := stdout.String()
-	if !strings.Contains(out, "plugins update") {
-		t.Errorf("expected update header in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "harness(es)") {
-		t.Errorf("expected update summary, got:\n%s", out)
-	}
-}
-
-func TestPluginsPruneDryRun(t *testing.T) {
-	t.Parallel()
-	harnessToml, _ := setupPluginsFixture(t)
-
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return filepath.Dir(harnessToml)
-			}
-			return ""
-		},
-	}
-
-	code := d.Run(context.Background(), []string{
-		"plugins", "prune",
-		"-file", harnessToml,
-		"-n",
-	})
-
-	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
-	}
-
-	out := stdout.String()
-	if !strings.Contains(out, "plugins prune") {
-		t.Errorf("expected prune header, got:\n%s", out)
-	}
-}
-
-func TestPluginsListPrefersManagedCustomRegistryAndHonorsOverrides(t *testing.T) {
-	t.Parallel()
-	tmpDir := t.TempDir()
-	homeDir := filepath.Join(tmpDir, "home")
-	harnessToml := filepath.Join(tmpDir, "harness.toml")
-	if err := os.WriteFile(harnessToml, []byte(`
-harnessRegistry = "octocat/custom-registry"
-
-[harnessPlugins]
+[plugins.enabled]
 dev-tools = ["claude"]
-`), 0o600); err != nil {
+foundations = ["claude"]
+`)
+	writePluginVersion(t, e.checkout, "dev-tools", "1.2.0")
+	writePluginVersion(t, e.checkout, "foundations", "1.0.0")
+	if err := os.MkdirAll(filepath.Join(e.home, ".claude", "plugins", "cache", "acme-harness", "dev-tools", "1.1.0"), 0o700); err != nil {
 		t.Fatal(err)
 	}
 
-	writePlugin := func(dir, version string) {
-		t.Helper()
-		pluginDir := filepath.Join(dir, "plugins", "dev-tools")
-		if err := os.MkdirAll(pluginDir, 0o700); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(pluginDir, "plugin.json"), []byte(`{"version":"`+version+`"}`), 0o600); err != nil {
-			t.Fatal(err)
+	code, out, errOut := e.run(t, "list", "-harness", "claude")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr: %s", code, errOut)
+	}
+	for _, want := range []string{"↑ 1.1.0", "stale or missing"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
 		}
 	}
+	if strings.Contains(out, "✗ missing") {
+		t.Errorf("disabled plugin reported missing:\n%s", out)
+	}
+}
 
-	managed := filepath.Join(homeDir, ".local", "share", "octocat-custom-registry")
-	developer := filepath.Join(homeDir, "Documents", "custom-registry")
-	environment := filepath.Join(tmpDir, "environment")
-	explicit := filepath.Join(tmpDir, "explicit")
-	writePlugin(managed, "1.0.0")
-	writePlugin(developer, "2.0.0")
-	writePlugin(environment, "3.0.0")
-	writePlugin(explicit, "4.0.0")
+func TestPluginsListWithoutCheckoutShowsConfiguredPlugins(t *testing.T) {
+	t.Parallel()
+	e := newPluginEnv(t, pluginConfig)
+	code, out, errOut := e.run(t, "list")
+	if code != 0 {
+		t.Fatalf("code = %d, stderr: %s", code, errOut)
+	}
+	for _, want := range []string{"dev-tools", "foundations"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestPluginsListHarnessDirOverridesCheckout(t *testing.T) {
+	t.Parallel()
+	e := newPluginEnv(t, pluginConfig)
+	writePluginVersion(t, e.checkout, "dev-tools", "1.0.0")
+	dev := filepath.Join(e.root, "dev-checkout")
+	writePluginVersion(t, dev, "dev-tools", "4.0.0")
 
 	tests := []struct {
-		name       string
-		args       []string
-		harnessDir string
-		want       string
+		name string
+		args []string
+		want string
 	}{
-		{"managed custom registry precedes Documents checkout", nil, "", "1.0.0"},
-		{"HARNESS_DIR precedes managed registry", nil, environment, "3.0.0"},
-		{"harness-dir precedes HARNESS_DIR", []string{"-harness-dir", explicit}, environment, "4.0.0"},
+		{"default checkout", nil, "1.0.0"},
+		{"harness-dir", []string{"-harness-dir", dev}, "4.0.0"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			var stdout, stderr bytes.Buffer
-			d := cli.Deps{
-				Stdout: &stdout,
-				Stderr: &stderr,
-				Getenv: func(k string) string {
-					switch k {
-					case "HOME":
-						return homeDir
-					case "HARNESS_DIR":
-						return tt.harnessDir
-					default:
-						return ""
-					}
-				},
+			code, out, errOut := e.run(t, append([]string{"list"}, tt.args...)...)
+			if code != 0 {
+				t.Fatalf("code = %d, stderr: %s", code, errOut)
 			}
-
-			args := append([]string{"plugins", "list", "-file", harnessToml}, tt.args...)
-			if code := d.Run(context.Background(), args); code != 0 {
-				t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
-			}
-			if !strings.Contains(stdout.String(), tt.want) {
-				t.Errorf("plugins list output = %q, want version %q", stdout.String(), tt.want)
+			if !strings.Contains(out, tt.want) {
+				t.Errorf("output missing %q:\n%s", tt.want, out)
 			}
 		})
 	}
 }
 
-func TestPluginsListAutoDiscoverHarnessDirAndNamespace(t *testing.T) {
+func TestPluginsListConfigError(t *testing.T) {
 	t.Parallel()
-	tmpDir := t.TempDir()
-	homeDir := filepath.Join(tmpDir, "home")
-
-	// Create harness.toml without harnessRegistry
-	harnessToml := filepath.Join(tmpDir, "harness.toml")
-	content := `
-[harnessPlugins]
-dev-tools = ["claude", "copilot"]
-`
-	if err := os.WriteFile(harnessToml, []byte(content), 0o600); err != nil {
-		t.Fatal(err)
+	e := newPluginEnv(t, "not = [valid")
+	if code, _, errOut := e.run(t, "list"); code != exitFindings || !strings.Contains(errOut, "plugins:") {
+		t.Errorf("code = %d, stderr = %q; want exit 1 with a plugins error", code, errOut)
 	}
+}
 
-	// Create harness repo in ~/src/harness
-	harnessDir := filepath.Join(homeDir, "src", "harness")
-	pDir := filepath.Join(harnessDir, "plugins", "dev-tools")
-	if err := os.MkdirAll(pDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(pDir, "plugin.json"), []byte(`{"version": "1.0.0"}`), 0o600); err != nil {
-		t.Fatal(err)
+func TestPluginsPrune(t *testing.T) {
+	t.Parallel()
+	e := installedFixture(t)
+	cache := filepath.Join(e.home, ".claude", "plugins", "cache", "acme-harness", "dev-tools")
+	for _, v := range []string{"1.0.0", "1.1.0"} {
+		if err := os.MkdirAll(filepath.Join(cache, v), 0o700); err != nil {
+			t.Fatal(err)
+		}
 	}
 
-	// Create .claude-plugin/marketplace.json with custom name
-	claudePluginDir := filepath.Join(harnessDir, ".claude-plugin")
-	if err := os.MkdirAll(claudePluginDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	marketplaceJSON := `{"name": "discovered-marketplace"}`
-	if err := os.WriteFile(filepath.Join(claudePluginDir, "marketplace.json"), []byte(marketplaceJSON), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return homeDir
-			}
-			return ""
-		},
-	}
-
-	// Do NOT pass -harness-dir: discovery should find ~/src/harness and discovered-marketplace namespace
-	code := d.Run(context.Background(), []string{
-		"plugins", "list",
-		"-file", harnessToml,
-	})
+	code, out, errOut := e.run(t, "prune", "-n")
 	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
+		t.Fatalf("code = %d, stderr: %s", code, errOut)
+	}
+	if !strings.Contains(out, "plugins prune") || !strings.Contains(out, "would remove "+filepath.Join(cache, "1.0.0")) {
+		t.Errorf("dry run output:\n%s", out)
+	}
+	if _, err := os.Stat(filepath.Join(cache, "1.0.0")); err != nil {
+		t.Errorf("dry run removed the cache: %v", err)
 	}
 
-	out := stdout.String()
-	if !strings.Contains(out, "dev-tools") {
-		t.Errorf("expected dev-tools in output, got:\n%s", out)
+	if code, _, errOut := e.run(t, "prune"); code != 0 {
+		t.Fatalf("prune code = %d, stderr: %s", code, errOut)
 	}
-}
-
-func gitIn(t *testing.T, dir string, args ...string) {
-	t.Helper()
-	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("git %v: %v\n%s", args, err, out)
+	if _, err := os.Stat(filepath.Join(cache, "1.0.0")); !os.IsNotExist(err) {
+		t.Errorf("superseded cache still there: %v", err)
 	}
-}
-
-func commitPluginVersion(t *testing.T, repo, version string) {
-	t.Helper()
-	manifest := filepath.Join(repo, "plugins", "dev-tools", ".claude-plugin", "plugin.json")
-	if err := os.MkdirAll(filepath.Dir(manifest), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(manifest, []byte(`{"version": "`+version+`"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	gitIn(t, repo, "add", "-A")
-	gitIn(t, repo, "commit", "-q", "-m", "release "+version)
-	gitIn(t, repo, "push", "-q", "origin", "HEAD:main")
-}
-
-// setupGitPluginsFixture returns harness.toml, a registry checkout whose working
-// tree says 1.0.0 while origin is at 1.1.0, and a HOME with claude at 1.0.0.
-func setupGitPluginsFixture(t *testing.T) (harnessToml, checkout, homeDir string) {
-	t.Helper()
-	t.Setenv("GIT_CONFIG_GLOBAL", os.DevNull)
-	t.Setenv("GIT_CONFIG_NOSYSTEM", "1")
-	t.Setenv("GIT_AUTHOR_NAME", "octocat")
-	t.Setenv("GIT_AUTHOR_EMAIL", "octocat@example.com")
-	t.Setenv("GIT_COMMITTER_NAME", "octocat")
-	t.Setenv("GIT_COMMITTER_EMAIL", "octocat@example.com")
-
-	root := t.TempDir()
-	origin := filepath.Join(root, "origin.git")
-	seed := filepath.Join(root, "seed")
-	checkout = filepath.Join(root, "checkout")
-	homeDir = filepath.Join(root, "home")
-
-	gitIn(t, root, "init", "-q", "--bare", "-b", "main", origin)
-	gitIn(t, root, "init", "-q", "-b", "main", seed)
-	gitIn(t, seed, "remote", "add", "origin", origin)
-	commitPluginVersion(t, seed, "1.0.0")
-	gitIn(t, root, "clone", "-q", origin, checkout)
-	commitPluginVersion(t, seed, "1.1.0")
-
-	// Pin the claude cache namespace through an untracked marketplace file.
-	marketDir := filepath.Join(checkout, ".claude-plugin")
-	if err := os.MkdirAll(marketDir, 0o700); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(marketDir, "marketplace.json"), []byte(`{"name": "example-harness"}`), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := os.MkdirAll(filepath.Join(homeDir, ".claude", "plugins", "cache", "example-harness", "dev-tools", "1.0.0"), 0o700); err != nil {
-		t.Fatal(err)
-	}
-	harnessToml = filepath.Join(root, "harness.toml")
-	if err := os.WriteFile(harnessToml, []byte("[harnessPlugins]\ndev-tools = [\"claude\"]\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	return harnessToml, checkout, homeDir
-}
-
-func listGitPlugins(t *testing.T, harnessToml, checkout, homeDir string) string {
-	t.Helper()
-	var stdout, stderr bytes.Buffer
-	d := cli.Deps{
-		Stdout: &stdout,
-		Stderr: &stderr,
-		Getenv: func(k string) string {
-			if k == "HOME" {
-				return homeDir
-			}
-			return ""
-		},
-	}
-	code := d.Run(t.Context(), []string{
-		"plugins", "list",
-		"-file", harnessToml,
-		"-harness-dir", checkout,
-		"-harness", "claude",
-	})
-	if code != 0 {
-		t.Fatalf("expected code 0, got %d, stderr: %s", code, stderr.String())
-	}
-	return stdout.String()
-}
-
-func TestPluginsListUsesFetchedRemoteTip(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
-	harnessToml, checkout, homeDir := setupGitPluginsFixture(t)
-	out := listGitPlugins(t, harnessToml, checkout, homeDir)
-
-	if !strings.Contains(out, "1.1.0") {
-		t.Errorf("expected fetched upstream 1.1.0 in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "↑") {
-		t.Errorf("expected stale marker in output, got:\n%s", out)
-	}
-	if !strings.Contains(out, "stale or missing") {
-		t.Errorf("expected stale-or-missing warning, got:\n%s", out)
-	}
-	if strings.Contains(out, "upstream unreachable") {
-		t.Errorf("unexpected unreachable warning, got:\n%s", out)
-	}
-}
-
-func TestPluginsListUpstreamUnreachable(t *testing.T) { //nolint:paralleltest // t.Setenv forbids parallel
-	harnessToml, checkout, homeDir := setupGitPluginsFixture(t)
-	gitIn(t, checkout, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "missing.git"))
-	// Claude has 1.0.0, matching the stale working tree: no row is stale or missing.
-	out := listGitPlugins(t, harnessToml, checkout, homeDir)
-
-	if !strings.Contains(out, "upstream unreachable") {
-		t.Errorf("expected unreachable warning, got:\n%s", out)
-	}
-	if !strings.Contains(out, "1.0.0 ?") {
-		t.Errorf("expected ' ?' marker after upstream version, got:\n%s", out)
-	}
-	if strings.Contains(out, "up to date") {
-		t.Errorf("must not claim up to date when upstream is unreachable, got:\n%s", out)
-	}
-	if !strings.Contains(out, "no newer version found in the local checkout") {
-		t.Errorf("expected neutral line, got:\n%s", out)
+	if _, err := os.Stat(filepath.Join(cache, "1.1.0")); err != nil {
+		t.Errorf("newest cache removed: %v", err)
 	}
 }

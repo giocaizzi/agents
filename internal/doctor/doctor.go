@@ -1,29 +1,20 @@
 // Package doctor is the advisory of agents: it compares the models
-// the harness policy configures with the model catalog and the provider
+// the configured tiers name with the model catalog and the provider
 // accounts the usage tool found, and says what is retired, drifted, beaten by
 // a model available to the same accounts, missing an account, or near a
-// capacity limit. It is pure: callers load the catalog, the policy and the
+// capacity limit. It is pure: callers load the catalog, the config and the
 // usage snapshots, and render the findings.
 package doctor
 
 import (
 	"fmt"
+	"maps"
 	"slices"
 	"time"
 
 	"github.com/giocaizzi/agents/internal/catalog"
 	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/usage"
-)
-
-// Agent roles of harnessPolicy.models.tiers, plus RoleDefault for a harness's
-// own default model (codex, pi, opencode native settings).
-const (
-	RoleScout    = "scout"
-	RoleWorker   = "worker"
-	RoleDriver   = "driver"
-	RoleEscalate = "escalate"
-	RoleDefault  = "default"
 )
 
 // Thresholds of the checks.
@@ -43,32 +34,12 @@ const (
 	LowHeadroom = 0.10
 )
 
-// Roles are the agent roles in display order.
-func Roles() []string {
-	return []string{RoleScout, RoleWorker, RoleDriver, RoleEscalate}
-}
-
-// RoleTier is the catalog tier an agent role belongs in; "" for RoleDefault
-// (a default model is compared within its own tier) and unknown roles.
-func RoleTier(role string) string {
-	switch role {
-	case RoleScout, RoleWorker:
-		return catalog.TierLightweight
-	case RoleDriver:
-		return catalog.TierPowerful
-	case RoleEscalate:
-		return catalog.TierExtra
-	}
-	return ""
-}
-
-// Setting is one model a harness is configured to use for a role.
+// Setting is one model a harness gets for a configured tier.
 type Setting struct {
-	Harness  string // claude, copilot, codex, antigravity, opencode, pi
-	Role     string // one of Roles() or RoleDefault
-	Model    string // as written in the policy: a bare id or "<provider>/<id>"
-	Provider string // provider hint from the policy (pi defaultProvider); may be empty
-	Key      string // where it is set, e.g. harnessPolicy.models.tiers.driver
+	Harness string // claude, copilot, codex, antigravity, opencode, pi
+	Tier    string // the tier name in the config
+	Model   string // as written in the config: a bare id or "<provider>/<id>"
+	Key     string // where it is set, e.g. models.tiers.driver.claude
 }
 
 // Input is everything Check reads.
@@ -99,7 +70,7 @@ type Kind string
 const (
 	KindStaleCatalog Kind = "stale-catalog" // (3) catalog older than StaleAfter
 	KindUnknownModel Kind = "unknown-model" // (1) configured model not in the catalog
-	KindTierDrift    Kind = "tier-drift"    // (1) configured role model outside its role's tier, or untiered
+	KindTierDrift    Kind = "tier-drift"    // (1) configured tier model without a catalog tier
 	KindNoUsage      Kind = "no-usage"      // no usage data: account checks skipped
 	KindNoAccount    Kind = "no-account"    // (5) no account for the provider of a configured model
 	KindCapacity     Kind = "capacity"      // (4) a limit at 90% or more, or an allowance used up
@@ -119,13 +90,13 @@ type ModelRef struct {
 }
 
 // Finding is one thing the doctor says. Harness is empty for a global finding
-// (catalog, policy keys, no usage data). Text is the complete plain sentence;
+// (catalog, config keys, no usage data). Text is the complete plain sentence;
 // Fix is the command or key that resolves it, empty when there is nothing to do.
 type Finding struct {
 	Level     Level     `json:"level"`
 	Kind      Kind      `json:"kind"`
 	Harness   string    `json:"harness,omitempty"`
-	Role      string    `json:"role,omitempty"`
+	Tier      string    `json:"tier,omitempty"`
 	Text      string    `json:"text"`
 	Fix       string    `json:"fix,omitempty"`
 	Current   *ModelRef `json:"current,omitempty"`
@@ -159,51 +130,28 @@ const (
 	hPi          = "pi"
 )
 
-// Settings lists the configured models of the given harnesses from the
-// policy, in harness then role order. Harness names it does not know are
-// ignored.
-func Settings(p config.Policy, harnesses []string) []Setting {
+// Settings lists the models the config's tiers give the given harnesses, in
+// harness order, then the default tier, then the other tiers by name. Harness
+// names it does not know are ignored.
+func Settings(c config.Config, harnesses []string) []Setting {
+	names := slices.Sorted(maps.Keys(c.Models.Tiers))
+	if d := c.Models.Default; d != "" {
+		if i := slices.Index(names, d); i > 0 {
+			names = slices.Insert(slices.Delete(names, i, i+1), 0, d)
+		}
+	}
 	var out []Setting
 	for _, h := range harnessOrder() {
 		if !slices.Contains(harnesses, h) {
 			continue
 		}
-		for _, role := range Roles() {
-			model := p.Models.Tiers[role].Model
-			key := "harnessPolicy.models.tiers." + role
-			if h == hCopilot {
-				if b, ok := p.Native.Copilot.Agents["dev-tools:"+role]; ok && b.Model != "" {
-					model = b.Model
-					key = fmt.Sprintf("harnessPolicy.native.copilot.agents.%q", "dev-tools:"+role)
-				}
+		for _, name := range names {
+			if model := c.Models.Tiers[name].Model(config.Harness(h)); model != "" {
+				out = append(out, Setting{Harness: h, Tier: name, Model: model, Key: fmt.Sprintf("models.tiers.%s.%s", name, h)})
 			}
-			if model != "" {
-				out = append(out, Setting{Harness: h, Role: role, Model: model, Key: key})
-			}
-		}
-		if s, ok := defaultSetting(p, h); ok {
-			out = append(out, s)
 		}
 	}
 	return out
-}
-
-// defaultSetting is the harness's own default model, for the harnesses whose
-// native settings have one.
-func defaultSetting(p config.Policy, h string) (Setting, bool) {
-	s := Setting{Harness: h, Role: RoleDefault}
-	switch h {
-	case hCodex:
-		if p.Native.Codex.Model == nil {
-			return s, false
-		}
-		s.Model, s.Key = *p.Native.Codex.Model, "harnessPolicy.native.codex.model"
-	case hPi:
-		s.Model, s.Provider, s.Key = p.Native.Pi.DefaultModel, p.Native.Pi.DefaultProvider, "harnessPolicy.native.pi.defaultModel"
-	case hOpenCode:
-		s.Model, s.Key = p.Native.OpenCode.DefaultModel, "harnessPolicy.native.opencode.defaultModel"
-	}
-	return s, s.Model != ""
 }
 
 // Check runs every check and returns the findings: global ones first, then

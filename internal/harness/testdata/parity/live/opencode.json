@@ -1,0 +1,8 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "theme": "tokyonight",
+  "mcp": {"local": {"type": "local", "command": ["x"]}},
+  "lsp": {"gopls": {"disabled": true}, "rust": {"command": ["rust-analyzer"]}},
+  "permissions": [{"action": "shell", "resource": "ls *", "effect": "allow"}, {"action": "read", "resource": "**/.env", "effect": "deny"}],
+  "policies": [{"action": "tool.use", "resource": "shell:rm", "effect": "deny"}]
+}

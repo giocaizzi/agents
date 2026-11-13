@@ -1,7 +1,6 @@
 package doctor
 
 import (
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +54,7 @@ var (
 	meteredPlan  = usage.Plan{Kind: usage.KindAPI, Billing: usage.BillingMetered, Payer: usage.PayerSelf}
 	orgPlan      = usage.Plan{Kind: usage.KindTeam, Billing: usage.BillingFlat, Payer: usage.PayerOrg}
 	unknownPlan  = usage.Plan{Kind: usage.KindUnknown, Billing: usage.BillingUnknown, Payer: usage.PayerUnknown}
-	scoutHaiku45 = Setting{Harness: "claude", Role: RoleScout, Model: "claude-haiku-4-5", Key: "harnessPolicy.models.tiers.scout"}
+	scoutHaiku45 = Setting{Harness: "claude", Tier: "scout", Model: "claude-haiku-4-5", Key: "models.tiers.scout.claude"}
 )
 
 func snap(provider string, plan usage.Plan, harnesses []string, limits ...usage.Limit) usage.Snapshot {
@@ -93,62 +92,44 @@ func texts(fs []Finding) []string {
 
 func TestSettings(t *testing.T) {
 	t.Parallel()
-	codexModel := "gpt-6"
-	empty := ""
-	p := config.Policy{
-		Models: config.Models{Tiers: map[string]config.ModelTier{
-			"scout":  {Model: "claude-haiku-4-5"},
-			"worker": {Model: "claude-haiku-5"},
-			"driver": {Model: "gpt-6"},
-		}},
-		Native: config.Native{
-			Copilot: config.CopilotNative{Agents: map[string]config.AgentBinding{
-				"dev-tools:driver": {Model: "claude-opus-4-5"},
-				"dev-tools:worker": {Model: ""},
-			}},
-			Codex:    config.CodexNative{Model: &codexModel},
-			Pi:       config.PiNative{DefaultModel: "gemini-flash", DefaultProvider: "google"},
-			OpenCode: config.OpenCodeNative{DefaultModel: "openai/gpt-mini"},
+	cfg := config.Config{Models: config.Models{
+		Default: "worker",
+		Tiers: map[string]config.Tier{
+			"scout":  {Claude: "claude-haiku-4-5", Codex: "gpt-mini"},
+			"worker": {Claude: "claude-haiku-5", VSCode: "gpt-6", Pi: "gemini-flash"},
+			"driver": {Claude: "gpt-6", Copilot: "claude-opus-4-5", OpenCode: "openai/gpt-mini"},
 		},
-	}
-	tier := func(h, role, model string) Setting {
-		return Setting{Harness: h, Role: role, Model: model, Key: "harnessPolicy.models.tiers." + role}
+	}}
+	tier := func(h, name, model string) Setting {
+		return Setting{Harness: h, Tier: name, Model: model, Key: "models.tiers." + name + "." + h}
 	}
 	tests := []struct {
 		name      string
-		p         config.Policy
+		cfg       config.Config
 		harnesses []string
 		want      []Setting
 	}{
 		{
-			name: "copilot override, order and unknown harness", p: p, harnesses: []string{"vscode", "copilot", "claude"},
+			name: "default tier first, then by name; unknown harness ignored", cfg: cfg, harnesses: []string{"vscode", "copilot", "claude"},
 			want: []Setting{
-				tier("claude", "scout", "claude-haiku-4-5"), tier("claude", "worker", "claude-haiku-5"), tier("claude", "driver", "gpt-6"),
-				tier("copilot", "scout", "claude-haiku-4-5"), tier("copilot", "worker", "claude-haiku-5"),
-				{Harness: "copilot", Role: "driver", Model: "claude-opus-4-5", Key: `harnessPolicy.native.copilot.agents."dev-tools:driver"`},
+				tier("claude", "worker", "claude-haiku-5"), tier("claude", "driver", "gpt-6"), tier("claude", "scout", "claude-haiku-4-5"),
+				tier("copilot", "driver", "claude-opus-4-5"),
 			},
 		},
 		{
-			name: "defaults", p: p, harnesses: []string{"pi", "opencode", "codex"},
+			name: "harness display order", cfg: cfg, harnesses: []string{"pi", "opencode", "codex"},
 			want: []Setting{
-				tier("codex", "scout", "claude-haiku-4-5"), tier("codex", "worker", "claude-haiku-5"), tier("codex", "driver", "gpt-6"),
-				{Harness: "codex", Role: RoleDefault, Model: "gpt-6", Key: "harnessPolicy.native.codex.model"},
-				tier("opencode", "scout", "claude-haiku-4-5"), tier("opencode", "worker", "claude-haiku-5"), tier("opencode", "driver", "gpt-6"),
-				{Harness: "opencode", Role: RoleDefault, Model: "openai/gpt-mini", Key: "harnessPolicy.native.opencode.defaultModel"},
-				tier("pi", "scout", "claude-haiku-4-5"), tier("pi", "worker", "claude-haiku-5"), tier("pi", "driver", "gpt-6"),
-				{Harness: "pi", Role: RoleDefault, Model: "gemini-flash", Provider: "google", Key: "harnessPolicy.native.pi.defaultModel"},
+				tier("codex", "scout", "gpt-mini"),
+				tier("opencode", "driver", "openai/gpt-mini"),
+				tier("pi", "worker", "gemini-flash"),
 			},
 		},
-		{
-			name: "empty codex model and empty policy", p: config.Policy{Native: config.Native{Codex: config.CodexNative{Model: &empty}}},
-			harnesses: []string{"codex", "claude", "antigravity"},
-			want:      nil,
-		},
+		{name: "empty config", cfg: config.Config{}, harnesses: []string{"codex", "claude", "antigravity"}, want: nil},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			if diff := cmp.Diff(tt.want, Settings(tt.p, tt.harnesses)); diff != "" {
+			if diff := cmp.Diff(tt.want, Settings(tt.cfg, tt.harnesses)); diff != "" {
 				t.Errorf("Settings mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -163,25 +144,23 @@ func TestResolve(t *testing.T) {
 		"azure/gpt-6":               {ID: "gpt-6", Provider: "azure"},
 	}}
 	tests := []struct {
-		name, model, hint, want string
-		ok                      bool
+		name, model, want string
+		ok                bool
 	}{
-		{"exact", "openai/gpt-6", "", "openai/gpt-6", true},
-		{"prefixed", "anthropic/claude-opus-4.5", "", "anthropic/claude-opus-4-5", true},
-		{"prefixed wrong provider", "openai/claude-opus-4-5", "", "", false},
-		{"bare normalised", "claude-opus-4.5", "", "anthropic/claude-opus-4-5", true},
-		{"bare sorted first", "gpt-6", "", "azure/gpt-6", true},
-		{"bare hint", "gpt-6", "openai", "openai/gpt-6", true},
-		{"hint without match falls back", "gpt-6", "xai", "azure/gpt-6", true},
-		{"missing", "claude-ghost", "", "", false},
-		{"missing prefixed", "openai/claude-ghost", "", "", false},
+		{"exact", "openai/gpt-6", "openai/gpt-6", true},
+		{"prefixed", "anthropic/claude-opus-4.5", "anthropic/claude-opus-4-5", true},
+		{"prefixed wrong provider", "openai/claude-opus-4-5", "", false},
+		{"bare normalised", "claude-opus-4.5", "anthropic/claude-opus-4-5", true},
+		{"bare sorted first", "gpt-6", "azure/gpt-6", true},
+		{"missing", "claude-ghost", "", false},
+		{"missing prefixed", "openai/claude-ghost", "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			got, ok := resolve(c, tt.model, tt.hint)
+			got, ok := resolve(c, tt.model)
 			if got != tt.want || ok != tt.ok {
-				t.Errorf("resolve(%q, %q) = %q, %v; want %q, %v", tt.model, tt.hint, got, ok, tt.want, tt.ok)
+				t.Errorf("resolve(%q) = %q, %v; want %q, %v", tt.model, got, ok, tt.want, tt.ok)
 			}
 		})
 	}
@@ -197,26 +176,26 @@ func TestCopilotProviders(t *testing.T) {
 func TestGlobalFindings(t *testing.T) {
 	t.Parallel()
 	c := fixtureCatalog()
-	key := func(role string) string { return "harnessPolicy.models.tiers." + role }
-	set := func(role, m string) Setting { return Setting{Harness: "claude", Role: role, Model: m, Key: key(role)} }
+	key := func(role string) string { return "models.tiers." + role + ".claude" }
+	set := func(role, m string) Setting { return Setting{Harness: "claude", Tier: role, Model: m, Key: key(role)} }
 
 	t.Run("unknown model once per key and model", func(t *testing.T) {
 		t.Parallel()
 		in := Input{Catalog: c, Now: now, Settings: []Setting{
 			set("scout", "claude-ghost"),
-			{Harness: "codex", Role: RoleScout, Model: "claude-ghost", Key: key("scout")},
-			{Harness: "pi", Role: RoleDefault, Model: "ghost", Key: "harnessPolicy.native.pi.defaultModel"},
+			{Harness: "codex", Tier: "scout", Model: "claude-ghost", Key: key("scout")},
+			{Harness: "pi", Tier: "default", Model: "ghost", Key: "models.tiers.default.pi"},
 		}}
 		got := Check(in)
 		want := []Finding{
 			{
-				Level: LevelWarn, Kind: KindUnknownModel, Role: RoleScout,
-				Text: "claude-ghost (harnessPolicy.models.tiers.scout) is not in the model catalog: retired, renamed or not tracked",
-				Fix:  "pick a lightweight model from agents models",
+				Level: LevelWarn, Kind: KindUnknownModel, Tier: "scout",
+				Text: "claude-ghost (models.tiers.scout.claude) is not in the model catalog: retired, renamed or not tracked",
+				Fix:  "pick a tracked model from agents models",
 			},
 			{
-				Level: LevelWarn, Kind: KindUnknownModel, Role: RoleDefault,
-				Text: "ghost (harnessPolicy.native.pi.defaultModel) is not in the model catalog: retired, renamed or not tracked",
+				Level: LevelWarn, Kind: KindUnknownModel, Tier: "default",
+				Text: "ghost (models.tiers.default.pi) is not in the model catalog: retired, renamed or not tracked",
 				Fix:  "pick a tracked model from agents models",
 			},
 			{
@@ -229,24 +208,16 @@ func TestGlobalFindings(t *testing.T) {
 		}
 	})
 
-	t.Run("tier drift warn and untiered info", func(t *testing.T) {
+	t.Run("untiered info", func(t *testing.T) {
 		t.Parallel()
 		in := Input{Catalog: c, Now: now, Settings: []Setting{
 			set("worker", "claude-opus-4-5"), set("scout", "claude-nameless"), set("driver", "gpt-6"),
-			{Harness: "pi", Role: RoleDefault, Model: "claude-opus-4-5", Key: "harnessPolicy.native.pi.defaultModel"},
 		}}
 		got := only(Check(in), KindTierDrift)
-		want := []Finding{
-			{
-				Level: LevelWarn, Kind: KindTierDrift, Role: RoleWorker,
-				Text: "worker uses Claude Opus 4.5 (powerful); the worker role belongs in the lightweight tier",
-				Fix:  "edit harnessPolicy.models.tiers.worker",
-			},
-			{
-				Level: LevelInfo, Kind: KindTierDrift, Role: RoleScout,
-				Text: "Claude Nameless (harnessPolicy.models.tiers.scout) has no tier: no API price or no ranking",
-			},
-		}
+		want := []Finding{{
+			Level: LevelInfo, Kind: KindTierDrift, Tier: "scout",
+			Text: "Claude Nameless (models.tiers.scout.claude) has no tier: no API price or no ranking",
+		}}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("mismatch (-want +got):\n%s", diff)
 		}
@@ -274,7 +245,7 @@ func TestGlobalFindings(t *testing.T) {
 var claude = []string{"claude"}
 
 func settingFor(h, role, m string) Setting {
-	return Setting{Harness: h, Role: role, Model: m, Key: "harnessPolicy.models.tiers." + role}
+	return Setting{Harness: h, Tier: role, Model: m, Key: "models.tiers." + role + ".claude"}
 }
 
 func check(h []string, snaps []usage.Snapshot, ss ...Setting) []Finding {
@@ -295,7 +266,7 @@ func TestAccountFindings(t *testing.T) {
 	t.Run("no account", func(t *testing.T) {
 		t.Parallel()
 		got := check([]string{"copilot"}, []usage.Snapshot{snap("anthropic", flatPlan, claude)},
-			settingFor("copilot", "worker", "claude-haiku-5"), settingFor("copilot", "scout", "claude-haiku-5"), settingFor("copilot", "driver", "gpt-6"))
+			settingFor("copilot", "scout", "claude-haiku-5"), settingFor("copilot", "worker", "claude-haiku-5"), settingFor("copilot", "driver", "gpt-6"))
 		want := []Finding{{
 			Level: LevelWarn, Kind: KindNoAccount, Harness: "copilot",
 			Text: "no github-copilot account found for scout, worker, driver (claude-haiku-5, gpt-6)",
@@ -372,7 +343,7 @@ func TestBetterModelFindings(t *testing.T) {
 		t.Parallel()
 		got := only(check(claude, []usage.Snapshot{snap("anthropic", flatPlan, claude)}, scoutHaiku45), KindBetterModel)
 		want := []Finding{{
-			Level: LevelSuggest, Kind: KindBetterModel, Harness: "claude", Role: RoleScout,
+			Level: LevelSuggest, Kind: KindBetterModel, Harness: "claude", Tier: "scout",
 			Text:      "scout: Claude Haiku 4.5 → Claude Haiku 5 (better-ranked; text #20 → #10; $1/$5 → $1/$5 per Mtok; within your flat plan)",
 			Current:   &ModelRef{ID: "anthropic/claude-haiku-4-5", Name: "Claude Haiku 4.5", Tier: "lightweight", In: 1, Out: 5, Category: "text", Rank: 20},
 			Suggested: &ModelRef{ID: "anthropic/claude-haiku-5", Name: "Claude Haiku 5", Tier: "lightweight", In: 1, Out: 5, Category: "text", Rank: 10},
@@ -402,9 +373,9 @@ func TestBetterModelFindings(t *testing.T) {
 			{"org", "seat managed by org", orgPlan},
 		} {
 			snaps := []usage.Snapshot{snap("anthropic", tt.plan, hs), snap("google", tt.plan, hs)}
-			got := only(check(hs, snaps, settingFor("opencode", RoleScout, "anthropic/claude-haiku-4-5")), KindBetterModel)
+			got := only(check(hs, snaps, settingFor("opencode", "scout", "anthropic/claude-haiku-4-5")), KindBetterModel)
 			want := []Finding{{
-				Level: LevelSuggest, Kind: KindBetterModel, Harness: "opencode", Role: RoleScout,
+				Level: LevelSuggest, Kind: KindBetterModel, Harness: "opencode", Tier: "scout",
 				Text:      "scout: Claude Haiku 4.5 → Gemini Flash (cheaper, ranked as well or better; text #20 → #12; $1/$5 → $0.1/$0.5 per Mtok; " + tt.billing + ")",
 				Current:   &ModelRef{ID: "anthropic/claude-haiku-4-5", Name: "Claude Haiku 4.5", Tier: "lightweight", In: 1, Out: 5, Category: "text", Rank: 20},
 				Suggested: &ModelRef{ID: "google/gemini-flash", Name: "Gemini Flash", Tier: "lightweight", In: 0.1, Out: 0.5, Category: "text", Rank: 12},
@@ -442,16 +413,16 @@ func TestBetterModelNone(t *testing.T) {
 
 	t.Run("nothing beats the current model", func(t *testing.T) {
 		t.Parallel()
-		best := settingFor("claude", RoleScout, "claude-haiku-5")
+		best := settingFor("claude", "scout", "claude-haiku-5")
 		got := check(claude, []usage.Snapshot{snap("anthropic", flatPlan, claude)}, best)
 		if len(got) != 0 {
 			t.Errorf("want none, got %v", texts(got))
 		}
 	})
 
-	t.Run("default role compares within its own tier", func(t *testing.T) {
+	t.Run("a model is compared within its own catalog tier", func(t *testing.T) {
 		t.Parallel()
-		d := Setting{Harness: "codex", Role: RoleDefault, Model: "gpt-mini", Key: "harnessPolicy.native.codex.model"}
+		d := Setting{Harness: "codex", Tier: "default", Model: "gpt-mini", Key: "models.tiers.default.codex"}
 		got := only(check([]string{"codex"}, []usage.Snapshot{snap("openai", flatPlan, []string{"codex"})}, d), KindBetterModel)
 		if len(got) != 0 { // gpt-mini is the only lightweight openai model
 			t.Errorf("want none, got %v", texts(got))
@@ -467,7 +438,7 @@ func TestBetterModelNone(t *testing.T) {
 		}
 		ss := []Setting{
 			scoutHaiku45, settingFor("claude", "worker", "claude-haiku-4-5"), settingFor("claude", "driver", "claude-opus-4-5"),
-			settingFor("opencode", "scout", "claude-haiku-4-5"), settingFor("opencode", RoleDefault, "gpt-6"),
+			settingFor("opencode", "scout", "claude-haiku-4-5"), settingFor("opencode", "default", "gpt-6"),
 		}
 		first := check(hs, snaps, ss...)
 		for range 5 {
@@ -490,37 +461,6 @@ func TestBetterModelNone(t *testing.T) {
 	})
 }
 
-func TestCheckRealData(t *testing.T) {
-	t.Parallel()
-	data, err := os.ReadFile("../testdata/models.json")
-	if err != nil {
-		t.Skipf("catalog not available: %v", err)
-	}
-	c, err := catalog.Parse(data)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f, err := os.Open("../testdata/harness-policy.toml")
-	if err != nil {
-		t.Skipf("policy not available: %v", err)
-	}
-	defer func() { _ = f.Close() }()
-	p, err := config.ParseTOML(f)
-	if err != nil {
-		t.Fatal(err)
-	}
-	hs := []string{"claude", "copilot", "codex", "antigravity", "opencode", "pi"}
-	snaps := []usage.Snapshot{
-		snap("anthropic", flatPlan, []string{"claude", "opencode"}, window(95)),
-		snap("github-copilot", flatPlan, []string{"copilot", "pi"}),
-		snap("openai", meteredPlan, []string{"codex", "opencode"}),
-	}
-	in := Input{Catalog: c, Settings: Settings(*p, hs), Harnesses: hs, Snapshots: snaps, HaveUsage: true, Now: now}
-	_ = Check(in)
-	in.HaveUsage = false
-	_ = Check(in)
-}
-
 // TestBetterModelPayingAccount: billing comes from the account that would pay
 // for the suggestion, not the current model's.
 func TestBetterModelPayingAccount(t *testing.T) {
@@ -539,7 +479,7 @@ func TestBetterModelPayingAccount(t *testing.T) {
 	snaps := []usage.Snapshot{snap("anthropic", flatPlan, hs), snap("openai", meteredPlan, hs)}
 	got := only(Check(Input{
 		Catalog: c, Harnesses: hs, Snapshots: snaps, HaveUsage: true, Now: now,
-		Settings: []Setting{settingFor("opencode", RoleScout, "anthropic/claude-haiku-4-5")},
+		Settings: []Setting{settingFor("opencode", "scout", "anthropic/claude-haiku-4-5")},
 	}), KindBetterModel)
 	if len(got) != 0 {
 		t.Errorf("want no suggestion, got %v", texts(got))

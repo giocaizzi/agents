@@ -9,9 +9,7 @@ import (
 	"slices"
 	"strings"
 	"time"
-	"unicode"
 
-	"github.com/giocaizzi/agents/internal/cache"
 	"github.com/giocaizzi/agents/internal/doctor"
 	"github.com/giocaizzi/agents/internal/term"
 	usg "github.com/giocaizzi/agents/internal/usage"
@@ -38,7 +36,7 @@ func (d Deps) runDoctorBudget(args []string, now func() time.Time, budget time.D
 	flags := d.newFlags("doctor")
 	quiet := flags.Bool("q", false, "print nothing when there is nothing to report")
 	asJSON := flags.Bool("json", false, "print the findings as JSON")
-	harnessList := flags.String("harness", "", "comma-separated harnesses")
+	cf := addConfigFlags(flags)
 	if err := flags.Parse(args); err != nil {
 		return d.parseFailure(flags, err)
 	}
@@ -48,7 +46,7 @@ func (d Deps) runDoctorBudget(args []string, now func() time.Time, budget time.D
 	// (readRegular), so it ends on its own.
 	done := make(chan *doctorRun, 1)
 	go func() {
-		done <- d.doctorWork(now, *quiet, *asJSON, *harnessList)
+		done <- d.doctorWork(now, *quiet, *asJSON, cf)
 	}()
 	timer := time.NewTimer(budget)
 	defer timer.Stop()
@@ -66,7 +64,7 @@ func (d Deps) runDoctorBudget(args []string, now func() time.Time, budget time.D
 }
 
 // doctorWork loads the inputs, runs the checks and renders into a doctorRun.
-func (d Deps) doctorWork(now func() time.Time, quiet, asJSON bool, harnessList string) *doctorRun {
+func (d Deps) doctorWork(now func() time.Time, quiet, asJSON bool, cf *configFlags) *doctorRun {
 	r := &doctorRun{}
 	fail := func(err error) *doctorRun {
 		fmt.Fprintf(&r.err, "doctor: %v\n", err)
@@ -79,19 +77,15 @@ func (d Deps) doctorWork(now func() time.Time, quiet, asJSON bool, harnessList s
 		}
 	}
 
-	cat, _, err := d.loadCatalog("", false)
+	cfg, err := d.loadConfig(cf)
+	if err != nil {
+		return fail(err)
+	}
+	cat, _, err := d.loadCatalog(cfg, "", false)
 	if err != nil {
 		note("doctor: ignoring model catalog: %v\n", err)
 	}
-	pol, _, err := d.loadPolicy("")
-	if err != nil {
-		return fail(err)
-	}
-	dir, err := cache.Dir(d.Getenv)
-	if err != nil {
-		return fail(err)
-	}
-	path := filepath.Join(dir, usageCacheFile)
+	path := filepath.Join(cfg.Dirs.Cache, usageCacheFile)
 	at := now()
 
 	cached, cacheErr := readUsageCache(path)
@@ -109,14 +103,19 @@ func (d Deps) doctorWork(now func() time.Time, quiet, asJSON bool, harnessList s
 		clean[i] = sanitized(s)
 	}
 
-	harnesses := splitHarnesses(harnessList)
+	var harnesses []string
+	for _, h := range cfg.Harnesses {
+		if slices.Contains(doctorHarnesses(), string(h)) {
+			harnesses = append(harnesses, string(h))
+		}
+	}
 	if len(harnesses) == 0 {
 		harnesses = snapshotHarnesses(clean)
 	}
 	harnesses = orderHarnesses(harnesses)
 	findings := doctor.Check(doctor.Input{
 		Catalog:   cat,
-		Settings:  doctor.Settings(*pol, harnesses),
+		Settings:  doctor.Settings(cfg.Config, harnesses),
 		Harnesses: harnesses,
 		Snapshots: clean,
 		HaveUsage: haveUsage,
@@ -154,18 +153,6 @@ func writeDoctorJSON(w io.Writer, findings []doctor.Finding) error {
 	return nil
 }
 
-// splitHarnesses splits a -harness value on commas and whitespace, dropping
-// empties and duplicates.
-func splitHarnesses(s string) []string {
-	var out []string
-	for _, h := range strings.FieldsFunc(s, func(r rune) bool { return r == ',' || unicode.IsSpace(r) }) {
-		if !slices.Contains(out, h) {
-			out = append(out, h)
-		}
-	}
-	return out
-}
-
 // snapshotHarnesses is the union of the snapshots' harnesses.
 func snapshotHarnesses(snaps []usg.Snapshot) []string {
 	var out []string
@@ -179,10 +166,15 @@ func snapshotHarnesses(snaps []usg.Snapshot) []string {
 	return out
 }
 
+// doctorHarnesses are the harnesses doctor advises on, in display order.
+func doctorHarnesses() []string {
+	return []string{harnessClaude, harnessCopilot, harnessCodex, harnessAntigravity, harnessOpencode, harnessPi}
+}
+
 // orderHarnesses sorts harnesses into display order: the known ones in
 // harnessOrder, then the others alphabetically.
 func orderHarnesses(hs []string) []string {
-	known := []string{harnessClaude, harnessCopilot, harnessCodex, harnessAntigravity, harnessOpencode, harnessPi}
+	known := doctorHarnesses()
 	rank := func(h string) int {
 		if i := slices.Index(known, h); i >= 0 {
 			return i

@@ -22,7 +22,7 @@ func resolveAll(c catalog.Catalog, settings []Setting) []resolved {
 	out := make([]resolved, 0, len(settings))
 	for _, s := range settings {
 		r := resolved{Setting: s}
-		if id, ok := resolve(c, s.Model, s.Provider); ok {
+		if id, ok := resolve(c, s.Model); ok {
 			r.ID, r.Model = id, c.Models[id]
 		}
 		out = append(out, r)
@@ -30,12 +30,12 @@ func resolveAll(c catalog.Catalog, settings []Setting) []resolved {
 	return out
 }
 
-// roleRank orders roles: Roles() then RoleDefault.
-func roleRank(role string) int {
-	if i := slices.Index(Roles(), role); i >= 0 {
+// tierRank orders tiers by first appearance in settings.
+func tierRank(tiers []string, tier string) int {
+	if i := slices.Index(tiers, tier); i >= 0 {
 		return i
 	}
-	return len(Roles())
+	return len(tiers)
 }
 
 // unknownModels is check (1): a configured model the catalog does not have,
@@ -49,21 +49,16 @@ func unknownModels(rs []resolved) []Finding {
 			continue
 		}
 		seen[k] = true
-		fix := "pick a tracked model from agents models"
-		if r.Role != RoleDefault {
-			fix = fmt.Sprintf("pick a %s model from agents models", RoleTier(r.Role))
-		}
 		out = append(out, Finding{
-			Level: LevelWarn, Kind: KindUnknownModel, Role: r.Role,
+			Level: LevelWarn, Kind: KindUnknownModel, Tier: r.Tier,
 			Text: fmt.Sprintf("%s (%s) is not in the model catalog: retired, renamed or not tracked", r.Setting.Model, r.Key),
-			Fix:  fix,
+			Fix:  "pick a tracked model from agents models",
 		})
 	}
 	return out
 }
 
-// tierDrifts is check (1): a resolved model with no tier, or outside the tier
-// its role belongs in, once per key.
+// tierDrifts is check (1): a resolved model with no catalog tier, once per key.
 func tierDrifts(c catalog.Catalog, rs []resolved) []Finding {
 	var out []Finding
 	seen := map[string]bool{}
@@ -72,18 +67,10 @@ func tierDrifts(c catalog.Catalog, rs []resolved) []Finding {
 			continue
 		}
 		seen[r.Key] = true
-		tier := c.TierOf(r.ID)
-		switch {
-		case tier == "":
+		if c.TierOf(r.ID) == "" {
 			out = append(out, Finding{
-				Level: LevelInfo, Kind: KindTierDrift, Role: r.Role,
+				Level: LevelInfo, Kind: KindTierDrift, Tier: r.Tier,
 				Text: fmt.Sprintf("%s (%s) has no tier: no API price or no ranking", name(r.ID, r.Model), r.Key),
-			})
-		case r.Role != RoleDefault && tier != RoleTier(r.Role):
-			out = append(out, Finding{
-				Level: LevelWarn, Kind: KindTierDrift, Role: r.Role,
-				Text: fmt.Sprintf("%s uses %s (%s); the %s role belongs in the %s tier", r.Role, name(r.ID, r.Model), tier, r.Role, RoleTier(r.Role)),
-				Fix:  "edit " + r.Key,
 			})
 		}
 	}
@@ -109,7 +96,7 @@ func harnessFindings(in Input, h string, all []resolved) []Finding {
 			considered = append(considered, r)
 		}
 	}
-	out := noAccounts(h, considered, avail)
+	out := noAccounts(h, considered, avail, in.Settings)
 	advs := usage.Advisories(accts, in.Now)
 	for _, a := range advs {
 		lvl := LevelInfo
@@ -131,7 +118,13 @@ func harnessFindings(in Input, h string, all []resolved) []Finding {
 
 // noAccounts is check (5): configured models whose provider the harness has no
 // account for, one finding per account provider.
-func noAccounts(h string, considered []resolved, avail []string) []Finding {
+func noAccounts(h string, considered []resolved, avail []string, settings []Setting) []Finding {
+	var order []string
+	for _, s := range settings {
+		if !slices.Contains(order, s.Tier) {
+			order = append(order, s.Tier)
+		}
+	}
 	byAcct := map[string][]resolved{}
 	var accts []string
 	for _, r := range considered {
@@ -148,11 +141,11 @@ func noAccounts(h string, considered []resolved, avail []string) []Finding {
 	out := make([]Finding, 0, len(accts))
 	for _, ap := range accts {
 		rs := slices.Clone(byAcct[ap])
-		slices.SortStableFunc(rs, func(a, b resolved) int { return roleRank(a.Role) - roleRank(b.Role) })
-		var roles, models []string
+		slices.SortStableFunc(rs, func(a, b resolved) int { return tierRank(order, a.Tier) - tierRank(order, b.Tier) })
+		var tiers, models []string
 		for _, r := range rs {
-			if !slices.Contains(roles, r.Role) {
-				roles = append(roles, r.Role)
+			if !slices.Contains(tiers, r.Tier) {
+				tiers = append(tiers, r.Tier)
 			}
 			if !slices.Contains(models, r.Setting.Model) {
 				models = append(models, r.Setting.Model)
@@ -160,7 +153,7 @@ func noAccounts(h string, considered []resolved, avail []string) []Finding {
 		}
 		out = append(out, Finding{
 			Level: LevelWarn, Kind: KindNoAccount, Harness: h,
-			Text: fmt.Sprintf("no %s account found for %s (%s)", ap, strings.Join(roles, ", "), strings.Join(models, ", ")),
+			Text: fmt.Sprintf("no %s account found for %s (%s)", ap, strings.Join(tiers, ", "), strings.Join(models, ", ")),
 			Fix:  fmt.Sprintf("log in to %s, then agents usage", h),
 		})
 	}

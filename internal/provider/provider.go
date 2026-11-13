@@ -21,26 +21,6 @@ const (
 	Google        = "google"
 )
 
-// Harness is a fixed fact about one harness: the providers it can log into,
-// and whether it holds several provider accounts at once.
-type Harness struct {
-	Name        string
-	Providers   []string // fixed providers; empty for multi-tenant harnesses
-	MultiTenant bool
-}
-
-// Harnesses lists the harnesses whose credentials are discovered.
-func Harnesses() []Harness {
-	return []Harness{
-		{Name: harnessClaude, Providers: []string{Anthropic}},
-		{Name: "codex", Providers: []string{OpenAI}},
-		{Name: "copilot", Providers: []string{GitHubCopilot}},
-		{Name: harnessAntigravity, Providers: []string{Google}},
-		{Name: harnessOpencode, MultiTenant: true},
-		{Name: "pi", MultiTenant: true},
-	}
-}
-
 // Auth is how an account authenticates.
 type Auth string
 

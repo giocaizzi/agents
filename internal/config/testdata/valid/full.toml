@@ -1,0 +1,239 @@
+schema_version = 1
+profile = "dev"
+harnesses = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigravity"]
+
+[autonomy]
+execution_mode = "auto"
+sandbox_mode = "workspace"
+allow_non_workspace_access = false
+subagent_depth = 2
+allow_subagent_invocations = true
+ask_timeout = "30s"
+
+[permissions]
+allow_commands = ["ls", "cat"]
+allowed_urls = ["https://example.com"]
+allow_command_patterns = ["^go (build|test)"]
+deny_read = ["~/.ssh/**"]
+deny_write = ["/etc/**"]
+deny_command_patterns = ["^rm -rf /"]
+deny_command_exact = ["sudo reboot"]
+deny_command_prefixes = ["sudo "]
+ask_command_prefixes = ["git push"]
+allowed_mcp = ["acme-docs"]
+reasons = { "sudo reboot" = "ask the user to run it" }
+
+[models]
+default_effort_level = "high"
+show_thinking_summaries = true
+
+default = "deep"
+
+[models.tiers.fast]
+claude = "acme-small"
+copilot = "acme-small"
+effort = "low"
+
+[models.tiers.deep]
+claude = "acme-large"
+opencode = "acme/large"
+effort = "high"
+efforts = { copilot = "medium" }
+
+[models.assign]
+"acme:reviewer" = "deep"
+"*:scout" = "fast"
+
+[models.catalog]
+providers = ["acme"]
+since = "2026-01-01"
+ignore = ["acme-legacy"]
+
+[models.catalog.pins]
+fast = "acme-small-2"
+
+[models.catalog.aliases.acme]
+small = "acme-small-2"
+
+[context]
+auto_compact = true
+auto_compact_window = 200000
+prompt_cache_ttl = "1h"
+subagent_prompt_cache_ttl = "5m"
+max_turn_tokens = 32000
+max_tokens = 64000
+
+[ui]
+theme = "dark"
+tui_mode = "fullscreen"
+view_mode = "compact"
+output_style = "concise"
+show_turn_duration = true
+progress_bar = true
+time_format = "24h"
+
+[notifications]
+terminal_bell = true
+
+[voice]
+enabled = true
+mode = "hold"
+auto_submit = false
+language = "en-US"
+
+[telemetry]
+enabled = true
+endpoint = "https://otel.example.com"
+protocol = "grpc"
+temporality = "delta"
+log_tool_details = true
+log_tool_content = false
+service_namespace = "acme"
+
+[telemetry.attributes]
+team = "platform"
+
+[telemetry.services]
+claude = "acme-claude"
+
+[lsp]
+enabled = true
+
+[lsp.servers.gopls]
+command = ["gopls"]
+filetypes = ["go"]
+format = true
+
+[lsp.servers.gopls.extensions]
+".go" = "go"
+
+[instructions]
+dir = "~/instructions"
+edit_command = ["vim", "{file}"]
+
+[instructions.vars]
+team = "acme"
+retries = 3
+
+[instructions.layers.core]
+file = "core.md"
+
+[instructions.layers.dev]
+file = "dev.md"
+
+[plugins]
+registry = "acme/harness"
+disabled = ["acme-old"]
+
+[plugins.enabled]
+acme-tools = ["claude", "codex"]
+
+[plugins.standalone.acme-solo]
+source = "acme/solo"
+path = "plugins/solo"
+harnesses = ["claude"]
+version = "v1.2.0"
+
+[plugins.external.acme-ext]
+source = "acme/ext"
+
+[mcp.servers.acme-docs]
+type = "http"
+url = "https://mcp.example.com/mcp"
+
+[mcp.servers.acme-docs.headers]
+Authorization = "Bearer ${ACME_TOKEN}"
+
+[mcp.servers.acme-docs.oauth]
+client_id = "acme-client-id"
+callback_port = 8765
+public_client = true
+
+[mcp.servers.acme-local]
+command = "acme-mcp"
+args = ["--stdio"]
+
+[mcp.servers.acme-local.env]
+ACME_HOME = "${HOME}/.acme"
+
+[mcp.workspaces.app]
+path = "~/src/acme/app"
+
+[mcp.workspaces.app.servers.acme-app]
+url = "https://app.example.com/mcp"
+
+[harness.claude]
+default_mode = "acceptEdits"
+skip_auto_permission_prompt = true
+cleanup_period_days = 30
+disable_claude_ai_connectors = true
+allow = ["Bash(make:*)"]
+instructions = ["core"]
+
+[harness.claude.settings]
+includeCoAuthoredBy = false
+
+[harness.copilot]
+instructions = ["core"]
+
+[harness.copilot.settings]
+banner = "never"
+
+[harness.vscode]
+instructions = ["core"]
+
+[harness.vscode.settings]
+"editor.fontSize" = 13
+
+[harness.codex]
+model = "acme-large"
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+instructions = ["core"]
+
+[harness.codex.settings]
+tui = { notifications = true }
+
+[harness.opencode]
+instructions = ["core"]
+
+[harness.opencode.settings]
+autoupdate = false
+
+[harness.pi]
+default_provider = "acme"
+default_model = "acme-large"
+default_thinking_level = "high"
+packages = ["acme-pi-pack"]
+instructions = ["core"]
+
+[harness.pi.settings]
+quietStartup = true
+
+[harness.antigravity]
+agent_mode = "planning"
+tool_permission = "ask"
+enable_terminal_sandbox = true
+allow_non_workspace_access = false
+allow = ["git status"]
+instructions = ["core"]
+
+[harness.antigravity.settings]
+theme = "dark"
+
+[profiles.dev]
+instructions = ["core", "dev"]
+
+[profiles.dev.autonomy]
+execution_mode = "full"
+
+[profiles.dev.harness.claude]
+instructions = ["dev"]
+default_mode = "auto"
+
+[profiles.review.models]
+default_effort_level = "xhigh"
+
+[profiles.review.permissions]
+deny_write = ["**"]

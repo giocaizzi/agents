@@ -1,0 +1,7 @@
+{
+  "autoMode": {"enabled": true},
+  "model": "opus",
+  "env": {"MY_VAR": "1", "OTEL_OLD": "x", "CLAUDE_CODE_ENABLE_TELEMETRY": "1"},
+  "permissions": {"allow": ["Bash(ls)"], "additionalDirectories": ["/tmp"]},
+  "enabledPlugins": {"mine@local": true}
+}

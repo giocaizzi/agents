@@ -1,0 +1,1122 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/giocaizzi/agents/main/schema/config.schema.json",
+  "$ref": "#/$defs/Config",
+  "$defs": {
+    "AntigravitySettings": {
+      "properties": {
+        "agent_mode": {
+          "type": "string",
+          "description": "Agent mode. Written to antigravity."
+        },
+        "tool_permission": {
+          "type": "string",
+          "description": "Tool permission level. Written to antigravity."
+        },
+        "enable_terminal_sandbox": {
+          "type": "boolean",
+          "description": "Sandbox the terminal. Written to antigravity."
+        },
+        "allow_non_workspace_access": {
+          "type": "boolean",
+          "description": "Allow access outside the workspace. Written to antigravity."
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra allow rules in native syntax. Written to antigravity."
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to antigravity."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Autonomy": {
+      "properties": {
+        "execution_mode": {
+          "type": "string",
+          "enum": [
+            "ask",
+            "auto",
+            "full"
+          ],
+          "description": "How freely agents act. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
+        },
+        "sandbox_mode": {
+          "type": "string",
+          "enum": [
+            "off",
+            "workspace",
+            "read-only"
+          ],
+          "description": "Sandbox for agent commands. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
+        },
+        "allow_non_workspace_access": {
+          "type": "boolean",
+          "description": "Allow access outside the workspace. Written to opencode, antigravity. Planned for claude, vscode. Not supported by copilot, codex, pi."
+        },
+        "subagent_depth": {
+          "type": "integer",
+          "description": "Maximum subagent nesting depth. Written to copilot, vscode, opencode. Not supported by claude, codex, pi, antigravity."
+        },
+        "allow_subagent_invocations": {
+          "type": "boolean",
+          "description": "Allow agents to invoke subagents. Written to vscode. Not supported by claude, copilot, codex, opencode, pi, antigravity."
+        },
+        "ask_timeout": {
+          "type": "string",
+          "description": "How long to wait for an answer to a question. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Catalog": {
+      "properties": {
+        "providers": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Providers to include"
+        },
+        "since": {
+          "type": "string",
+          "description": "Ignore models released before this date"
+        },
+        "pins": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Pinned model per tier or role (any name)"
+        },
+        "ignore": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Models to ignore"
+        },
+        "aliases": {
+          "additionalProperties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object"
+          },
+          "type": "object",
+          "description": "Model aliases per provider (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "ClaudeSettings": {
+      "properties": {
+        "default_mode": {
+          "type": "string",
+          "description": "Default permission mode. Written to claude."
+        },
+        "skip_auto_permission_prompt": {
+          "type": "boolean",
+          "description": "Skip the auto mode permission prompt. Written to claude."
+        },
+        "cleanup_period_days": {
+          "type": "integer",
+          "description": "Days to keep transcripts. Written to claude."
+        },
+        "disable_claude_ai_connectors": {
+          "type": "boolean",
+          "description": "Turn off claude.ai connectors. Written to claude."
+        },
+        "allow": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Extra allow rules in native syntax. Written to claude."
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to claude."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CodexSettings": {
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Model identifier. Written to codex."
+        },
+        "model_reasoning_effort": {
+          "type": "string",
+          "description": "Reasoning effort. Written to codex."
+        },
+        "approval_policy": {
+          "type": "string",
+          "description": "Approval policy. Written to codex."
+        },
+        "sandbox_mode": {
+          "type": "string",
+          "description": "Sandbox mode. Written to codex."
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to codex."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Config": {
+      "properties": {
+        "schema_version": {
+          "type": "integer",
+          "enum": [
+            1
+          ],
+          "description": "Schema version of this file (must be 1)"
+        },
+        "profile": {
+          "type": "string",
+          "description": "Selected profile (a machine fact)"
+        },
+        "harnesses": {
+          "items": {
+            "$ref": "#/$defs/Harness"
+          },
+          "type": "array",
+          "description": "Harnesses to configure (unset means auto-detect)"
+        },
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "How freely agents act"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Command and path permissions shared by all harnesses"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Model tiers and the model catalog preferences"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context window and prompt cache behaviour"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "Terminal UI preferences"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notification preferences"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice input preferences"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "OpenTelemetry export settings"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "Language servers made available to the harnesses"
+        },
+        "instructions": {
+          "$ref": "#/$defs/Instructions",
+          "description": "Instruction layers and how to edit them"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugin registry and per-harness plugin selection"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP servers and workspaces"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness settings"
+        },
+        "os": {
+          "$ref": "#/$defs/OSTable",
+          "description": "Overlays applied on one operating system"
+        },
+        "profiles": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Profile"
+          },
+          "type": "object",
+          "description": "Named profiles (overlays on top of the config)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Context": {
+      "properties": {
+        "auto_compact": {
+          "type": "boolean",
+          "description": "Compact the context automatically. Written to claude, vscode, opencode, pi. Not supported by copilot, codex, antigravity."
+        },
+        "auto_compact_window": {
+          "type": "integer",
+          "description": "Context size that triggers compaction. Written to claude. Planned for pi. Not supported by copilot, vscode, codex, opencode, antigravity."
+        },
+        "prompt_cache_ttl": {
+          "type": "string",
+          "description": "Prompt cache lifetime. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "subagent_prompt_cache_ttl": {
+          "type": "string",
+          "description": "Prompt cache lifetime for subagents. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "max_turn_tokens": {
+          "type": "integer",
+          "description": "Token limit of one turn. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Token limit of one response. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "CopilotSettings": {
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to copilot."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Harness": {
+      "type": "string",
+      "enum": [
+        "claude",
+        "copilot",
+        "vscode",
+        "codex",
+        "opencode",
+        "pi",
+        "antigravity"
+      ],
+      "description": "A supported harness"
+    },
+    "HarnessTable": {
+      "properties": {
+        "claude": {
+          "$ref": "#/$defs/ClaudeSettings",
+          "description": "Claude Code settings"
+        },
+        "copilot": {
+          "$ref": "#/$defs/CopilotSettings",
+          "description": "Copilot CLI settings"
+        },
+        "vscode": {
+          "$ref": "#/$defs/VSCodeSettings",
+          "description": "VS Code settings"
+        },
+        "codex": {
+          "$ref": "#/$defs/CodexSettings",
+          "description": "Codex settings"
+        },
+        "opencode": {
+          "$ref": "#/$defs/OpenCodeSettings",
+          "description": "opencode settings"
+        },
+        "pi": {
+          "$ref": "#/$defs/PiSettings",
+          "description": "pi settings"
+        },
+        "antigravity": {
+          "$ref": "#/$defs/AntigravitySettings",
+          "description": "Antigravity settings"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "InstructionLayer": {
+      "properties": {
+        "file": {
+          "type": "string",
+          "description": "File of the layer relative to the instructions dir. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Instructions": {
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Directory of instruction files (default is the config dir plus /instructions). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "edit_command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command that edits an instruction file"
+        },
+        "vars": {
+          "type": "object",
+          "description": "Template variables (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "layers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/InstructionLayer"
+          },
+          "type": "object",
+          "description": "Declared layers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LSP": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable language servers. Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
+        },
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/LSPServer"
+          },
+          "type": "object",
+          "description": "Language servers (any name). Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "LSPServer": {
+      "properties": {
+        "command": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command line that starts the server. Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
+        },
+        "extensions": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "File extension to language id (any name). Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
+        },
+        "filetypes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Editor file types. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "format": {
+          "type": "boolean",
+          "description": "Use the server to format. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MCP": {
+      "properties": {
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPServer"
+          },
+          "type": "object",
+          "description": "MCP servers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "workspaces": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Workspace"
+          },
+          "type": "object",
+          "description": "Workspaces with their own MCP servers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "MCPServer": {
+      "properties": {
+        "type": {
+          "type": "string",
+          "description": "Transport type. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "url": {
+          "type": "string",
+          "description": "Remote server URL. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "headers": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "HTTP headers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "command": {
+          "type": "string",
+          "description": "Local server command. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "args": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Arguments of the command. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "env": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Environment of the command (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "oauth": {
+          "$ref": "#/$defs/OAuth",
+          "description": "Pre-registered OAuth client (url servers only)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Models": {
+      "properties": {
+        "default_effort_level": {
+          "type": "string",
+          "description": "Default reasoning effort. Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
+        },
+        "show_thinking_summaries": {
+          "type": "boolean",
+          "description": "Show thinking summaries. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
+        },
+        "default": {
+          "type": "string",
+          "description": "Tier of each harness's main session model. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "tiers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/Tier"
+          },
+          "type": "object",
+          "description": "Named model tiers (any name). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "assign": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Tier per agent id (any key; globs allowed; an exact key wins over globs). Written to copilot, vscode, opencode. Not supported by claude, codex, pi, antigravity."
+        },
+        "catalog": {
+          "$ref": "#/$defs/Catalog",
+          "description": "Model catalog preferences"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Notifications": {
+      "properties": {
+        "terminal_bell": {
+          "type": "boolean",
+          "description": "Ring the terminal bell when a turn ends. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OAuth": {
+      "properties": {
+        "client_id": {
+          "type": "string",
+          "description": "OAuth client id. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "callback_port": {
+          "type": "integer",
+          "description": "Local callback port (1 to 65535). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "public_client": {
+          "type": "boolean",
+          "description": "The client has no secret. Written to copilot, vscode. Not supported by claude, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OSTable": {
+      "properties": {
+        "darwin": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on macOS"
+        },
+        "linux": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on Linux"
+        },
+        "windows": {
+          "$ref": "#/$defs/Overlay",
+          "description": "Overlay on Windows"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "OpenCodeSettings": {
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to opencode."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Overlay": {
+      "properties": {
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "Autonomy overlay"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Permissions overlay"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Models overlay"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context overlay"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "UI overlay"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notifications overlay"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice overlay"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "Telemetry overlay"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "LSP overlay"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugins overlay"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP overlay"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness overlay"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Permissions": {
+      "properties": {
+        "allow_commands": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Commands allowed without asking. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "allowed_urls": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "URLs agents may fetch. Written to claude, copilot, vscode, opencode, antigravity. Not supported by codex, pi."
+        },
+        "allow_command_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Regular expressions of commands allowed without asking. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "deny_read": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Path globs agents may not read. Written to claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
+        },
+        "deny_write": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Path globs agents may not write. Written to claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
+        },
+        "deny_command_patterns": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Regular expressions of denied commands. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "deny_command_exact": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Exact command lines that are denied. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "deny_command_prefixes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command prefixes that are denied. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "ask_command_prefixes": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Command prefixes that always ask. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
+        },
+        "allowed_mcp": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "MCP servers or tools allowed without asking. Written to claude, antigravity. Planned for opencode. Not supported by copilot, vscode, codex, pi."
+        },
+        "reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Message shown when a permission rule matches (keyed by the rule pattern). Written to codex. Not supported by claude, copilot, vscode, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "PiSettings": {
+      "properties": {
+        "default_provider": {
+          "type": "string",
+          "description": "Default provider. Written to pi."
+        },
+        "default_model": {
+          "type": "string",
+          "description": "Default model. Written to pi."
+        },
+        "default_thinking_level": {
+          "type": "string",
+          "description": "Default thinking level. Written to pi."
+        },
+        "packages": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "pi packages to install. Written to pi."
+        },
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to pi."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Plugins": {
+      "properties": {
+        "registry": {
+          "type": "string",
+          "description": "Plugin registry repository. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
+        },
+        "enabled": {
+          "additionalProperties": {
+            "items": {
+              "$ref": "#/$defs/Harness"
+            },
+            "type": "array"
+          },
+          "type": "object",
+          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
+        },
+        "disabled": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Plugins that stay off. Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
+        },
+        "standalone": {
+          "additionalProperties": {
+            "$ref": "#/$defs/StandalonePlugin"
+          },
+          "type": "object",
+          "description": "Plugins outside any registry (any name)"
+        },
+        "external": {
+          "additionalProperties": {
+            "$ref": "#/$defs/StandalonePlugin"
+          },
+          "type": "object",
+          "description": "Alias of standalone for external plugins (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Profile": {
+      "properties": {
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this profile (in order)"
+        },
+        "autonomy": {
+          "$ref": "#/$defs/Autonomy",
+          "description": "Autonomy overlay"
+        },
+        "permissions": {
+          "$ref": "#/$defs/Permissions",
+          "description": "Permissions overlay"
+        },
+        "models": {
+          "$ref": "#/$defs/Models",
+          "description": "Models overlay"
+        },
+        "context": {
+          "$ref": "#/$defs/Context",
+          "description": "Context overlay"
+        },
+        "ui": {
+          "$ref": "#/$defs/UI",
+          "description": "UI overlay"
+        },
+        "notifications": {
+          "$ref": "#/$defs/Notifications",
+          "description": "Notifications overlay"
+        },
+        "voice": {
+          "$ref": "#/$defs/Voice",
+          "description": "Voice overlay"
+        },
+        "telemetry": {
+          "$ref": "#/$defs/Telemetry",
+          "description": "Telemetry overlay"
+        },
+        "lsp": {
+          "$ref": "#/$defs/LSP",
+          "description": "LSP overlay"
+        },
+        "plugins": {
+          "$ref": "#/$defs/Plugins",
+          "description": "Plugins overlay"
+        },
+        "mcp": {
+          "$ref": "#/$defs/MCP",
+          "description": "MCP overlay"
+        },
+        "harness": {
+          "$ref": "#/$defs/HarnessTable",
+          "description": "Per-harness overlay (harness.\u003ch\u003e.instructions is the profile x harness layer list)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "StandalonePlugin": {
+      "properties": {
+        "source": {
+          "type": "string",
+          "description": "Repository or URL of the plugin"
+        },
+        "path": {
+          "type": "string",
+          "description": "Path inside the source"
+        },
+        "harnesses": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Harnesses the plugin applies to"
+        },
+        "version": {
+          "type": "string",
+          "description": "Version or ref"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Telemetry": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Export telemetry. Written to claude, vscode, codex. Not supported by copilot, opencode, pi, antigravity."
+        },
+        "endpoint": {
+          "type": "string",
+          "description": "Collector endpoint. Written to claude, vscode, codex. Not supported by copilot, opencode, pi, antigravity."
+        },
+        "protocol": {
+          "type": "string",
+          "description": "Export protocol. Written to claude, codex. Planned for vscode. Not supported by copilot, opencode, pi, antigravity."
+        },
+        "temporality": {
+          "type": "string",
+          "description": "Metric temporality. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "log_tool_details": {
+          "type": "boolean",
+          "description": "Log tool call details. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "log_tool_content": {
+          "type": "boolean",
+          "description": "Log tool call content. Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
+        },
+        "service_namespace": {
+          "type": "string",
+          "description": "Service namespace resource attribute. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "attributes": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Extra resource attributes (any name). Written to claude, codex. Not supported by copilot, vscode, opencode, pi, antigravity."
+        },
+        "services": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Service name per harness (any name). Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "harnesses": {
+          "items": {
+            "$ref": "#/$defs/Harness"
+          },
+          "type": "array",
+          "description": "Harnesses that export telemetry (unset means every selected harness). Written to claude, vscode, codex. Not supported by copilot, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Tier": {
+      "properties": {
+        "claude": {
+          "type": "string",
+          "description": "Claude Code model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "copilot": {
+          "type": "string",
+          "description": "Copilot CLI model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "vscode": {
+          "type": "string",
+          "description": "VS Code model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "codex": {
+          "type": "string",
+          "description": "Codex model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "opencode": {
+          "type": "string",
+          "description": "opencode model id (provider/id). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "pi": {
+          "type": "string",
+          "description": "pi model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "antigravity": {
+          "type": "string",
+          "description": "Antigravity model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "effort": {
+          "type": "string",
+          "description": "Reasoning effort. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        },
+        "efforts": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Reasoning effort per harness (overrides effort). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "UI": {
+      "properties": {
+        "theme": {
+          "type": "string",
+          "description": "Colour theme. Written to claude, vscode, pi, antigravity. Planned for copilot, codex, opencode."
+        },
+        "tui_mode": {
+          "type": "string",
+          "description": "Terminal UI mode. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "view_mode": {
+          "type": "string",
+          "description": "Transcript view mode. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "output_style": {
+          "type": "string",
+          "description": "Output style. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "show_turn_duration": {
+          "type": "boolean",
+          "description": "Show how long each turn took. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "progress_bar": {
+          "type": "boolean",
+          "description": "Show a progress bar. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "time_format": {
+          "type": "string",
+          "description": "Time format. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "VSCodeSettings": {
+      "properties": {
+        "settings": {
+          "type": "object",
+          "description": "Native settings merged as is (any key). Written to vscode."
+        },
+        "instructions": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array",
+          "description": "Instruction layers composed for this harness (in order)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Voice": {
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable voice input. Written to claude, copilot, vscode. Not supported by codex, opencode, pi, antigravity."
+        },
+        "mode": {
+          "type": "string",
+          "description": "Voice mode. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "auto_submit": {
+          "type": "boolean",
+          "description": "Submit the transcript automatically. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "language": {
+          "type": "string",
+          "description": "Dictation language. Written to claude, vscode. Not supported by copilot, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Workspace": {
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Workspace directory. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "servers": {
+          "additionalProperties": {
+            "$ref": "#/$defs/MCPServer"
+          },
+          "type": "object",
+          "description": "MCP servers of the workspace (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    }
+  },
+  "title": "agents configuration",
+  "description": "The standalone agents configuration file (config.toml)."
+}

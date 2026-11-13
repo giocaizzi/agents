@@ -2,8 +2,8 @@
 
 # agents
 
-**Universal AI Agent Harness Manager.**  
-Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-provider quota tracking, and health diagnostics.
+**One config file for every AI coding harness.**  
+Write native settings, instructions, plugins, MCP servers and model tiers for Claude Code, Copilot CLI, VS Code, Codex, opencode, pi and Antigravity, and track provider usage.
 
 [![Release](https://img.shields.io/github/v/release/giocaizzi/agents?sort=semver)](https://github.com/giocaizzi/agents/releases/latest)
 [![CI](https://github.com/giocaizzi/agents/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/giocaizzi/agents/actions/workflows/ci.yml)
@@ -15,141 +15,83 @@ Parity compiler, layered prompt engine, workspace MCP synchronizer, live multi-p
 
 </div>
 
-Developers frequently switch between AI coding harnesses—**Claude Code, GitHub Copilot CLI, Google Antigravity, OpenAI Codex, OpenCode, and Pi**. Each requires its own configuration formats, permission settings, subagent models, and MCP wiring.
-
-`agents` provides a single declarative source of truth (`agents.toml`), automatically compiling native configurations, tracking token quotas across providers, synchronizing MCP servers, and monitoring tool health.
-
----
+Each AI coding harness has its own settings format, permission syntax, instruction file, plugin mechanism and MCP wiring. `agents` is a standalone command-line tool: it reads one TOML file and writes the native settings, MCP servers, rules, instructions, plugins and model choices of every harness you use. It merges only the keys it manages, so the rest of each file stays yours, and it shows a diff before it writes anything.
 
 ## Highlights
 
-- **Multi-Harness Parity**: Compile declarative security rules, command allowlists, LSP language servers, voice input, and subagent models into native JSON/TOML configurations for 6 harnesses. See the [parity matrix](docs/parity.md) for what each harness covers, and [voice parity](docs/voice.md) for dictation.
-- **Bounded Harness Clamping**: Intelligently adapts models for bounded harnesses like GitHub Copilot CLI where arbitrary tier models (e.g. Claude Opus) are unavailable.
-- **Layered Prompt Engine**: Compose system prompts dynamically from modular instruction layers with support for custom profiles (`[profiles.work]`, `[profiles.default]`).
-- **Workspace MCP Sync**: Keep workspace `.mcp.json` definitions synchronized across Codex, Pi, and Antigravity configs automatically.
-- **Live Provider Usage & Quota**: Inspect real-time subscription usage, billing limits, and reset dates across Anthropic, OpenAI, GitHub Copilot, and Google Gemini.
-- **Health Doctor**: Diagnose model drift against LMArena rankings, detect orphaned plugins, and audit missing system dependencies.
-- **Abstract Plugin Engine**: Support for multiple registries (community, company, personal) alongside standalone external plugins, with automated update, prune, and parity checks.
+- **One config**: permissions, models, UI, voice, telemetry, language servers, plugins and MCP servers in a single schema-checked file, layered by OS and profile. See the [configuration reference](docs/config.md).
+- **Safe apply**: only the keys `agents` wrote are ever removed, comments and key order are kept, `agents apply -n` diffs (secrets redacted), symlinked targets are refused, unchanged files are left alone.
+- **Layered instructions**: Markdown templates composed per profile and harness.
+- **Model tiers**: free-named tiers with one model id per harness, assigned to agents; plugins keep owning the agent roles.
+- **Workspace MCP sync**: write each project's native MCP files, with pre-registered OAuth clients.
+- **Usage and health**: live provider quota (`agents usage`) and advice on model drift and capacity (`agents doctor`).
 
----
+Supported harnesses: Claude Code, Copilot CLI, VS Code, Codex, opencode, pi and Antigravity. What each one receives is in the [feature matrix](docs/features.md).
+
+## Install
+
+Download the binary for macOS, Linux or Windows from the [latest release](https://github.com/giocaizzi/agents/releases/latest) and put it on your `PATH`. Or build it:
+
+```sh
+go install github.com/giocaizzi/agents/cmd/agents@latest   # into $(go env GOPATH)/bin
+make install                                               # from a clone: ~/.local/bin/agents
+```
 
 ## Quickstart
 
-### 1. Install
-
-```bash
-# Via Go
-go install github.com/giocaizzi/agents/cmd/agents@latest
-
-# Prebuilt binary (macOS / Linux / Windows)
-curl -fsSL https://raw.githubusercontent.com/giocaizzi/agents/main/install.sh | sh
+```sh
+agents init          # write a starter config.toml (detects installed harnesses)
+# edit ~/.config/agents/config.toml (the path init printed)
+agents check         # validate the config
+agents apply -n      # preview the diff, write nothing
+agents apply         # write the native files
 ```
 
-### 2. Initialize
-
-Run in your project root or home directory to detect installed harnesses and scaffold an initial configuration:
-
-```bash
-agents init
-```
-
-This generates `agents.toml`:
+A minimal `config.toml`:
 
 ```toml
-[agents]
-harnesses = ["claude", "copilot", "antigravity", "codex", "opencode", "pi"]
-theme     = "dark"
+#:schema https://raw.githubusercontent.com/giocaizzi/agents/main/schema/config.schema.json
+schema_version = 1
+harnesses = ["claude", "codex"]
+
+[permissions]
+deny_command_prefixes = ["sudo"]
 
 [models]
-driver    = "claude-3-7-sonnet"
-scout     = "gemini-2.5-flash"
-routine   = "claude-3-5-haiku"
-escalate  = "claude-3-opus"
+default = "main"
+[models.tiers.main]
+claude = "claude-sonnet-4-5"
+codex = "gpt-5"
 
-[tools]
-deny      = ["rm -rf", "sudo", "git push --force"]
-allow     = ["git status", "git diff", "make", "cargo test", "uv run"]
-
-[lsp]
-pyright   = { command = "pyright-langserver", languages = ["python"] }
-gopls     = { command = "gopls",              languages = ["go"] }
-ts        = { command = "typescript-language-server", languages = ["typescript", "javascript"] }
-
-[mcp]
-filesystem = { command = "npx", args = ["-y", "@modelcontextprotocol/server-filesystem", "."] }
-fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
-
-[profiles.default]
-instructions = ["prompts/core.md", "prompts/principles.md"]
-
-[profiles.work]
-instructions = ["prompts/core.md", "prompts/work.md"]
-[profiles.work.models]
-driver       = "claude-3-7-sonnet"
-[profiles.work.permissions]
-deny         = ["git push --force", "terraform apply", "rm -rf"]
-
-[plugins]
-# Primary or upstream plugin registry:
-registry = "https://github.com/example/harness"
-enabled  = { dev-tools = ["claude", "antigravity", "codex", "pi"], python = ["claude", "antigravity"] }
-
-# Standalone external plugins ensured across harnesses (not bound to any registry):
-[plugins.standalone.custom-analysis]
-source    = "https://github.com/example/custom-analysis"
-harnesses = ["claude", "antigravity"]
+[mcp.servers.docs]
+url = "https://mcp.example.com/mcp"
 ```
 
-### 3. Verify & Apply
+The config lives in `$XDG_CONFIG_HOME/agents/config.toml` (`%APPDATA%\agents` on Windows). Drop `harnesses` to auto-detect the installed harnesses.
 
-```bash
-# Check parity across all installed harnesses
-agents check
+## Commands
 
-# Render client-native configuration or effective system prompt
-agents render -harness claude
-agents render -harness claude -part prompt
+| Command | Does |
+|---|---|
+| `init` | write a starter config |
+| `check` | validate the config (`-live` also compares the native files) |
+| `config show` | print the resolved config and where each key came from |
+| `render`, `apply` | print or write the native files (`apply -n` previews) |
+| `prompt` | edit, show and check instruction layers |
+| `mcp sync`, `mcp add` | write workspace MCP files |
+| `plugins` | list, update and prune plugins |
+| `models`, `usage`, `doctor` | model tiers and catalog, provider quota, advice |
+| `features`, `schema` | the support matrix and the JSON Schema |
 
-# Inspect or validate effective harness prompt
-agents prompt -harness antigravity -check
+`agents help <command>` shows the arguments and flags of each; the runbooks are in [docs/cli.md](docs/cli.md).
 
-# Sync workspace MCP servers
-agents mcp sync
+## Documentation
 
-# Check account usage and quotas (always live; refreshes the usage cache)
-agents usage
-
-# Run health diagnostics
-agents doctor
-```
-
----
-
-## Chezmoi Integration
-
-`agents` operates as a standalone tool, but also functions as a first-class **chezmoi plugin**.
-
-When installed as `chezmoi-agents` (or symlinked in `~/.local/bin`), chezmoi automatically routes `chezmoi agents ...` commands to the binary. When executed in a chezmoi directory, it automatically resolves templates and data from `.chezmoidata/agents.toml`.
-
----
-
-## Command help
-
-Discover commands from the terminal, then drill down to a group or leaf:
-
-```sh
-agents --help
-agents help mcp
-agents help mcp add
-agents render --help
-agents help plugins update
-```
-
-Use `-h` or `--help` at a command's option boundary. Put options before positional arguments; MCP server arguments are forwarded unchanged.
-
-See the [CLI reference and runbook](docs/cli.md) for command flags, defaults, examples, exit statuses, plugin update/prune procedures and usage-cache behavior. The [documentation index](docs/README.md) links to the other guides.
-
----
+- [Documentation index](docs/README.md)
+- [CLI reference and runbooks](docs/cli.md): commands, first setup, previewing, recovering from drift, upgrading from 0.2
+- [Configuration reference](docs/config.md): every key, precedence, directories
+- [Feature matrix](docs/features.md): which key each harness supports
+- [Design](docs/design.md): the decisions behind the tool
 
 ## License
 

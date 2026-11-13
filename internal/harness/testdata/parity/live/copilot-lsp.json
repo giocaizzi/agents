@@ -1,0 +1,7 @@
+{
+  "lspServers": {
+    "gopls": {"command": "old-gopls", "env": {"GOFLAGS": "-mod=mod"}},
+    "legacy": {"command": "legacy-ls"},
+    "removed": {"command": "x", "args": [], "fileExtensions": {}}
+  }
+}

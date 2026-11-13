@@ -1,0 +1,153 @@
+#:schema https://raw.githubusercontent.com/giocaizzi/agents/main/schema/config.schema.json
+
+# Test fixture: sets every shared key and every typed harness key, so that
+# rendering it writes every managed key of every harness. It sets no
+# harness.<name>.settings passthrough, which would add keys outside the table.
+schema_version = 1
+profile = "main"
+harnesses = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigravity"]
+
+[autonomy]
+execution_mode = "auto"
+sandbox_mode = "off"
+allow_non_workspace_access = true
+subagent_depth = 2
+allow_subagent_invocations = true
+ask_timeout = "60s"
+
+[permissions]
+allow_commands = ["git *"]
+allowed_urls = ["https://example.com/**"]
+allow_command_patterns = ["make *"]
+deny_read = ["**/.env"]
+deny_write = ["**/secrets/**"]
+deny_command_patterns = ["git push * HEAD:main"]
+deny_command_exact = ["env"]
+deny_command_prefixes = ["pip"]
+ask_command_prefixes = ["bw"]
+allowed_mcp = ["docs"]
+reasons = { pip = "use uv" }
+
+[models]
+default_effort_level = "medium"
+show_thinking_summaries = true
+default = "main"
+
+[models.catalog]
+providers = ["openai"]
+
+[models.tiers.main]
+claude = "model-claude"
+copilot = "model-copilot"
+vscode = "model-vscode"
+codex = "model-codex"
+opencode = "acme/model-opencode"
+pi = "model-pi"
+antigravity = "model-antigravity"
+effort = "medium"
+efforts = { claude = "high" }
+
+[models.assign]
+"dev-tools:scout" = "main"
+
+[context]
+auto_compact = true
+auto_compact_window = 500000
+prompt_cache_ttl = "1h"
+subagent_prompt_cache_ttl = "1h"
+max_turn_tokens = 32000
+max_tokens = 200000
+
+[ui]
+theme = "dark"
+tui_mode = "fullscreen"
+view_mode = "focus"
+output_style = "Concise"
+show_turn_duration = true
+progress_bar = true
+time_format = "24h"
+
+[notifications]
+terminal_bell = true
+
+[voice]
+enabled = true
+mode = "hold"
+auto_submit = true
+language = "en"
+
+[telemetry]
+enabled = true
+endpoint = "https://otel.example.com"
+protocol = "http/protobuf"
+temporality = "cumulative"
+log_tool_details = true
+log_tool_content = true
+service_namespace = "acme"
+attributes = { "deployment.environment.name" = "production" }
+services = { claude = "claude-code" }
+
+[lsp]
+enabled = true
+
+[lsp.servers.gopls]
+command = ["gopls"]
+extensions = { ".go" = "go" }
+filetypes = ["go"]
+format = true
+
+[instructions.layers.core]
+
+[plugins]
+registry = "acme/registry"
+disabled = ["off"]
+
+[plugins.enabled]
+on = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigravity"]
+off = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigravity"]
+
+[plugins.standalone.extra]
+source = "acme/extra"
+
+[mcp.servers.docs]
+url = "https://docs.example.com/mcp"
+oauth = { client_id = "client-1", callback_port = 8765, public_client = true }
+
+[mcp.servers.local]
+command = "npx"
+args = ["-y", "example-server"]
+env = { MODE = "local" }
+
+[mcp.workspaces.app]
+path = "${HOME}/ws"
+
+[mcp.workspaces.app.servers.docs]
+url = "https://docs.example.com/mcp"
+
+[harness.claude]
+default_mode = "auto"
+skip_auto_permission_prompt = true
+cleanup_period_days = 30
+disable_claude_ai_connectors = true
+allow = ["WebSearch"]
+
+[harness.codex]
+model_reasoning_effort = "high"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[harness.pi]
+default_provider = "acme"
+default_model = "model"
+default_thinking_level = "medium"
+packages = ["npm:example"]
+
+[harness.antigravity]
+agent_mode = "auto"
+tool_permission = "always-proceed"
+enable_terminal_sandbox = true
+allow_non_workspace_access = true
+allow = ["command(make)"]
+
+[profiles.main]
+instructions = ["core"]

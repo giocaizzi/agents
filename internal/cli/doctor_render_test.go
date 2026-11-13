@@ -14,7 +14,7 @@ import (
 
 func suggestFinding(harness string) doctor.Finding {
 	return doctor.Finding{
-		Level: doctor.LevelSuggest, Kind: doctor.KindBetterModel, Harness: harness, Role: doctor.RoleDriver,
+		Level: doctor.LevelSuggest, Kind: doctor.KindBetterModel, Harness: harness, Tier: "driver",
 		Text:      "driver: a better model is available",
 		Current:   &doctor.ModelRef{ID: "acme/old", Name: "Old 4", In: 3, Out: 15, Category: "coding", Rank: 9},
 		Suggested: &doctor.ModelRef{ID: "acme/new", Name: "New 5", In: 2.5, Out: 12.5, Category: "coding", Rank: 2},
@@ -24,7 +24,7 @@ func suggestFinding(harness string) doctor.Finding {
 
 func sampleFindings() []doctor.Finding {
 	warn := func(h string) doctor.Finding {
-		return doctor.Finding{Level: doctor.LevelWarn, Kind: doctor.KindUnknownModel, Harness: h, Text: "scout: model ghost is not in the catalog", Fix: "harnessPolicy.models.tiers.scout"}
+		return doctor.Finding{Level: doctor.LevelWarn, Kind: doctor.KindUnknownModel, Harness: h, Text: "scout: model ghost is not in the catalog", Fix: "models.tiers.scout.claude"}
 	}
 	return []doctor.Finding{
 		{Level: doctor.LevelWarn, Kind: doctor.KindStaleCatalog, Text: "model catalog synced 40 days ago (2026-09-27)", Fix: "agents models sync"},
@@ -45,7 +45,7 @@ i no usage data: account checks skipped
 ↑ driver   Old 4 → New 5   better-ranked · coding #9 → #2 · $3/$15 → $2.5/$12.5 /Mtok · included in your plan · claude, codex
 
 claude · codex
-  ! scout: model ghost is not in the catalog  · harnessPolicy.models.tiers.scout
+  ! scout: model ghost is not in the catalog  · models.tiers.scout.claude
 
 pi
   ↑ pi: no account for provider acme  · agents usage
@@ -73,7 +73,7 @@ func TestRenderDoctorStyled(t *testing.T) {
 <G>↑<O> <M>driver   <O>Old 4 → <M>New 5<O>   <D>better-ranked · coding #9 → #2 · $3/$15 → $2.5/$12.5 /Mtok · included in your plan · claude, codex<O>
 
 <B>claude · codex<O>
-  <Y>!<O> scout: model ghost is not in the catalog  <D>· harnessPolicy.models.tiers.scout<O>
+  <Y>!<O> scout: model ghost is not in the catalog  <D>· models.tiers.scout.claude<O>
 
 <B>pi<O>
   <G>↑<O> pi: no account for provider acme  <D>· agents usage<O>
@@ -123,7 +123,7 @@ func TestRenderDoctorSuggestWithoutModels(t *testing.T) {
 func TestRenderDoctorSanitizes(t *testing.T) {
 	t.Parallel()
 	f := suggestFinding("cl\x1b[2Jaude")
-	f.Role = "dri\x1bver"
+	f.Tier = "dri\x1bver"
 	f.Current.Name = "Old\x07"
 	f.Reason = "bet\x1bter"
 	findings := []doctor.Finding{
@@ -137,23 +137,23 @@ func TestRenderDoctorSanitizes(t *testing.T) {
 	}
 }
 
-func roleSuggest(harness, role, sug string) doctor.Finding {
+func tierSuggest(harness, role, sug string) doctor.Finding {
 	f := suggestFinding(harness)
-	f.Role = role
+	f.Tier = role
 	f.Suggested.ID = sug
 	return f
 }
 
-// Identical suggestions collapse into one line per role, in role order, with
+// Identical suggestions collapse into one line per tier, in order of appearance, with
 // their harnesses in harness order; a different model pair stays apart.
 func TestRenderDoctorCollapsesSuggestions(t *testing.T) {
 	t.Parallel()
 	findings := []doctor.Finding{
-		roleSuggest("pi", doctor.RoleDriver, "acme/new"),
-		roleSuggest("copilot", doctor.RoleScout, "acme/new"),
-		roleSuggest("claude", doctor.RoleDriver, "acme/new"),
-		roleSuggest("pi", doctor.RoleScout, "acme/new"),
-		roleSuggest("codex", doctor.RoleDriver, "acme/other"),
+		tierSuggest("pi", "driver", "acme/new"),
+		tierSuggest("copilot", "scout", "acme/new"),
+		tierSuggest("claude", "driver", "acme/new"),
+		tierSuggest("pi", "scout", "acme/new"),
+		tierSuggest("codex", "driver", "acme/other"),
 	}
 	var buf bytes.Buffer
 	renderDoctor(&buf, term.Style{}, findings, "", 0)
@@ -163,7 +163,7 @@ func TestRenderDoctorCollapsesSuggestions(t *testing.T) {
 			got = append(got, l[strings.LastIndex(l, " · ")+len(" · "):])
 		}
 	}
-	want := []string{"copilot, pi", "claude, pi", "codex"}
+	want := []string{"claude, pi", "codex", "copilot, pi"}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("collapsed harness lists (-want +got):\n%s\n%s", diff, buf.String())
 	}
@@ -178,9 +178,9 @@ func quietFindings(warns, sugs int) []doctor.Finding {
 	for i := range warns {
 		fs = append(fs, doctor.Finding{Level: doctor.LevelWarn, Kind: doctor.KindCapacity, Harness: "codex", Text: fmt.Sprintf("openai %dh at 95%%", i+1)})
 	}
-	roles := []string{doctor.RoleScout, doctor.RoleWorker, doctor.RoleDriver, doctor.RoleEscalate}
+	roles := []string{"scout", "worker", "driver", "escalate"}
 	for i := range sugs {
-		fs = append(fs, roleSuggest("claude", roles[i], "acme/new"))
+		fs = append(fs, tierSuggest("claude", roles[i], "acme/new"))
 	}
 	return fs
 }

@@ -28,14 +28,26 @@ type fakeStore struct {
 	env   map[string]string
 }
 
+// file looks path up ignoring the separator style, since fixture keys are
+// written with "/" and the code under test joins with the OS separator.
+func (s fakeStore) file(path string) (string, bool) {
+	want := filepath.ToSlash(path)
+	for k, v := range s.files {
+		if filepath.ToSlash(k) == want {
+			return v, true
+		}
+	}
+	return "", false
+}
+
 func (s fakeStore) ReadFile(path string) ([]byte, error) {
-	if c, ok := s.files[path]; ok {
+	if c, ok := s.file(path); ok {
 		return []byte(c), nil
 	}
 	return nil, fs.ErrNotExist
 }
 func (fakeStore) Secret(string, string) (string, error) { return "", fs.ErrNotExist }
-func (s fakeStore) Exists(path string) bool             { _, ok := s.files[path]; return ok }
+func (s fakeStore) Exists(path string) bool             { _, ok := s.file(path); return ok }
 func (s fakeStore) Getenv(k string) string              { return s.env[k] }
 func (fakeStore) Canonical(p string) string             { return p }
 func (fakeStore) SameFile(a, b string) bool             { return a == b }
@@ -53,12 +65,7 @@ func usageDeps(t *testing.T) (Deps, *bytes.Buffer, *bytes.Buffer, string) {
 	var out, errb bytes.Buffer
 	d := Deps{
 		Stdout: &out, Stderr: &errb, GOOS: runtime.GOOS,
-		Getenv: func(k string) string {
-			if k == "XDG_CACHE_HOME" {
-				return cacheHome
-			}
-			return ""
-		},
+		Getenv: hermeticGetenv(t, map[string]string{"XDG_CACHE_HOME": cacheHome}),
 	}
 	return d, &out, &errb, filepath.Join(cacheHome, "agents", "usage.json")
 }
@@ -359,11 +366,11 @@ func listFiles(files map[string]string, dir string) []string {
 	seen := map[string]bool{}
 	var out []string
 	for f := range files {
-		rest, ok := strings.CutPrefix(f, dir+string(filepath.Separator))
+		rest, ok := strings.CutPrefix(filepath.ToSlash(f), filepath.ToSlash(dir)+"/")
 		if !ok {
 			continue
 		}
-		name, _, _ := strings.Cut(rest, string(filepath.Separator))
+		name, _, _ := strings.Cut(rest, "/")
 		if !seen[name] {
 			seen[name] = true
 			out = append(out, name)

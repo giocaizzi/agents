@@ -57,9 +57,8 @@ func (s osStore) limit() time.Duration {
 
 // newOSStore builds the store from the CLI dependencies.
 func newOSStore(d Deps) osStore {
-	home, _ := os.UserHomeDir()
 	return osStore{
-		getenv: d.Getenv, goos: d.GOOS, home: home, now: time.Now, securityBin: "/usr/bin/security", timeout: secretTimeout,
+		getenv: d.Getenv, goos: d.GOOS, home: d.home(), now: time.Now, securityBin: "/usr/bin/security", timeout: secretTimeout,
 		user: func() string { return currentUser(d.Getenv) },
 	}
 }

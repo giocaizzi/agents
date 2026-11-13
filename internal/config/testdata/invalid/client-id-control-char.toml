@@ -1,0 +1,7 @@
+schema_version = 1
+
+[mcp.servers.acme-docs]
+url = "https://mcp.example.com"
+
+[mcp.servers.acme-docs.oauth]
+client_id = "abc\u0007def"

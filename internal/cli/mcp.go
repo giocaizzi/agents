@@ -2,11 +2,17 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
+	"github.com/giocaizzi/agents/internal/apply"
+	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/harness"
 	"github.com/giocaizzi/agents/internal/mcpsync"
 	"github.com/giocaizzi/agents/internal/term"
 )
@@ -50,51 +56,105 @@ func (d Deps) runMCP(ctx context.Context, args []string) int {
 
 func (d Deps) runMCPSync(_ context.Context, args []string) int {
 	fs := d.newFlags("mcp sync")
-	checkFlag := fs.Bool("check", false, "validate workspace MCP configuration without writing files")
+	cf := addConfigFlags(fs)
+	dryRun := fs.Bool("n", false, "dry run: print the diff and write nothing")
 	accountFlag := fs.String("account", "", "hostname account identifier; defaults to MCP_CONNECTOR_ACCOUNT")
 
 	if err := fs.Parse(args); err != nil {
 		return d.parseFailure(fs, err)
 	}
-
-	root := "."
-	if fs.NArg() > 0 {
-		root = fs.Arg(0)
+	if fs.NArg() > 1 {
+		fmt.Fprintf(d.Stderr, "mcp sync takes at most one path, got %d\n\n", fs.NArg())
+		d.printHelp(d.Stderr, "mcp sync", fs)
+		return exitUsage
 	}
 
-	account := *accountFlag
+	r, err := d.loadConfig(cf)
+	if err != nil {
+		return d.mcpFailure(err)
+	}
+	if fs.NArg() == 1 {
+		return d.syncMCPDir(r, fs.Arg(0), *accountFlag, *dryRun)
+	}
+
+	plan, err := harness.RenderWorkspaces(r, d.harnessEnv(r))
+	if err != nil {
+		return d.mcpFailure(err)
+	}
+	return d.applyMCP(filepath.Join(r.Dirs.State, "apply.json"), plan.Targets, plan.Warnings, *dryRun)
+}
+
+// syncMCPDir writes the native MCP files of the harnesses selected in r from
+// the .mcp.json in dir.
+func (d Deps) syncMCPDir(r *config.Resolved, dir, account string, dryRun bool) int {
+	root, err := filepath.Abs(dir)
+	if err != nil {
+		return d.mcpFailure(fmt.Errorf("resolve %s: %w", dir, err))
+	}
 	if account == "" {
 		account = d.Getenv("MCP_CONNECTOR_ACCOUNT")
 	}
-
-	st := term.NewStyle(d.Stdout, d.Getenv)
-
-	if *checkFlag {
-		if account == "" {
-			account = "example-account"
-		}
-		warnings, err := mcpsync.Check(root, account)
-		if err != nil {
-			errSt := term.NewStyle(d.Stderr, d.Getenv)
-			fmt.Fprintf(d.Stderr, "%serror:%s %v\n", errSt.R, errSt.O, err)
-			return 1
-		}
-		d.printMCPWarnings(warnings)
-		srcFile := filepath.Join(root, mcpsync.SourceFilename)
-		fmt.Fprintf(d.Stdout, "%s✓%s workspace MCP source is valid for Codex, pi and Antigravity (%s)\n", st.G, st.O, srcFile)
-		return 0
-	}
-
-	outputs, warnings, err := mcpsync.Sync(root, account)
+	f, err := os.Open(filepath.Join(root, mcpsync.SourceFilename)) //nolint:gosec // the directory comes from the user
 	if err != nil {
-		errSt := term.NewStyle(d.Stderr, d.Getenv)
-		fmt.Fprintf(d.Stderr, "%serror:%s %v\n", errSt.R, errSt.O, err)
-		return 1
+		return d.mcpFailure(fmt.Errorf("open %s: %w", mcpsync.SourceFilename, err))
 	}
-	d.printMCPWarnings(warnings)
+	defer f.Close()
+	src, err := mcpsync.ParseAndValidate(f, account)
+	if err != nil {
+		return d.mcpFailure(err)
+	}
 
-	fmt.Fprintf(d.Stdout, "%s✓%s generated workspace MCP configuration for Codex, pi and Antigravity (%d files)\n", st.G, st.O, len(outputs))
-	return 0
+	selected := harness.Selected(r.Harnesses)
+	names := make([]string, len(selected))
+	for i, h := range selected {
+		names[i] = string(h)
+	}
+	targets, warnings := harness.WorkspaceTargets(root, src.MCPServers, names, true)
+	for i, w := range warnings {
+		warnings[i] = root + ": " + w
+	}
+	return d.applyMCP(syncManifestPath(r.Dirs.State, root), targets, warnings, dryRun)
+}
+
+// syncManifestPath is the manifest of one synced directory. It is separate
+// from the apply manifest, so a full apply never retires what sync wrote.
+func syncManifestPath(state, root string) string {
+	sum := sha256.Sum256([]byte(root))
+	return filepath.Join(state, "mcp-sync", hex.EncodeToString(sum[:])[:16]+".json")
+}
+
+// applyMCP applies targets through the apply engine and prints one line per
+// result, with the diff on a dry run.
+func (d Deps) applyMCP(statePath string, targets []apply.Target, warnings []string, dryRun bool) int {
+	d.printMCPWarnings(warnings)
+	engine := apply.Engine{StatePath: statePath, DryRun: dryRun, Partial: true}
+	results, err := engine.Run(targets)
+	code := exitOK
+	if err != nil {
+		code = d.mcpFailure(err)
+	}
+	for _, res := range results {
+		if res.Err != nil {
+			d.mcpFailure(fmt.Errorf("%s: %w", res.Target.Path, res.Err))
+			code = exitFindings
+			continue
+		}
+		fmt.Fprintf(d.Stdout, "%s %s\n", res.Status, res.Target.Path)
+		if res.Status == apply.StatusRefused {
+			code = exitFindings
+		}
+		if dryRun && res.Diff != "" {
+			fmt.Fprintln(d.Stdout, res.Diff)
+		}
+	}
+	return code
+}
+
+// mcpFailure prints err on stderr and returns the failure exit code.
+func (d Deps) mcpFailure(err error) int {
+	st := term.NewStyle(d.Stderr, d.Getenv)
+	fmt.Fprintf(d.Stderr, "%serror:%s %v\n", st.R, st.O, err)
+	return exitFindings
 }
 
 // printMCPWarnings reports, on stderr, settings a native target cannot represent.
@@ -231,19 +291,11 @@ func (d Deps) runMCPAdd(_ context.Context, args []string) int {
 		return 0
 	}
 
-	account := *accountFlag
-	if account == "" {
-		account = d.Getenv("MCP_CONNECTOR_ACCOUNT")
-	}
+	fmt.Fprintf(d.Stdout, "%s✓%s added server %q to %s\n", st.G, st.O, name, mcpsync.SourceFilename)
 
-	outputs, warnings, syncErr := mcpsync.Sync(*dirFlag, account)
-	if syncErr != nil {
-		errSt := term.NewStyle(d.Stderr, d.Getenv)
-		fmt.Fprintf(d.Stderr, "%serror syncing native configuration:%s %v\n", errSt.R, errSt.O, syncErr)
-		return 1
+	r, cfgErr := d.loadConfig(&configFlags{})
+	if cfgErr != nil {
+		return d.mcpFailure(cfgErr)
 	}
-	d.printMCPWarnings(warnings)
-
-	fmt.Fprintf(d.Stdout, "%s✓%s added server %q to %s and synced native configurations (%d files)\n", st.G, st.O, name, mcpsync.SourceFilename, len(outputs))
-	return 0
+	return d.syncMCPDir(r, *dirFlag, *accountFlag, false)
 }

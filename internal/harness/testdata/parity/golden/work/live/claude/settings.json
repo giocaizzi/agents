@@ -1,0 +1,190 @@
+{
+  "autoMode": {
+    "enabled": true
+  },
+  "model": "opus",
+  "env": {
+    "MY_VAR": "1",
+    "CLAUDE_CODE_SUBAGENT_MODEL": "sonnet"
+  },
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch",
+      "Bash",
+      "Bash(gh pr merge * --auto*)",
+      "Bash(git push --force-with-lease origin *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ],
+    "ask": [
+      "Bash(bw)",
+      "Bash(bw *)"
+    ],
+    "defaultMode": "auto",
+    "deny": [
+      "Bash(gh pr merge * --admin*)",
+      "Bash(git push --force-with-lease origin main)",
+      "Bash(git push --force-with-lease origin main *)",
+      "Bash(git push --force-with-lease origin master)",
+      "Bash(git push --force-with-lease origin master *)",
+      "Bash(git push * HEAD:main)",
+      "Bash(git push * HEAD:main *)",
+      "Bash(git push * HEAD:master)",
+      "Bash(git push * HEAD:master *)",
+      "Read(**/.env)",
+      "Read(**/.env.local)",
+      "Read(**/.env.*.local)",
+      "Read(**/.env.development)",
+      "Read(**/.env.production)",
+      "Read(**/.env.staging)",
+      "Read(**/.env.test)",
+      "Read(**/secrets/**)",
+      "Read(~/.config/shell/secrets.sh)",
+      "Read(~/.config/powershell/secrets.ps1)",
+      "Read(**/*.pem)",
+      "Read(**/*.key)",
+      "Read(**/*.p12)",
+      "Read(**/*.pfx)",
+      "Read(**/id_rsa*)",
+      "Read(**/id_ed25519*)",
+      "Read(**/.aws/credentials)",
+      "Read(**/.aws/config)",
+      "Read(**/.ssh/**)",
+      "Read(**/.netrc)",
+      "Read(**/.npmrc)",
+      "Read(**/.pypirc)",
+      "Read(**/credentials.json)",
+      "Read(**/service-account*.json)",
+      "Read(**/gcp-key*.json)",
+      "Read(**/*.kubeconfig)",
+      "Read(**/kubeconfig)",
+      "Edit(**/.env)",
+      "Edit(**/.env.local)",
+      "Edit(**/.env.*.local)",
+      "Edit(**/.env.development)",
+      "Edit(**/.env.production)",
+      "Edit(**/.env.staging)",
+      "Edit(**/.env.test)",
+      "Edit(**/secrets/**)",
+      "Edit(~/.config/shell/secrets.sh)",
+      "Edit(~/.config/powershell/secrets.ps1)",
+      "Edit(**/.aws/credentials)",
+      "Edit(**/.ssh/**)",
+      "Bash(env)",
+      "Bash(printenv:*)",
+      "Bash(pipx:*)",
+      "Bash(pip:*)",
+      "Bash(pip3:*)",
+      "Bash(python -m pip:*)",
+      "Bash(python3 -m pip:*)"
+    ]
+  },
+  "enabledPlugins": {
+    "mine@local": true,
+    "dev-tools@giocaizzi-harness": true,
+    "foundations@giocaizzi-harness": true,
+    "frontend-design@claude-plugins-official": true,
+    "go@giocaizzi-harness": false,
+    "gopls-lsp@claude-plugins-official": false,
+    "guard@giocaizzi-harness": true,
+    "hud@giocaizzi-harness": true,
+    "infra@giocaizzi-harness": true,
+    "javascript@giocaizzi-harness": true,
+    "lsp@dotfiles": true,
+    "next-steps@claude-community": false,
+    "pyright-lsp@claude-plugins-official": false,
+    "python@giocaizzi-harness": true,
+    "skill-creator@claude-plugins-official": true,
+    "sounds@giocaizzi-harness": true,
+    "typescript-lsp@claude-plugins-official": false
+  },
+  "agentPushNotifEnabled": true,
+  "askUserQuestionTimeout": "60s",
+  "autoCompactWindow": 500000,
+  "cleanupPeriodDays": 365,
+  "disableClaudeAiConnectors": true,
+  "effortLevel": "medium",
+  "extraKnownMarketplaces": {
+    "anthropic-agent-skills": {
+      "source": {
+        "repo": "anthropics/skills",
+        "source": "github"
+      }
+    },
+    "claude-community": {
+      "source": {
+        "repo": "anthropics/claude-plugins-community",
+        "source": "github"
+      }
+    },
+    "dotfiles": {
+      "source": {
+        "path": "/home/user/.claude/dotfiles-plugins",
+        "source": "directory"
+      }
+    },
+    "giocaizzi-harness": {
+      "autoUpdate": true,
+      "source": {
+        "repo": "giocaizzi/harness",
+        "source": "github"
+      }
+    },
+    "impeccable": {
+      "autoUpdate": true,
+      "source": {
+        "repo": "pbakaus/impeccable",
+        "source": "github"
+      }
+    },
+    "obsidian-skills": {
+      "autoUpdate": true,
+      "source": {
+        "repo": "kepano/obsidian-skills",
+        "source": "github"
+      }
+    }
+  },
+  "inputNeededNotifEnabled": true,
+  "outputStyle": "Concise",
+  "pluginConfigs": {
+    "sounds@giocaizzi-harness": {
+      "options": {
+        "notify": true,
+        "notifyAfterSeconds": 0,
+        "soundCacheExpired": "off",
+        "soundCacheExpiring": "off",
+        "soundSubagent": "off"
+      }
+    }
+  },
+  "preferredNotifChannel": "terminal_bell",
+  "promptCacheTtl": "1h",
+  "remoteControlAtStartup": false,
+  "showThinkingSummaries": true,
+  "showTurnDuration": true,
+  "skipAutoPermissionPrompt": true,
+  "skipWorkflowUsageWarning": true,
+  "statusLine": {
+    "command": "node /home/user/.claude/plugins/marketplaces/giocaizzi-harness/plugins/hud/hooks/statusline.mjs claude",
+    "type": "command"
+  },
+  "subagentPromptCacheTtl": "1h",
+  "subagentStatusLine": {
+    "command": "node /home/user/.claude/plugins/marketplaces/giocaizzi-harness/plugins/hud/hooks/statusline.mjs subagent",
+    "type": "command"
+  },
+  "terminalProgressBarEnabled": true,
+  "terminalTitleFromRename": true,
+  "theme": "dark",
+  "timeFormat": "24h",
+  "tui": "fullscreen",
+  "viewMode": "focus",
+  "voice": {
+    "autoSubmit": false,
+    "enabled": true,
+    "mode": "hold"
+  }
+}

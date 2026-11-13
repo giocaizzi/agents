@@ -4,16 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"slices"
 	"strings"
 
-	"github.com/pelletier/go-toml/v2"
-
+	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/harness"
 	"github.com/giocaizzi/agents/internal/pluginmgmt"
-	"github.com/giocaizzi/agents/internal/pluginreg"
 	"github.com/giocaizzi/agents/internal/term"
 )
 
@@ -54,7 +50,8 @@ func (d Deps) runPlugins(ctx context.Context, args []string) int {
 }
 
 type pluginsCommonFlags struct {
-	file       string
+	*configFlags
+
 	harnessDir string
 	harness    string
 	dryRun     bool
@@ -64,8 +61,8 @@ type pluginsCommonFlags struct {
 
 func (d Deps) parsePluginsFlags(name string, args []string) (pluginsCommonFlags, error) {
 	fs := d.newFlags(name)
-	fileFlag := fs.String("file", "", "path to harness.toml")
-	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
+	cf := addConfigFlags(fs)
+	harnessDirFlag := fs.String("harness-dir", "", "registry checkout to use instead of the one under the data directory")
 	harnessFlag := fs.String("harness", "", "target harness (antigravity, claude, codex, etc.)")
 	dryRunFlag := fs.Bool("n", false, "dry-run mode (inspect only, do not modify)")
 	dryRunLong := fs.Bool("dry-run", false, "dry-run mode")
@@ -78,78 +75,79 @@ func (d Deps) parsePluginsFlags(name string, args []string) (pluginsCommonFlags,
 		return pluginsCommonFlags{}, fmt.Errorf("parse %s flags: %w", name, err)
 	}
 	return pluginsCommonFlags{
-		file:       *fileFlag,
-		harnessDir: *harnessDirFlag,
-		harness:    *harnessFlag,
-		dryRun:     *dryRunFlag || *dryRunLong,
-		force:      *forceFlag || *forceLong,
-		jsonOutput: *jsonFlag,
+		configFlags: cf,
+		harnessDir:  *harnessDirFlag,
+		harness:     *harnessFlag,
+		dryRun:      *dryRunFlag || *dryRunLong,
+		force:       *forceFlag || *forceLong,
+		jsonOutput:  *jsonFlag,
 	}, nil
 }
 
-func (d Deps) loadHarnessManager(explicitFile, explicitHarnessDir string) (pluginmgmt.Manager, error) {
-	tomlPath, err := d.findHarnessToml(explicitFile)
+// pluginSetup is the plugin manager with what it was built from.
+type pluginSetup struct {
+	mgr      pluginmgmt.Manager
+	resolved *config.Resolved
+	registry string // owner/repo, "" without a registry
+	targets  []string
+}
+
+// loadPluginSetup builds the plugin manager from the resolved configuration.
+// The checkout is the registry directory under the data directory unless
+// -harness-dir names another.
+func (d Deps) loadPluginSetup(flags pluginsCommonFlags) (pluginSetup, error) {
+	r, err := d.loadConfig(flags.configFlags)
 	if err != nil {
-		return pluginmgmt.Manager{}, fmt.Errorf("locate harness.toml: %w", err)
+		return pluginSetup{}, err
+	}
+	c := &r.Config
+	checkout := flags.harnessDir
+	if checkout == "" {
+		checkout = harness.RegistryDir(c, r.Dirs)
 	}
 
-	data, err := os.ReadFile(filepath.Clean(tomlPath))
-	if err != nil {
-		return pluginmgmt.Manager{}, fmt.Errorf("read %s: %w", tomlPath, err)
+	plugins := make(map[string][]string, len(c.Plugins.Enabled))
+	for name := range c.Plugins.Enabled {
+		plugins[name] = nil
 	}
-
-	var cfg pluginreg.HarnessConfig
-	if err := toml.Unmarshal(data, &cfg); err != nil {
-		return pluginmgmt.Manager{}, fmt.Errorf("parse %s: %w", tomlPath, err)
-	}
-
-	pluginreg.MergeAgentsConfig(&cfg, data)
-
-	harnessDir := explicitHarnessDir
-	if harnessDir == "" {
-		candidates := pluginreg.CandidateDirs(d.Getenv("HARNESS_DIR"), cfg.Registry, d.homeDir())
-		for _, c := range candidates {
-			if c != "" {
-				if _, statErr := os.Stat(filepath.Join(c, "plugins")); statErr == nil {
-					harnessDir = c
-					break
-				}
+	for _, h := range r.Harnesses {
+		for name, on := range harness.PluginStates(c, h) {
+			if on {
+				plugins[name] = append(plugins[name], string(h))
 			}
 		}
 	}
-
-	ns := ""
-	if cfg.Registry != "" {
-		ns = pluginreg.ResolveNamespace(cfg.Registry)
-	} else if harnessDir != "" {
-		ns = pluginreg.DiscoverMarketplaceNamespace(harnessDir)
-		if cfg.Registry == "" {
-			cfg.Registry = pluginreg.DiscoverRegistry(harnessDir)
+	standalone := make(map[string]pluginmgmt.Standalone, len(c.Plugins.Standalone)+len(c.Plugins.External))
+	for _, table := range []map[string]config.StandalonePlugin{c.Plugins.Standalone, c.Plugins.External} {
+		for name, sp := range table {
+			standalone[name] = pluginmgmt.Standalone{Source: sp.Source, Path: sp.Path, Harnesses: sp.Harnesses, Version: sp.Version}
 		}
 	}
-	if ns == "" {
-		ns = "harness"
+
+	targets := make([]string, 0, len(r.Harnesses))
+	for _, h := range r.Harnesses {
+		if slices.Contains(pluginmgmt.DefaultHarnessOrder(), string(h)) {
+			targets = append(targets, string(h))
+		}
+	}
+	targets = pluginmgmt.SortHarnesses(targets)
+	if flags.harness != "" {
+		targets = []string{flags.harness}
 	}
 
-	return pluginmgmt.Manager{
-		HarnessDir:    harnessDir,
-		HomeDir:       d.homeDir(),
-		ConfigHome:    d.Getenv("XDG_CONFIG_HOME"),
-		Registry:      cfg.Registry,
-		Namespace:     ns,
-		HarnessConfig: cfg,
+	return pluginSetup{
+		mgr: pluginmgmt.Manager{
+			HarnessDir: checkout,
+			HomeDir:    d.home(),
+			ConfigHome: d.Getenv("XDG_CONFIG_HOME"),
+			Namespace:  harness.MarketplaceName(c),
+			Plugins:    plugins,
+			Standalone: standalone,
+		},
+		resolved: r,
+		registry: c.Plugins.Registry,
+		targets:  targets,
 	}, nil
-}
-
-func (d Deps) homeDir() string {
-	if h := d.Getenv("HOME"); h != "" {
-		return h
-	}
-	h, err := os.UserHomeDir()
-	if err == nil {
-		return h
-	}
-	return ""
 }
 
 func buildPluginRow(p pluginmgmt.PluginInfo, harnesses []string, st term.Style) ([]string, bool, bool) {
@@ -194,17 +192,14 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 		return d.flagFail(err)
 	}
 
-	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)
+	setup, err := d.loadPluginSetup(flags)
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "plugins: %v\n", err)
 		return 1
 	}
+	mgr := setup.mgr
 
-	list, err := mgr.ListPlugins(ctx)
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "plugins list: %v\n", err)
-		return 1
-	}
+	list := mgr.ListPlugins(ctx)
 
 	if flags.jsonOutput {
 		enc := json.NewEncoder(d.Stdout)
@@ -218,10 +213,7 @@ func (d Deps) runPluginsList(ctx context.Context, args []string) int {
 
 	fmt.Fprintf(d.Stdout, "%sagents plugins — harness plugin status and lifecycle%s\n\n", st.B, st.O)
 
-	harnesses := pluginmgmt.SortHarnesses(pluginmgmt.EnabledHarnesses(mgr.HarnessConfig))
-	if flags.harness != "" {
-		harnesses = []string{flags.harness}
-	}
+	harnesses := setup.targets
 
 	upstreamStale := slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.UpstreamStale })
 	staleCount, missingCount := d.printPluginMatrix(st, list, harnesses)
@@ -278,26 +270,6 @@ func (d Deps) printUpToDate(st term.Style, plugins, harnesses int, upstreamStale
 	fmt.Fprintf(d.Stdout, "  %s✓%s all %d plugins up to date across %d configured harnesses\n", st.G, st.O, plugins, harnesses)
 }
 
-func (d Deps) syncUpstream(ctx context.Context, st term.Style, harnessDir string, dryRun bool) {
-	if harnessDir == "" {
-		return
-	}
-	gitDir := filepath.Join(harnessDir, ".git")
-	if _, err := os.Stat(gitDir); err != nil {
-		return
-	}
-	if dryRun {
-		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s would git pull upstream checkout at %s\n", st.D, st.O, harnessDir)
-		return
-	}
-	cmd := exec.CommandContext(ctx, "git", "-C", harnessDir, "pull", "--ff-only")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		st.Warn(d.Stdout, fmt.Sprintf("upstream git pull failed (%s): %v", strings.TrimSpace(string(out)), err))
-	} else {
-		fmt.Fprintf(d.Stdout, "  %s✓%s upstream harness checkout updated\n", st.G, st.O)
-	}
-}
-
 func (d Deps) pruneCaches(st term.Style, mgr pluginmgmt.Manager, dryRun bool) {
 	candidates, err := mgr.FindPruneCandidates()
 	if err != nil || len(candidates) == 0 {
@@ -320,11 +292,12 @@ func (d Deps) runPluginsPrune(_ context.Context, args []string) int {
 		return d.flagFail(err)
 	}
 
-	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)
+	setup, err := d.loadPluginSetup(flags)
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "plugins: %v\n", err)
 		return 1
 	}
+	mgr := setup.mgr
 
 	candidates, err := mgr.FindPruneCandidates()
 	if err != nil {

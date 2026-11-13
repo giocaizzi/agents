@@ -3,179 +3,183 @@ package config
 import (
 	"fmt"
 	"maps"
-	"regexp"
 	"slices"
 	"strings"
+	"unicode"
 
 	"github.com/giocaizzi/agents/internal/finding"
 )
 
-const (
-	defaultAuto   = "auto"
-	defaultManual = "manual"
-)
+// Validate checks a loaded Config for what the schema cannot say. Profiles are
+// overlays, so their MCP servers and language servers may be partial; only the
+// merged config and the workspaces are held to the complete-entry rules.
+func Validate(c Config) []finding.Finding {
+	var out []finding.Finding
+	add := func(where, format string, args ...any) {
+		out = append(out, finding.New(where, format, args...))
+	}
 
-// Validate checks that the policy conforms to house rules and valid enum values.
-func (p Policy) Validate(where string) []finding.Finding {
-	fs := make([]finding.Finding, 0, 8)
-	fs = append(fs, p.validateAutonomy(where)...)
-	fs = append(fs, p.validatePatterns(where)...)
-	fs = append(fs, p.validateModels(where)...)
-	fs = append(fs, p.validateNative(where)...)
-	fs = append(fs, p.validateVoice(where)...)
-	fs = append(fs, p.validateLSP(where)...)
-	fs = append(fs, p.validateProfiles(where)...)
-	return fs
+	if c.SchemaVersion != 1 {
+		add("schema_version", "must be 1, got %d", c.SchemaVersion)
+	}
+	for i, h := range c.Harnesses {
+		if !h.Valid() {
+			add(fmt.Sprintf("harnesses[%d]", i), "unknown harness %q (want one of %s)", h, harnessList())
+		}
+	}
+	for i, h := range c.Telemetry.Harnesses {
+		if !h.Valid() {
+			add(fmt.Sprintf("telemetry.harnesses[%d]", i), "unknown harness %q (want one of %s)", h, harnessList())
+		}
+	}
+	validatePlugins("plugins", c.Plugins, add)
+	if c.Profile != "" {
+		if _, ok := c.Profiles[c.Profile]; !ok {
+			add("profile", "profile %q is not declared under profiles", c.Profile)
+		}
+	}
+
+	validateLayerRefs(c, add)
+	validateModels(c.Models, add)
+	validateReasons(c.Permissions, add)
+	validateAutonomy("autonomy", c.Autonomy, add)
+	for _, o := range []struct {
+		name string
+		a    Autonomy
+	}{{"os.darwin", c.OS.Darwin.Autonomy}, {"os.linux", c.OS.Linux.Autonomy}, {"os.windows", c.OS.Windows.Autonomy}} {
+		validateAutonomy(o.name+".autonomy", o.a, add)
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
+		p := c.Profiles[name]
+		base := "profiles." + name
+		validatePlugins(base+".plugins", p.Plugins, add)
+		validateAutonomy(base+".autonomy", p.Autonomy, add)
+		validateServers(base+".mcp.servers", p.MCP.Servers, false, add)
+	}
+
+	for _, name := range slices.Sorted(maps.Keys(c.LSP.Servers)) {
+		if len(c.LSP.Servers[name].Command) == 0 {
+			add("lsp.servers."+name+".command", "must not be empty")
+		}
+	}
+	validateServers("mcp.servers", c.MCP.Servers, true, add)
+	for _, name := range slices.Sorted(maps.Keys(c.MCP.Workspaces)) {
+		w := c.MCP.Workspaces[name]
+		where := "mcp.workspaces." + name
+		if strings.TrimSpace(w.Path) == "" {
+			add(where+".path", "must not be empty")
+		}
+		validateServers(where+".servers", w.Servers, true, add)
+	}
+	return out
 }
 
-func (p Policy) validateProfiles(where string) []finding.Finding {
-	var fs []finding.Finding
-	for name, prof := range p.Profiles {
-		if strings.TrimSpace(name) == "" {
-			fs = append(fs, finding.New(where, "profiles has an empty profile name"))
-		}
-		if prof.Models != nil {
-			fs = append(fs, Policy{Models: *prof.Models}.validateModels(fmt.Sprintf("%s.profiles.%s", where, name))...)
-		}
-	}
-	return fs
-}
-
-func (p Policy) validateLSP(where string) []finding.Finding {
-	var fs []finding.Finding
-	for _, name := range slices.Sorted(maps.Keys(p.LSP.Server)) {
-		srv := p.LSP.Server[name]
-		if strings.TrimSpace(srv.Package) == "" {
-			fs = append(fs, finding.New(where, "lsp.server.%s.package is empty", name))
-		}
-		if len(srv.Command) == 0 || strings.TrimSpace(srv.Command[0]) == "" {
-			fs = append(fs, finding.New(where, "lsp.server.%s.command is empty", name))
-		}
-		if len(srv.Extensions) == 0 {
-			fs = append(fs, finding.New(where, "lsp.server.%s.extensions is empty", name))
-		}
-		if slices.ContainsFunc(srv.Filetypes, func(ft string) bool { return strings.TrimSpace(ft) == "" }) {
-			fs = append(fs, finding.New(where, "lsp.server.%s.filetypes has an empty entry", name))
-		}
-		for _, ext := range slices.Sorted(maps.Keys(srv.Extensions)) {
-			if !strings.HasPrefix(ext, ".") {
-				fs = append(fs, finding.New(where, "lsp.server.%s.extensions key %q must start with \".\"", name, ext))
-			}
-			if strings.TrimSpace(srv.Extensions[ext]) == "" {
-				fs = append(fs, finding.New(where, "lsp.server.%s.extensions[%q] has an empty language id", name, ext))
-			}
-		}
-	}
-	return fs
-}
-
-var bcp47 = regexp.MustCompile(`^[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*$`)
-
-func (p Policy) validateVoice(where string) []finding.Finding {
-	var fs []finding.Finding
-	switch p.Voice.Mode {
-	case "", "hold", "tap":
-	default:
-		fs = append(fs, finding.New(where, "voice.mode %q must be hold or tap", p.Voice.Mode))
-	}
-	if p.Voice.Language != "" && !bcp47.MatchString(p.Voice.Language) {
-		fs = append(fs, finding.New(where, "voice.language %q must be a BCP 47 tag such as en or it-IT", p.Voice.Language))
-	}
-	return fs
-}
-
-func (p Policy) validateAutonomy(where string) []finding.Finding {
-	var fs []finding.Finding
-	mode := p.Autonomy.ExecutionMode
-	if mode == "" {
-		mode = p.Autonomy.Mode
-	}
-	if mode != "" {
-		switch mode {
-		case defaultAuto, defaultManual, "prompt", "on-request":
-		default:
-			fs = append(fs, finding.New(where, "autonomy mode %q must be auto, manual, on-request or prompt", mode))
-		}
-	}
-	return fs
-}
-
-func (p Policy) validatePatterns(where string) []finding.Finding {
-	var fs []finding.Finding
-	check := func(list []string, name string) {
-		for i, pat := range list {
-			if strings.TrimSpace(pat) == "" {
-				fs = append(fs, finding.New(where, "%s[%d] is empty", name, i))
+// validateLayerRefs checks that every instructions list names declared layers.
+func validateLayerRefs(c Config, add func(string, string, ...any)) {
+	layers := c.Instructions.Layers
+	checkLayers := func(where string, names []string) {
+		for _, n := range names {
+			if _, ok := layers[n]; !ok {
+				add(where, "layer %q is not declared under instructions.layers", n)
 			}
 		}
 	}
-	check(p.Permissions.AllowCommands, "permissions.allowCommands")
-	check(p.Permissions.AllowCommandPatterns, "permissions.allowCommandPatterns")
-	check(p.Permissions.AllowedUrls, "permissions.allowedUrls")
-	check(p.Permissions.DenyRead, "permissions.denyRead")
-	check(p.Permissions.DenyWrite, "permissions.denyWrite")
-	check(p.Permissions.DenyCommandPatterns, "permissions.denyCommandPatterns")
-	check(p.Permissions.DenyCommandExact, "permissions.denyCommandExact")
-	check(p.Permissions.DenyCommandPrefixes, "permissions.denyCommandPrefixes")
-	check(p.Permissions.AskCommandPrefixes, "permissions.askCommandPrefixes")
-	return fs
+	for _, h := range All() {
+		checkLayers("harness."+string(h)+".instructions", c.Harness.InstructionLists()[h])
+	}
+	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
+		p := c.Profiles[name]
+		base := "profiles." + name
+		checkLayers(base+".instructions", p.Instructions)
+		for _, h := range All() {
+			checkLayers(base+".harness."+string(h)+".instructions", p.Harness.InstructionLists()[h])
+		}
+	}
 }
 
-func (p Policy) validateModels(where string) []finding.Finding {
-	var fs []finding.Finding
-	for tierName, tier := range p.Models.Tiers {
-		if strings.TrimSpace(tier.Model) == "" {
-			fs = append(fs, finding.New(where, "models.tiers.%s missing model", tierName))
-		}
-		if strings.TrimSpace(tier.Effort) == "" {
-			fs = append(fs, finding.New(where, "models.tiers.%s missing effort", tierName))
+// validateModels checks that the default tier and every assignment name a
+// declared tier, and that per-harness efforts name known harnesses.
+func validateModels(m Models, add func(string, string, ...any)) {
+	if m.Default != "" {
+		if _, ok := m.Tiers[m.Default]; !ok {
+			add("models.default", "tier %q is not declared under models.tiers", m.Default)
 		}
 	}
-	return fs
+	for _, key := range slices.Sorted(maps.Keys(m.Assign)) {
+		if _, ok := m.Tiers[m.Assign[key]]; !ok {
+			add("models.assign."+key, "tier %q is not declared under models.tiers", m.Assign[key])
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(m.Tiers)) {
+		for _, h := range slices.Sorted(maps.Keys(m.Tiers[name].Efforts)) {
+			if !Harness(h).Valid() {
+				add("models.tiers."+name+".efforts."+h, "unknown harness %q (want one of %s)", h, harnessList())
+			}
+		}
+	}
 }
 
-func (p Policy) validateNative(where string) []finding.Finding {
-	var fs []finding.Finding
-	if p.Native.Claude.DefaultMode != "" {
-		switch p.Native.Claude.DefaultMode {
-		case defaultAuto, defaultManual, "prompt":
-		default:
-			fs = append(fs, finding.New(where, "native.claude.defaultMode %q must be auto, manual or prompt", p.Native.Claude.DefaultMode))
-		}
+// validateAutonomy checks the two enum keys of an autonomy table.
+func validateAutonomy(where string, a Autonomy, add func(string, string, ...any)) {
+	if a.ExecutionMode != "" && !slices.Contains(ExecutionModes(), a.ExecutionMode) {
+		add(where+".execution_mode", "unknown value %q (want one of %s)", a.ExecutionMode, strings.Join(ExecutionModes(), ", "))
 	}
-
-	if p.Native.Antigravity.AgentMode != "" {
-		switch p.Native.Antigravity.AgentMode {
-		case defaultAuto, defaultManual:
-		default:
-			fs = append(fs, finding.New(where, "native.antigravity.agentMode %q must be auto or manual", p.Native.Antigravity.AgentMode))
-		}
+	if a.SandboxMode != "" && !slices.Contains(SandboxModes(), a.SandboxMode) {
+		add(where+".sandbox_mode", "unknown value %q (want one of %s)", a.SandboxMode, strings.Join(SandboxModes(), ", "))
 	}
-
-	for agent, binding := range p.Native.Copilot.Agents {
-		if strings.TrimSpace(binding.Model) == "" {
-			fs = append(fs, finding.New(where, "native.copilot.agents.%s missing model", agent))
-		}
-		if strings.TrimSpace(binding.EffortLevel) == "" {
-			fs = append(fs, finding.New(where, "native.copilot.agents.%s missing effortLevel", agent))
-		}
-	}
-
-	if p.Native.Pi.DefaultThinkingLevel != "" {
-		switch p.Native.Pi.DefaultThinkingLevel {
-		case "off", "minimal", "low", "medium", "high", "xhigh", "max":
-		default:
-			fs = append(fs, finding.New(where, "native.pi.defaultThinkingLevel %q must be off, minimal, low, medium, high, xhigh or max", p.Native.Pi.DefaultThinkingLevel))
-		}
-	}
-	return fs
 }
 
-func (p Policy) String() string {
-	bell := p.UI.TerminalBell || p.Notifications.TerminalBell
-	return fmt.Sprintf("Policy(bell=%v, allowCommands=%d, denyRead=%d, denyCommands=%d)",
-		bell,
-		len(p.Permissions.AllowCommands),
-		len(p.Permissions.DenyRead),
-		len(p.Permissions.DenyCommandPatterns)+len(p.Permissions.DenyCommandExact)+len(p.Permissions.DenyCommandPrefixes))
+// validateReasons checks that every reason names a pattern of a permission
+// command list.
+func validateReasons(p Permissions, add func(string, string, ...any)) {
+	patterns := slices.Concat(p.AllowCommands, p.AllowCommandPatterns, p.DenyCommandPatterns,
+		p.DenyCommandExact, p.DenyCommandPrefixes, p.AskCommandPrefixes)
+	for _, pat := range slices.Sorted(maps.Keys(p.Reasons)) {
+		if !slices.Contains(patterns, pat) {
+			add("permissions.reasons."+pat, "matches no pattern of the permission command lists")
+		}
+	}
+}
+
+func harnessList() string {
+	names := make([]string, 0, len(All()))
+	for _, h := range All() {
+		names = append(names, string(h))
+	}
+	return strings.Join(names, ", ")
+}
+
+func validatePlugins(where string, p Plugins, add func(string, string, ...any)) {
+	for _, name := range slices.Sorted(maps.Keys(p.Enabled)) {
+		for _, h := range p.Enabled[name] {
+			if !h.Valid() {
+				add(where+".enabled."+name, "unknown harness %q (want one of %s)", h, harnessList())
+			}
+		}
+	}
+}
+
+// validateServers checks MCP servers. complete is false for profile overlays,
+// where an entry may only add a field to a server declared elsewhere.
+func validateServers(where string, servers map[string]MCPServer, complete bool, add func(string, string, ...any)) {
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		s := servers[name]
+		w := where + "." + name
+		hasURL, hasCmd := s.URL != "", s.Command != ""
+		if complete && hasURL == hasCmd {
+			add(w, "needs exactly one of url or command")
+		}
+		o := s.OAuth
+		if o.ClientID != "" || o.CallbackPort != 0 || o.PublicClient != nil {
+			if complete && !hasURL {
+				add(w+".oauth", "is only valid on a url server")
+			}
+			if o.CallbackPort != 0 && (o.CallbackPort < 1 || o.CallbackPort > 65535) {
+				add(w+".oauth.callback_port", "must be 1..65535, got %d", o.CallbackPort)
+			}
+			if strings.ContainsFunc(o.ClientID, unicode.IsControl) || strings.ContainsAny(o.ClientID, `"'\`) {
+				add(w+".oauth.client_id", "must not contain control characters, quotes or backslashes")
+			}
+		}
+	}
 }

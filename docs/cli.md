@@ -1,228 +1,231 @@
 # CLI reference and runbook
 
-Use `agents` to discover commands, then ask for help at the level you need. The executable's leaf help reads options from the same parser that executes the command.
+`agents` configures every AI coding harness from one config file. This page lists the commands and the procedures to run them safely. Keys are in [config.md](config.md); the reasoning is in [design.md](design.md).
 
 ## Discover commands
 
 ```sh
-agents                        # root command list
-agents --help                 # same root help; -h also works
-agents help mcp               # group navigation: sync and add
-agents help mcp add           # nested leaf: arguments, flags, defaults, example
-agents mcp add --help         # same leaf help; -h also works
-agents help render            # settings and prompt rendering options
-agents help models sync       # model catalog sync options
-agents help plugins update    # plugin update options
+agents                     # command list
+agents help mcp add        # nested leaf: arguments, flags, defaults, example
+agents apply --help        # same leaf help
 ```
 
-Root help lists immediate commands, group help lists immediate children, and leaf help describes that command's arguments, options, defaults, environment and example. Groups do not aggregate every child's flags. `models` and `plugins` also have default actions: bare `agents models` displays tiers; bare `agents plugins` lists plugins. Bare `agents mcp` instead requires `sync` or `add`.
+Leaf help is built from the parser that runs the command, so it cannot drift from the accepted flags.
 
-### Flag placement and parser boundaries
+### Flags, streams and exit statuses
 
-- Put command options **after the command path and before positional arguments**: `agents mcp sync -check .`.
-- Flags belong to their command, not to a global option set. Root-only aliases are `agents -h` / `agents --help` for help and `agents -v` / `agents --version` for version. Use `agents version` for the named command. For example, use `agents render -file agents.toml`, not `agents -file agents.toml render`.
-- Value flags accept `-file agents.toml` or `-file=agents.toml`; the parser also accepts double-dash spellings. Boolean flags default to false; use `-check` or `-check=true`, not `-check true`.
-- Parsing stops at the first positional argument or `--`. A flag's value is data, even if it looks like a help token. Help is not intercepted by scanning the whole argument list.
-- For `mcp add`, options must precede the server name. Arguments after the executable are forwarded unchanged, including `-h` or `--help`. For example, `agents mcp add -no-sync example example-server --help` stores `--help` as a server argument; it does not display `agents` help. Use `agents help mcp add` to inspect the command without adding a server.
+- Put options after the command path and before positional arguments: `agents apply -n`. Flags belong to their command; the only root aliases are `-h`/`--help` and `-v`/`--version`.
+- Value flags accept `-file x` or `-file=x`. Booleans default to false and are given as `-n` or `-n=true`.
+- Parsing stops at the first positional argument or `--`. For `mcp add`, options precede the server name; everything after the executable is forwarded to the server unchanged, `--help` included.
+- Commands that load the config share `-file <path>` (`-` reads stdin), `-profile <name>` and `-harnesses a,b`. They override `AGENTS_CONFIG`, `AGENTS_PROFILE` and `AGENTS_HARNESSES`.
 
-### Streams and exit statuses
-
-| Result | Stream and exit status |
+| Exit | Meaning |
 |---|---|
-| Explicit help (`help`, `-h`, `--help`) | Help on stdout, exit **0**, no command action |
-| Unknown command/subcommand/help path | Diagnostic and relevant local guidance on stderr, exit **2** |
-| Invalid flag or missing flag value | Diagnostic and command-local help on stderr, exit **2** |
-| Missing required `mcp add` arguments | Diagnostic and `mcp add` help on stderr, exit **2** |
-| Successful command | Normal output on stdout, exit **0** |
-| Operational failure | Usually a diagnostic on stderr and exit **1**; see command-specific notes below |
+| 0 | Success, or explicit help |
+| 1 | Findings, drift, a refused target, or a failed operation |
+| 2 | Usage error: unknown command, bad or missing flag, wrong argument count |
 
-An advisory or partial-data command need not fail for every warning: `doctor` findings are advisory, and `usage` may show stale cached data after a provider failure. Inspect output as well as the exit status.
+`models`, `doctor` and `usage` are advisory: they report and do not fail on a finding.
 
-## Commands reference
-
-All commands support `-h` / `--help` at their option boundary. Unless stated otherwise, optional string flags default to empty (discovery or no filter), and boolean flags default to false.
+## Commands
 
 ### `init`
 
-Detect installed harnesses and scaffold `agents.toml` in the current directory.
+Writes a starter `config.toml` (mode 0600) in the config directory with the schema comment, `schema_version = 1` and the detected harnesses, plus commented examples. It does nothing and says so when the file exists.
 
-| Flag | Meaning/default |
+| Flag | Meaning |
 |---|---|
-| `-global` | Write `~/.config/agents/agents.toml` |
-| `-dir <path>` | Select an existing target directory; takes precedence over `-global` |
-
-```sh
-agents init
-agents init -global
-```
+| `-force` | Overwrite an existing file |
+| `-print` | Write the starter file to stdout and touch nothing |
+| `-file` | Write to this path instead of the default |
 
 ### `check`
 
-Validate policy, client parity and plugin registry configuration.
+Validates the resolved config (schema version, harness names, declared layers and tiers, MCP server shape, OAuth values), the plugin registry and the model assignments, and renders every target to report warnings (skipped entries). A key set in the config that a selected harness ignores is reported once per key: info when the harness has no such setting, a warning when it has one that `agents` does not write yet ([feature matrix](features.md)). Findings are errors, warnings or info; only errors give exit 1.
 
-| Flag | Meaning/default |
+| Flag | Meaning |
 |---|---|
-| `-file <path>` | Explicit `agents.toml`, `harness-policy.toml` or `harness.toml`; otherwise discover it |
-| `-profile <name>` | Apply a configuration profile |
-| `-harness-dir <path>` | Registry checkout; defaults to `HARNESS_DIR`, then discovery |
+| `-live` | Also report native files that differ from what `apply` would write |
+| `-json` | Print `{"findings": [...]}` with `where`, `message` and `severity` |
 
-```sh
-agents check -file agents.toml
-```
+`agents check -file -` reads the config from stdin, so an edit step can check a rendered config before it is written.
+
+### `config show`
+
+Prints the resolved config as TOML. `-json` prints JSON; `-origin` appends the layer that set each key (`default`, a file path, `os darwin`, `profile work`, `env AGENTS_PROFILE`, `flag -profile`, `auto-detect`).
+
+### `schema`
+
+Prints the JSON Schema generated from the running binary. The committed copy is [`schema/config.schema.json`](../schema/config.schema.json); a test fails when they differ.
+
+### `features`
+
+Prints the [feature matrix](features.md): one row per config key, one column per harness, `✓` when `apply` writes the key, `-` when the harness has no such setting and `planned` when it has one that `agents` does not write yet. Reads no configuration.
+
+| Flag | Meaning |
+|---|---|
+| `-harnesses` | Comma-separated harnesses to show (default: all) |
+| `-json` | Print `{"harnesses": [...], "features": [...]}` with the target or evidence of every cell |
 
 ### `render`
 
-Print native configuration or an effective harness prompt to stdout. This command does not write harness settings files; redirect output or use a configuration manager to apply it.
+Prints each target path and the keys `agents` manages in it, without writing anything. `-harness <name>` limits the output to one harness.
 
-| Flag | Meaning/default |
+### `apply`
+
+Writes the native files of every selected harness.
+
+| Flag | Meaning |
 |---|---|
-| `-harness <name>` | Target: `claude`, `antigravity`, `copilot`, `codex`, `pi`, `opencode` |
-| `-part <type>` | Defaults to settings; `permissions` selects Claude/Antigravity permissions; `prompt` selects the effective prompt. The parser also advertises `settings` and `all`; `all` currently follows the settings path, not a bundle of files |
-| `-os <name>` | Target OS: `darwin`, `linux`, `windows`; defaults to the host OS |
-| `-file <path>` | Explicit policy; otherwise discovery |
-| `-profile <name>` | Apply a configuration profile |
+| `-n` | Print the diff of each target and write nothing |
 
-There is no `render -target` flag. Codex settings output is TOML; other settings outputs are JSON.
+Each target is reported as `create`, `update`, `unchanged`, `delete` (a file `agents` made and no longer produces), `drift` (a check-only target that differs, or a retired text file you edited), `refused` (a symlink) or `error`. Warnings (a skipped `${VAR}`, a language server not on `PATH`) print to stderr.
 
-```sh
-agents render -harness pi -os linux
-agents render -harness claude -part permissions -os windows
-agents render -harness claude -part prompt
-```
+How apply treats files:
+
+- **State manifest.** `agents` records the keys it wrote in each file in `<state>/apply.json`. Only keys listed there are ever removed: a key you dropped from the config disappears from the live file on the next apply, a key `agents` never wrote is never touched. A file `agents` created and no longer produces is deleted, unless you edited it (then it is reported as `drift`, left in place and forgotten by the manifest). Losing the manifest loses removals, not your files.
+- **One-time migration.** The first apply of a path that has no manifest entry also deletes the few keys an earlier tool wrote there (for example the local Claude marketplace entry of 0.2 and opencode `mcp.<name>` entries now written under `mcp.servers`). Every later deletion comes from the manifest.
+- **Formats.** JSON, JSONC and TOML files are edited in place: comments, key order and unrelated formatting are preserved and new keys are appended. An unchanged file is not rewritten.
+- **Diffs.** `-n` prints a unified diff in which values of keys `agents` does not manage show as `unmanaged` and every secret as `redacted`; a file that cannot be scanned prints "diff unavailable" rather than the raw text. The old value of a managed key removed from the config prints as `«removed»` when a segment of its path contains `env`, `headers`, `args`, `authorization`, `token`, `secret`, `key`, `password` or `credential` (case-insensitive), because the manifest holds no values and the secret it held is no longer known.
+- **Concurrent edits.** Each write is atomic and compares the file with what was read just before; if another program changed it meanwhile the write is refused with an error and nothing is overwritten. Re-run `agents apply`.
+- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode. Symlinked targets are refused.
+
+The files per harness are in [parity.md](parity.md#what-each-harness-receives). The VS Code `settings.json` is a check-only target: `agents` compares it and reports `drift` but never writes it.
 
 ### `prompt`
 
-Display the effective prompt, or check its presence without printing it. Resolves native harness instruction files first, then configured profile instructions or prompt layers.
+Instruction layers; see [Editing instructions](#editing-instructions).
 
-| Flag | Meaning/default |
+| Command | Meaning |
 |---|---|
-| `-harness <name>` | Optional target: `claude`, `antigravity`, `copilot`, `codex`, `pi`, `opencode` |
-| `-profile <name>` | Prompt profile; default `default` |
-| `-check` | Validate prompt presence/assembly instead of printing it |
-| `-file <path>` | Optional explicit policy or layer file |
+| `prompt edit <name>` | Open one layer: `instructions.edit_command` with `{name}` and `{file}` replaced, else `$EDITOR` |
+| `prompt show [-profile p] [-harness h]` | Print the composed text of one cell (default: the selected profile and the first selected harness) |
+| `prompt matrix` | One row per profile and harness with its layer list |
+| `prompt check [-all]` | Render every cell and report problems. A missing layer file of another profile is "skipped (not on this machine)"; `-all` makes it an error |
 
-```sh
-agents prompt -harness antigravity -check
-agents prompt -profile work
-```
+### `mcp`
 
-### `mcp sync [path]`
-
-Read workspace `.mcp.json` and generate native files for Codex (`.codex/config.toml`), Pi (`.pi/mcp.json`) and Antigravity (`.agents/mcp_config.json`). The workspace path defaults to `.`.
-
-| Flag | Meaning/default |
+| Command | Meaning |
 |---|---|
-| `-check` | Validate source and target preflight without writing |
-| `-account <id>` | Placeholder account identifier; falls back to `MCP_CONNECTOR_ACCOUNT`. Check mode uses `example-account` if neither is set |
+| `mcp sync [-n] [-account id] [path]` | Without a path, write the MCP files of every configured workspace (`mcp.workspaces`). With a path, write that directory's native MCP files from its `.mcp.json` for the selected harnesses |
+| `mcp add [-type t] [-env K=V] [-header 'H: V'] [-dir d] [-no-sync] [-account id] <name> <commandOrUrl> [args...]` | Add or update a server in `<dir>/.mcp.json`, then sync unless `-no-sync` |
 
-Preflight rejects symlink paths and existing targets not marked as generated by `agents mcp sync`.
+`mcp sync` only touches the harnesses currently selected in `harnesses`. It does not remove the workspace file of a harness you dropped; delete that file by hand.
 
-An HTTP server may declare a pre-registered OAuth client in either style that shares `.mcp.json`: Claude Code's `"oauth": {"clientId", "callbackPort"}` or Copilot CLI's `"oauthClientId"`, `"oauthPublicClient"`, `"auth": {"redirectPort"}`. Per field the nested `oauth` value wins, else the Copilot one. Sync writes the client id and callback port to Codex and Pi, and the client id to Antigravity, which has no callback port setting: a port there is left out with a warning on stderr (its fixed redirect URI must be registered with the provider). A client secret is never accepted in `.mcp.json` nor written to a target. Other unknown keys still fail validation.
+`-account` (default `$MCP_CONNECTOR_ACCOUNT`) fills the account placeholder of a `.mcp.json` source. Workspace files go through the same apply engine as every other target, so they get the same diffs, symlink refusal and merge rules. If the sync of `mcp add` fails, `.mcp.json` has already changed; fix the error and run `agents mcp sync <dir>`.
 
-```sh
-agents mcp sync -check .
-agents mcp sync .
-```
+A `.mcp.json` source may declare a pre-registered OAuth client in Claude Code's style (`"oauth": {"clientId", "callbackPort"}`) or Copilot CLI's (`"oauthClientId"`, `"oauthPublicClient"`, `"auth": {"redirectPort"}`); per field the nested value wins. A client secret is never accepted or written. In `config.toml` the same client is `oauth.client_id`, `oauth.callback_port` and `oauth.public_client`.
 
-### `mcp add [options] <name> <commandOrUrl> [args...]`
+#### OAuth redirect hosts
 
-Add or update a server in `.mcp.json`, then sync native targets unless `-no-sync` is set. An HTTP(S) URL infers HTTP transport; an executable infers stdio. HTTP servers do not accept trailing executable arguments.
+A provider that matches redirect URIs exactly needs the redirect each harness actually sends to be registered:
 
-| Flag | Meaning/default |
+| Harness | Redirect URI |
 |---|---|
-| `-type <stdio\|http>`, `-t` | Explicit transport; otherwise inferred |
-| `-env KEY=value`, `-e` | Repeatable environment variable |
-| `-header 'Header: Value'`, `-H` | Repeatable HTTP header |
-| `-dir <path>` | Workspace directory; default `.` |
-| `-no-sync` | Only update `.mcp.json` |
-| `-account <id>` | Placeholder account identifier for sync; falls back to `MCP_CONNECTOR_ACCOUNT` |
+| Claude Code | `http://localhost:<port>/callback` |
+| Codex | `http://127.0.0.1:<port>/callback` |
+| pi | `http://127.0.0.1:<port>/callback` |
+| Antigravity | Fixed `https://antigravity.google/oauth-callback`; there is no port setting, so a configured port is left out with a warning |
+| Copilot CLI | Not verified: `auth.redirectPort` is written, but it is not among the CLI's documented server fields |
+| opencode | Not verified: only the client id is written |
 
-```sh
-agents mcp add -e MODE=local example npx -y example-server
-agents mcp add -type http example https://mcp.example.com/mcp
-```
+Register both the `localhost` and the `127.0.0.1` form when one server is used from Claude Code and from Codex or pi. A confidential client (`public_client` false) gets its id written to Codex, pi and Antigravity without the secret; set the secret in each harness's own secret store, or the login fails at the token exchange.
 
-If native sync fails after adding a server, `.mcp.json` has already changed. Resolve the sync error and rerun `agents mcp sync`.
+### `plugins`
 
-### `models [sync]`
+Bare `agents plugins` is `plugins list`. Plugins come from `[plugins]` in the config; the registry checkout is `<data>/registries/<repo>`.
 
-Bare `agents models` displays terminal tables of model tiers, costs and rankings; it accepts `-file <path>` for `models.json`.
-
-| Command | Flags | Behavior |
-|---|---|---|
-| `models sync` | `-file <path>` | Fetch models.dev, LMArena and Epoch AI data, recompute tiers, and write only the JSON catalog |
-
-The catalog is discovered when `-file` is omitted. Use `agents models` to inspect it in the terminal; use `agents render` separately to print native harness configuration.
-
-```sh
-agents models -file models.json
-agents models sync -file models.json
-```
-
-### `plugins [list|update|prune]`
-
-Bare `agents plugins` is `agents plugins list`. All three leaves accept these shared parser flags (not every flag changes every leaf's behavior):
-
-| Flag | Meaning/default |
+| Command | Meaning |
 |---|---|
-| `-file <path>` | Explicit `harness.toml`; otherwise discovery |
-| `-harness-dir <path>` | Registry checkout; defaults to `HARNESS_DIR`, then discovery |
-| `-harness <name>` | Narrow list/update to one harness; prune accepts this shared flag but does not filter candidates |
-| `-n`, `-dry-run` | Preview update/prune without changing installations |
-| `-f`, `-force` | Force mode for update |
-| `-json` | JSON list output |
+| `plugins list [-json] [-harness h]` | Installed versus upstream versions per harness. `?` marks versions compared against the local checkout because the remote was unreachable |
+| `plugins update [-n] [-force] [-harness h]` | Pull the checkout at most once every 24 hours (`-force` pulls always), then update stale plugins and install missing ones through each harness's own CLI |
+| `plugins prune [-n]` | Remove superseded Claude and Codex cache versions and the obsolete Antigravity plugin |
 
-When no plugin directory is specified, automatic discovery prefers the managed installation at `~/.local/share/<registry-namespace>` before working-directory, `~/Documents`, and `~/src` developer checkouts. Pass `-harness-dir <path>` or set `HARNESS_DIR` to use a specific directory instead.
+Shared flags: `-harness-dir <path>` uses another checkout; `-n` and `-dry-run` are the same. A behind harness whose CLI is not on `PATH` is skipped with a warning. pi counts as installed when its `packages` entry resolves to the checkout, and `update` brings it current through the pull; opencode gets copies made by the checkout's installer, re-run by `update`. With the remote unreachable, `update` changes nothing and exits 1.
 
-`agents plugins list` fetches the checkout's remote tip and reads upstream versions from it, without touching the working tree. When the remote is unreachable it falls back to the local checkout, marks those versions with `?` and warns that they may be out of date.
+### `models`
 
-`agents plugins update` pulls the checkout, shows the same matrix and acts only on harnesses with a stale (`↑`) or missing plugin: it updates stale plugins, installs missing ones and skips the rest as up to date. A harness that is behind but whose CLI is not on `PATH` is skipped with a warning. Installs reported without a per-plugin version are never behind. `-harness <name>` narrows the run to one harness; `-n` prints the exact commands without running them. When the remote is unreachable it updates nothing and exits 1, as it does when a harness fails to update.
+| Command | Meaning |
+|---|---|
+| `models [-file models.json]` | Terminal tables of model tiers, costs and rankings from the catalog cache |
+| `models tiers [-json]` | Matrix of what each tier gets per harness, then each assigned agent's tier and effective model per harness |
+| `models sync [-file models.json]` | Fetch live model and benchmark data and write `<cache>/models.json` |
 
-Two harnesses take plugins from the checkout itself instead of a marketplace:
-
-- **pi** counts as installed only when a `packages` entry of `~/.pi/agent/settings.json` resolves to the checkout. It then runs whatever the checkout holds, so it shows the checkout's plugin versions, and `update` brings it current through the checkout pull (`by the checkout pull`); a missing link is installed with `pi install <checkout>`.
-- **opencode** gets copies made by the checkout's `scripts/install.mjs opencode` in `$XDG_CONFIG_HOME/opencode` (default `~/.config/opencode`). A plugin whose copies match the checkout shows the checkout's version; copies that differ show `↑ outdated`, and `update` re-runs the script.
-
-`agents plugins prune` removes superseded Claude/Codex cache versions and the obsolete Antigravity `api` plugin. Preview removals first with `-n`.
+In `models tiers` a cell is the tier's model id, `plugin default` (the tier has no model for that harness), `session model` (written as the main session model) or `unsupported` (the harness has no per-agent setting, so the plugin's model applies).
 
 ### `usage` and `doctor`
 
-| Command | Flags/arguments | Behavior |
-|---|---|---|
-| `usage` | `-provider <id>` | Limit displayed output to one provider; refresh still queries all discovered providers |
-| `doctor` | `-q`, `-json`, `-harness <comma-separated-list>` | Advisory model capacity, drift and account findings; quiet mode suppresses output when there is nothing to report |
-
-`agents usage` always queries every provider and rewrites the usage cache; a provider that fails keeps its last cached values, marked stale with the error. `agents doctor` only reads that cache, so it stays offline with respect to provider usage. The cache uses `XDG_CACHE_HOME` (or the platform cache default).
-
-```sh
-agents usage -provider anthropic
-agents doctor -json
-```
+`usage [-provider id]` queries every discovered provider account and rewrites the usage cache in `<cache>`; a provider that fails keeps its last values, marked stale. `doctor [-q] [-json]` reads the config and that cache only (no network) and advises on model drift, capacity and accounts; `-q` prints nothing when there is nothing to report.
 
 ### `version` and `help`
 
-`agents version` prints build version information (`dev` when unavailable). Root aliases are `agents -v` and `agents --version`. `agents help [command...]` resolves a command path without executing its action.
+`agents version` (or `-v`) prints the build version, `dev` when unavailable. `agents help [command...]` shows help for a path.
 
-## Runbook: inspect and update plugins
+## Runbooks
 
-**When:** plugin versions are missing, stale or need cache cleanup.
-**Preconditions:** an accessible registry checkout, configured `harness.toml`, and the target harness CLI on `PATH`. Review local checkout changes before updating; update pulls that checkout.
+### First setup
 
-### Steps
+**When:** a new machine, or the first use of `agents`.
+**Preconditions:** the harnesses you use are installed and have been started once.
 
-1. Discover the command options: `agents help plugins update`.
-2. Inspect state: `agents plugins list`.
-3. Preview an update: `agents plugins update -n` (optionally add `-harness <name>`).
-4. Apply the reviewed update: `agents plugins update`.
-5. Preview cleanup: `agents plugins prune -n`.
-6. Remove only the reviewed obsolete cache entries: `agents plugins prune`.
+1. `agents init` writes the starter file. Use `agents init -print` to read it first.
+2. Edit the file (path printed by `init`; keys in [config.md](config.md)). The `#:schema` line gives completion in editors.
+3. `agents check` and fix errors.
+4. `agents apply -n` and read the diff.
+5. `agents apply`.
 
-### Verify
+**Verify:** `agents check -live` prints `config ok`.
+**Rollback:** there is no automatic undo and the previous content of a managed file is not kept. Restore it from your own backup or version control, or remove the keys from the config and apply again (managed keys that leave the config are removed from the live file).
 
-Run `agents plugins list` again. Confirm the intended harnesses are installed and no longer show `↑`. A `?` means upstream comparison was unavailable, not that the installation is current. Use `agents check` separately to validate policy and registry configuration.
+### Everyday apply
 
-### Rollback
+Edit the config, then `agents check`, `agents apply -n`, `agents apply`. Another tool (a dotfiles repository, a provisioning script) can write `config.toml` and run a plain `agents apply`; nothing else couples them.
 
-There is no automatic undo for plugin updates or pruning. Restore the previous checkout revision and reinstall the intended version using the harness's own tooling; pruned cache entries must be downloaded again. Do not treat dry-run output as a backup.
+### Preview a change
 
-**Last verified:** 2026-11-11 against the CLI source and local binary for parser/help behavior; live plugin update/prune not executed (they modify installed harnesses).
+`agents apply -n` prints the unified diff of each target and writes nothing; `agents render -harness claude` lists the managed keys of one harness. `agents config show -origin` shows which layer (user file, OS overlay, profile, environment, flag) set a value.
+
+### Recover from drift or a refused symlink
+
+- `agents check -live` lists native files that differ from what `apply` would write. Review each, then run `agents apply -n` to see what would change. Keys that `agents` does not manage are never touched, so a difference there is not drift.
+- `refused <path>` means the target is a symlink. `agents` does not write through symlinks, because the file would change in the place the link points to. Replace the link with a regular file (move the content, remove the link, `agents apply`), or stop managing that file with the tool that created the link. The exit status stays 1 until it is resolved.
+- A text file (an instruction file) reported as `drift` was written by `agents`, is no longer produced and was edited since. It is yours now and is not deleted; remove it yourself if you do not want it.
+- A write refused because the file changed during the apply means another program was writing it; re-run `agents apply`.
+- Never edit `<state>/apply.json` by hand. Deleting it is safe: the next apply treats every file as new, removes nothing it wrote earlier and repeats the one-time migration.
+- A check-only target (the VS Code `settings.json`) reports `drift` when its managed keys differ. Edit the file yourself; `agents` will not.
+- An `error` result names the file and the cause (unreadable file, invalid JSON, a layer failing to render). Fix it and re-run; targets that succeeded are already recorded.
+
+### Editing instructions
+
+Instruction layers are Markdown files in `instructions.dir` (default `<config dir>/instructions`), rendered with Go `text/template`. Template data: `.harness`, `.profile`, `.os`, `.hostname` and `.vars.<name>` (from `instructions.vars`); a missing key is an error. A cell (profile, harness) is the profile's list, then the harness's list, then the cell's own list, deduplicated keeping the first occurrence.
+
+1. `agents prompt matrix` shows which layers each cell uses.
+2. `agents prompt edit <layer>` opens the file.
+3. `agents prompt check` renders every cell. A layer file that belongs only to another profile is reported as "skipped (not on this machine)" unless you pass `-all`.
+4. `agents prompt show -profile work -harness codex` previews one cell.
+5. `agents apply`.
+
+The composed text is written whole to `~/.claude/CLAUDE.md`, `~/.copilot/copilot-instructions.md`, `~/.codex/AGENTS.md`, `~/.config/opencode/AGENTS.md`, `~/.pi/agent/AGENTS.md` and `~/.gemini/config/AGENTS.md`. An empty composition writes nothing.
+
+### Inspect and update plugins
+
+**When:** plugin versions are missing or stale, or caches need cleanup.
+**Preconditions:** `plugins.registry` is set and the target harness CLIs are on `PATH`. `update` pulls the registry checkout.
+
+1. `agents plugins list`.
+2. `agents plugins update -n`, then `agents plugins update`.
+3. `agents plugins prune -n`, then `agents plugins prune`.
+
+**Verify:** `agents plugins list` shows no `↑`. A `?` means the upstream comparison was unavailable.
+**Rollback:** none for updates or pruning; restore the checkout revision and reinstall with the harness's own tooling.
+
+### Upgrading from 0.2
+
+0.3 is a standalone tool. What changed and what to do:
+
+1. **Config location.** The config is `$XDG_CONFIG_HOME/agents/config.toml` (`~/.config/agents/config.toml`; `%APPDATA%\agents\config.toml` on Windows). Run `agents init -print` for a starter, move your settings over, then `agents check`. `AGENTS_CONFIG` or `-file` points at another file.
+2. **No project config.** A project-level `agents.toml` is no longer read. Move what it set into the user config (a profile or `[os.<goos>]` overlay if it is machine-specific).
+3. **Registry checkout.** The plugin registry is now checked out at `<data>/registries/<owner>/<repo>` (set `plugins.registry = "owner/repo"`). Run `agents plugins update` once to create it; the old location is not read and can be removed.
+4. **Tiers replace role-based models.** Declare tiers under `[models.tiers.<name>]` with one model id per harness, name the main one in `models.default` and map agents with `[models.assign]`. See [config.md](config.md#models).
+5. **First apply.** Run `agents apply -n`, read the diff, then `agents apply`. It records the manifest, then removes the keys 0.2 left behind that 0.3 no longer writes (the one-time migration described under [`apply`](#apply)). Everything else in your native files is kept.
+6. **Secrets in workspace files.** Workspace MCP files keep `${VAR}` references instead of expanded values; re-run `agents mcp sync` and commit nothing that holds a token.

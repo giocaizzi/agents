@@ -2,121 +2,132 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
+	"github.com/giocaizzi/agents/internal/apply"
 	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/finding"
-	"github.com/giocaizzi/agents/internal/parity"
-	"github.com/giocaizzi/agents/internal/pluginreg"
+	"github.com/giocaizzi/agents/internal/term"
 )
 
 func (d Deps) runCheck(ctx context.Context, args []string) int {
-	fs := d.newFlags("check")
-	fileFlag := fs.String("file", "", "path to harness-policy.toml, agents.toml or harness.toml")
-	harnessDirFlag := fs.String("harness-dir", d.Getenv("HARNESS_DIR"), "path to plugin registry repository checkout")
-	profileFlag := fs.String("profile", "", "optional configuration profile to apply")
+	fs := d.newFlags(commandCheck)
+	cf := addConfigFlags(fs)
+	live := fs.Bool("live", false, "also report native files that differ from what apply would write")
+	asJSON := fs.Bool("json", false, "print JSON")
 	if err := fs.Parse(args); err != nil {
 		return d.parseFailure(fs, err)
 	}
-
-	findings, msgs, err := d.checkTarget(ctx, *fileFlag, *harnessDirFlag, *profileFlag)
+	r, err := d.loadConfig(cf)
 	if err != nil {
-		fmt.Fprintf(d.Stderr, "check error: %v\n", err)
-		return 1
+		fmt.Fprintln(d.Stderr, err)
+		return exitFindings
 	}
-	if len(findings) > 0 {
-		fmt.Fprintln(d.Stderr, formatFindings(findings))
-		return 1
-	}
-	for _, m := range msgs {
-		fmt.Fprintln(d.Stdout, m)
-	}
-	return 0
-}
 
-func (d Deps) checkTarget(ctx context.Context, file, harnessDir, profile string) ([]finding.Finding, []string, error) {
-	if file == "" {
-		return d.checkAll(ctx, harnessDir, profile)
+	findings := config.Validate(r.Config)
+	findings = append(findings, d.pluginFindings(ctx, r)...)
+	findings = append(findings, d.modelFindings(r)...)
+	findings = append(findings, d.featureFindings(r)...)
+	plan, err := d.renderPlan(r)
+	if err != nil {
+		findings = append(findings, finding.New("render", "%v", err))
 	}
-	if isHarnessToml(file) {
-		findings, err := pluginreg.ValidateFile(ctx, file, harnessDir)
-		if err != nil {
-			return nil, nil, fmt.Errorf("validate plugins: %w", err)
+	for _, w := range plan.Warnings {
+		findings = append(findings, finding.Warn("render", "%s", w))
+	}
+	if *live {
+		findings = append(findings, liveFindings(r, plan.Targets)...)
+	}
+	sortFindings(findings)
+
+	if *asJSON {
+		if err := writeFindingsJSON(d, findings); err != nil {
+			fmt.Fprintln(d.Stderr, err)
+			return exitFindings
 		}
-		return findings, []string{fmt.Sprintf("✓ harness plugins (%s)", file)}, nil
+	} else {
+		d.printFindings(findings)
 	}
-
-	p, path, err := d.loadPolicy(file)
-	if err != nil {
-		return nil, nil, err
+	if finding.HasErrors(findings) {
+		return exitFindings
 	}
-	if profile != "" {
-		p = p.WithProfile(profile)
-	}
-	findings := p.Validate(path)
-	findings = append(findings, parity.CheckParity(p)...)
-	msgs := []string{fmt.Sprintf("✓ policy & harness parity (%s)", path)}
-	if strings.Contains(path, ".chezmoidata") || d.Getenv("CHEZMOI_SOURCE_DIR") != "" {
-		findings, msgs = d.appendSourceFiles(p, findings, msgs)
-	}
-	return findings, msgs, nil
+	return exitOK
 }
 
-func (d Deps) checkAll(ctx context.Context, harnessDir, profile string) ([]finding.Finding, []string, error) {
-	var allFindings []finding.Finding
-	var msgs []string
-
-	p, polPath, err := d.loadPolicy("")
+// liveFindings compares the native files with what apply would write.
+func liveFindings(r *config.Resolved, targets []apply.Target) []finding.Finding {
+	results, err := apply.Engine{StatePath: filepath.Join(r.Dirs.State, "apply.json"), DryRun: true}.Run(targets)
 	if err != nil {
-		return nil, nil, fmt.Errorf("load policy: %w", err)
+		return []finding.Finding{finding.New("apply", "%v", err)}
 	}
-	if profile != "" {
-		p = p.WithProfile(profile)
-	}
-	findings := p.Validate(polPath)
-	findings = append(findings, parity.CheckParity(p)...)
-	msgs = append(msgs, fmt.Sprintf("✓ policy & harness parity (%s)", polPath))
-	findings, msgs = d.appendSourceFiles(p, findings, msgs)
-	allFindings = append(allFindings, findings...)
-
-	harnessTomlPath, err := d.findHarnessToml("")
-	if err == nil {
-		pFindings, pErr := pluginreg.ValidateFile(ctx, harnessTomlPath, harnessDir)
-		if pErr != nil {
-			return nil, nil, fmt.Errorf("validate plugins: %w", pErr)
+	var out []finding.Finding
+	for _, res := range results {
+		switch {
+		case res.Err != nil:
+			out = append(out, finding.New(res.Target.Path, "%v", res.Err))
+		case res.Status != apply.StatusUnchanged:
+			out = append(out, finding.New(res.Target.Path, "differs from what apply would write (%s)", res.Status))
 		}
-		allFindings = append(allFindings, pFindings...)
-		msgs = append(msgs, fmt.Sprintf("✓ harness plugins (%s)", harnessTomlPath))
 	}
-
-	return allFindings, msgs, nil
+	return out
 }
 
-// appendSourceFiles checks the native voice settings in the discovered chezmoi
-// source directory; a missing source directory is a finding, not a skip.
-func (d Deps) appendSourceFiles(p *config.Policy, findings []finding.Finding, msgs []string) ([]finding.Finding, []string) {
-	srcDir, err := d.findPolicySourceDir()
-	if err != nil {
-		if d.Getenv("CHEZMOI_SOURCE_DIR") != "" {
-			return append(findings, finding.New("source", "%v", err)), msgs
+func sortFindings(fs []finding.Finding) {
+	slices.SortStableFunc(fs, func(a, b finding.Finding) int {
+		if a.Severity != b.Severity {
+			return int(a.Severity) - int(b.Severity)
 		}
-		// In standalone mode outside chezmoi, skip native voice template checks.
-		return findings, msgs
-	}
-	findings = append(findings, parity.CheckSourceFiles(p, srcDir)...)
-	return findings, append(msgs, fmt.Sprintf("✓ native voice settings (%s)", srcDir))
+		return strings.Compare(a.String(), b.String())
+	})
 }
 
-func isHarnessToml(path string) bool {
-	if strings.HasSuffix(path, "harness.toml") {
-		return true
+func (d Deps) printFindings(fs []finding.Finding) {
+	st := term.NewStyle(d.Stdout, d.Getenv)
+	if len(fs) == 0 {
+		fmt.Fprintf(d.Stdout, "%s✓%s config ok\n", st.G, st.O)
+		return
 	}
-	data, err := os.ReadFile(filepath.Clean(path))
-	if err != nil {
-		return false
+	for _, f := range fs {
+		color, mark := st.R, "✗"
+		switch f.Severity {
+		case finding.Warning:
+			color, mark = st.Y, "!"
+		case finding.Info:
+			color, mark = st.D, "·"
+		case finding.Error:
+		}
+		fmt.Fprintf(d.Stdout, "%s%s%s %s\n", color, mark, st.O, f)
 	}
-	return strings.Contains(string(data), "harnessPlugins")
+}
+
+func writeFindingsJSON(d Deps, fs []finding.Finding) error {
+	type jsonFinding struct {
+		Where    string `json:"where"`
+		Message  string `json:"message"`
+		Severity string `json:"severity"`
+	}
+	out := struct {
+		Findings []jsonFinding `json:"findings"`
+	}{Findings: []jsonFinding{}}
+	for _, f := range fs {
+		sev := "error"
+		switch f.Severity {
+		case finding.Warning:
+			sev = "warning"
+		case finding.Info:
+			sev = "info"
+		case finding.Error:
+		}
+		out.Findings = append(out.Findings, jsonFinding{Where: f.Where, Message: f.Message, Severity: sev})
+	}
+	enc := json.NewEncoder(d.Stdout)
+	enc.SetIndent("", "  ")
+	if err := enc.Encode(out); err != nil {
+		return fmt.Errorf("encode json: %w", err)
+	}
+	return nil
 }

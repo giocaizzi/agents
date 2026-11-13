@@ -99,19 +99,15 @@ func candidates(c catalog.Catalog, tier, curID string, cur catalog.Model, avail 
 	return out
 }
 
-// betterModel is check (2): the best replacement in the setting's tier among
+// betterModel is check (2): the best replacement in the model's catalog tier among
 // the models the harness has an account for.
 func betterModel(in Input, h string, r resolved, accts []usage.Snapshot, avail []string) (Finding, bool) {
 	c := in.Catalog
 	curTier := c.TierOf(r.ID)
-	tier := RoleTier(r.Role)
-	if r.Role == RoleDefault {
-		tier = curTier
-	}
-	if tier == "" || curTier == "" {
+	if curTier == "" {
 		return Finding{}, false
 	}
-	cands := candidates(c, tier, r.ID, r.Model, avail)
+	cands := candidates(c, curTier, r.ID, r.Model, avail)
 	// Billing comes from the account that would pay for each candidate.
 	modes := map[string]string{}
 	modeOf := func(cd candidate) string {
@@ -213,8 +209,8 @@ func suggestion(in Input, h string, r resolved, cd candidate, reason, mode strin
 		detail += "; " + billing
 	}
 	return Finding{
-		Level: LevelSuggest, Kind: KindBetterModel, Harness: h, Role: r.Role,
-		Text:    fmt.Sprintf("%s: %s → %s (%s)", r.Role, curRef.Name, sugRef.Name, detail),
+		Level: LevelSuggest, Kind: KindBetterModel, Harness: h, Tier: r.Tier,
+		Text:    fmt.Sprintf("%s: %s → %s (%s)", r.Tier, curRef.Name, sugRef.Name, detail),
 		Current: &curRef, Suggested: &sugRef, Reason: reason, Billing: billing,
 	}
 }

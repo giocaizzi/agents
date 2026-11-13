@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "docs": {
+      "type": "http",
+      "url": "https://docs.example.com/mcp"
+    },
+    "local": {
+      "command": "x"
+    }
+  }
+}
+

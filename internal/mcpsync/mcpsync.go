@@ -10,18 +10,13 @@ import (
 	"io"
 	"net/url"
 	"os"
-	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 )
 
-// CurrentMarker, LegacyChezmoiMarker and LegacyMarker identify generated MCP configurations.
+// Names of the source file and of the native files derived from it.
 const (
-	CurrentMarker       = "agents mcp sync"
-	LegacyChezmoiMarker = "chezmoi-agents mcp sync"
-	LegacyMarker        = "harness/scripts/sync-mcp.mjs"
-
 	SourceFilename     = ".mcp.json"
 	CodexTargetRelPath = ".codex/config.toml"
 	PiTargetRelPath    = ".pi/mcp.json"
@@ -93,12 +88,6 @@ type Auth struct {
 // Source represents the top-level .mcp.json schema.
 type Source struct {
 	MCPServers map[string]ServerEntry `json:"mcpServers"`
-}
-
-// OutputFile describes a generated target configuration file.
-type OutputFile struct {
-	Path    string
-	Content []byte
 }
 
 // ParseAndValidate parses .mcp.json content and resolves placeholders.
@@ -192,6 +181,10 @@ func validateHTTPEntry(name string, entry ServerEntry, account string) (ServerEn
 		return entry, fmt.Errorf("server %q: auth.redirectPort %d out of range 1..65535", name, entry.Auth.RedirectPort)
 	}
 
+	if id, _ := entry.oauthClient(); !validClientID(id) || !validClientID(entry.OAuthClientID) {
+		return entry, fmt.Errorf("server %q: oauth client id must not contain control characters, quotes or backslashes", name)
+	}
+
 	resolvedURL, err := resolvePlaceholders(entry.URL, account)
 	if err != nil {
 		return entry, fmt.Errorf("server %q: %w", name, err)
@@ -216,6 +209,15 @@ func validateStdioEntry(name string, entry ServerEntry) (ServerEntry, error) {
 		return entry, fmt.Errorf("server %q: oauth, oauthClientId, oauthPublicClient and auth not allowed for stdio transport", name)
 	}
 	return entry, nil
+}
+
+// validClientID reports whether an OAuth client id is free of the characters
+// that need escaping in the generated files: control characters, quotes and
+// backslashes.
+func validClientID(id string) bool {
+	return !strings.ContainsFunc(id, func(r rune) bool {
+		return r < 0x20 || r == 0x7f || r == '"' || r == '\\'
+	})
 }
 
 // validPort reports whether p is unset (0) or a valid TCP port.
@@ -268,38 +270,10 @@ func validateURL(raw string) error {
 	return nil
 }
 
-// Check verifies that .mcp.json is valid and that preflight checks pass for
-// target files. It returns the warnings a sync would report.
-func Check(root, account string) ([]string, error) {
-	srcPath := filepath.Clean(filepath.Join(root, SourceFilename))
-	f, err := os.Open(srcPath)
-	if err != nil {
-		return nil, fmt.Errorf("open %s: %w", SourceFilename, err)
-	}
-	defer f.Close()
-
-	src, err := ParseAndValidate(f, account)
-	if err != nil {
-		return nil, err
-	}
-
-	targets := []string{
-		filepath.Join(root, CodexTargetRelPath),
-		filepath.Join(root, PiTargetRelPath),
-		filepath.Join(root, AntigravityRelPath),
-	}
-
-	for _, target := range targets {
-		if err := PreflightCheck(root, target); err != nil {
-			return nil, err
-		}
-	}
-
-	return Warnings(src.MCPServers), nil
-}
-
 // Warnings lists the source settings that a target cannot represent and that
-// a sync therefore leaves out of it.
+// a sync therefore leaves out of it (a callback port for Antigravity), and the confidential OAuth clients
+// (oauthPublicClient false or unset) whose secret agents never syncs: it
+// lives in the harness's keyring.
 func Warnings(servers map[string]ServerEntry) []string {
 	names := make([]string, 0, len(servers))
 	for name := range servers {
@@ -313,127 +287,13 @@ func Warnings(servers map[string]ServerEntry) []string {
 		if entry.Type != TransportHTTP {
 			continue
 		}
-		if _, port := entry.oauthClient(); port != 0 {
+		clientID, port := entry.oauthClient()
+		if port != 0 {
 			warnings = append(warnings, fmt.Sprintf("antigravity: server %q: callback port %d not supported, left out (register %s as a redirect URI)", name, port, AntigravityRedirectURI))
+		}
+		if clientID != "" && (entry.OAuthPublicClient == nil || !*entry.OAuthPublicClient) {
+			warnings = append(warnings, fmt.Sprintf("server %q: OAuth client is not public, so its secret is not synced; add the secret through the harness's own login", name))
 		}
 	}
 	return warnings
-}
-
-// PreflightCheck inspects target and parent paths for symlinks and checks file ownership markers.
-func PreflightCheck(root, target string) error {
-	rel, err := filepath.Rel(root, target)
-	if err != nil {
-		return fmt.Errorf("rel: %w", err)
-	}
-
-	// Walk every path component from root down to target to ensure no symlinks
-	parts := strings.Split(rel, string(filepath.Separator))
-	curr := root
-	for _, part := range parts {
-		curr = filepath.Join(curr, part)
-		fi, statErr := os.Lstat(curr)
-		if statErr != nil {
-			if errors.Is(statErr, os.ErrNotExist) {
-				// Remaining components do not exist yet; safe to proceed
-				break
-			}
-			return fmt.Errorf("lstat %s: %w", curr, statErr)
-		}
-		if fi.Mode()&os.ModeSymlink != 0 {
-			return fmt.Errorf("symlinks not allowed in target or parent path: %s", curr)
-		}
-	}
-
-	// If target file exists, check ownership
-	targetClean := filepath.Clean(target)
-	fi, err := os.Lstat(targetClean)
-	if err == nil {
-		if fi.IsDir() {
-			return fmt.Errorf("target %s is a directory", target)
-		}
-		data, readErr := os.ReadFile(targetClean)
-		if readErr != nil {
-			return fmt.Errorf("read target %s: %w", target, readErr)
-		}
-		if !isOwned(target, data) {
-			return fmt.Errorf("unowned file exists at %s", target)
-		}
-	} else if !errors.Is(err, os.ErrNotExist) {
-		return fmt.Errorf("check target %s: %w", target, err)
-	}
-
-	return nil
-}
-
-func isOwned(path string, content []byte) bool {
-	ext := filepath.Ext(path)
-	switch ext {
-	case ".toml":
-		s := string(content)
-		return strings.HasPrefix(s, "# Generated by "+CurrentMarker) ||
-			strings.HasPrefix(s, "# Generated by "+LegacyChezmoiMarker) ||
-			strings.HasPrefix(s, "# Generated by "+LegacyMarker)
-	case ".json":
-		var parsed struct {
-			GeneratedBy string `json:"_generatedBy"`
-		}
-		if err := json.Unmarshal(content, &parsed); err != nil {
-			return false
-		}
-		return parsed.GeneratedBy == CurrentMarker || parsed.GeneratedBy == LegacyChezmoiMarker || parsed.GeneratedBy == LegacyMarker
-	default:
-		return false
-	}
-}
-
-// Sync validates .mcp.json, checks preflight conditions, and writes target
-// files with mode 0o600. It returns the written files and the warnings for
-// settings a target cannot represent.
-func Sync(root, account string) ([]OutputFile, []string, error) {
-	srcPath := filepath.Clean(filepath.Join(root, SourceFilename))
-	f, err := os.Open(srcPath)
-	if err != nil {
-		return nil, nil, fmt.Errorf("open %s: %w", SourceFilename, err)
-	}
-	defer f.Close()
-
-	src, err := ParseAndValidate(f, account)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	codexContent := RenderCodex(src.MCPServers)
-	piContent, err := RenderPi(src.MCPServers)
-	if err != nil {
-		return nil, nil, fmt.Errorf("render pi config: %w", err)
-	}
-	agContent, err := RenderAntigravity(src.MCPServers)
-	if err != nil {
-		return nil, nil, fmt.Errorf("render antigravity config: %w", err)
-	}
-
-	outputs := []OutputFile{
-		{Path: filepath.Join(root, CodexTargetRelPath), Content: codexContent},
-		{Path: filepath.Join(root, PiTargetRelPath), Content: piContent},
-		{Path: filepath.Join(root, AntigravityRelPath), Content: agContent},
-	}
-
-	for _, out := range outputs {
-		if err := PreflightCheck(root, out.Path); err != nil {
-			return nil, nil, err
-		}
-	}
-
-	for _, out := range outputs {
-		dir := filepath.Dir(out.Path)
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			return nil, nil, fmt.Errorf("create dir %s: %w", dir, err)
-		}
-		if err := os.WriteFile(filepath.Clean(out.Path), out.Content, 0o600); err != nil {
-			return nil, nil, fmt.Errorf("write %s: %w", out.Path, err)
-		}
-	}
-
-	return outputs, Warnings(src.MCPServers), nil
 }

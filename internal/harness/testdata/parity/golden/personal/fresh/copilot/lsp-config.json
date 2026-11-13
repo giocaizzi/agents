@@ -1,0 +1,99 @@
+{
+  "lspServers": {
+    "bash": {
+      "args": [
+        "start"
+      ],
+      "command": "bash-language-server",
+      "fileExtensions": {
+        ".bash": "shellscript",
+        ".sh": "shellscript"
+      }
+    },
+    "gopls": {
+      "args": [],
+      "command": "gopls",
+      "fileExtensions": {
+        ".go": "go"
+      }
+    },
+    "json": {
+      "args": [
+        "--stdio"
+      ],
+      "command": "vscode-json-language-server",
+      "fileExtensions": {
+        ".json": "json",
+        ".jsonc": "jsonc"
+      }
+    },
+    "pyright": {
+      "args": [
+        "--stdio"
+      ],
+      "command": "pyright-langserver",
+      "fileExtensions": {
+        ".py": "python",
+        ".pyi": "python"
+      }
+    },
+    "ruff": {
+      "args": [
+        "server"
+      ],
+      "command": "ruff",
+      "fileExtensions": {
+        ".py": "python",
+        ".pyi": "python"
+      }
+    },
+    "terraform": {
+      "args": [
+        "serve"
+      ],
+      "command": "terraform-ls",
+      "fileExtensions": {
+        ".tf": "terraform",
+        ".tfvars": "terraform-vars"
+      }
+    },
+    "tflint": {
+      "args": [
+        "--langserver"
+      ],
+      "command": "tflint",
+      "fileExtensions": {
+        ".tf": "terraform",
+        ".tfvars": "terraform-vars"
+      }
+    },
+    "typescript": {
+      "args": [
+        "--lsp",
+        "--stdio"
+      ],
+      "command": "tsc",
+      "fileExtensions": {
+        ".cjs": "javascript",
+        ".cts": "typescript",
+        ".js": "javascript",
+        ".jsx": "javascriptreact",
+        ".mjs": "javascript",
+        ".mts": "typescript",
+        ".ts": "typescript",
+        ".tsx": "typescriptreact"
+      }
+    },
+    "yaml-ls": {
+      "args": [
+        "--stdio"
+      ],
+      "command": "yaml-language-server",
+      "fileExtensions": {
+        ".yaml": "yaml",
+        ".yml": "yaml"
+      }
+    }
+  }
+}
+

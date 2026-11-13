@@ -1,0 +1,463 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "experimental": {
+    "subagent_depth": 2
+  },
+  "lsp": {
+    "bash": {
+      "command": [
+        "bash-language-server",
+        "start"
+      ],
+      "extensions": [
+        ".bash",
+        ".sh"
+      ]
+    },
+    "gopls": {
+      "command": [
+        "gopls"
+      ],
+      "disabled": true,
+      "extensions": [
+        ".go"
+      ]
+    },
+    "json": {
+      "command": [
+        "vscode-json-language-server",
+        "--stdio"
+      ],
+      "extensions": [
+        ".json",
+        ".jsonc"
+      ]
+    },
+    "pyright": {
+      "command": [
+        "pyright-langserver",
+        "--stdio"
+      ],
+      "extensions": [
+        ".py",
+        ".pyi"
+      ]
+    },
+    "ruff": {
+      "command": [
+        "ruff",
+        "server"
+      ],
+      "extensions": [
+        ".py",
+        ".pyi"
+      ]
+    },
+    "rust": {
+      "command": [
+        "rust-analyzer"
+      ]
+    },
+    "terraform": {
+      "command": [
+        "terraform-ls",
+        "serve"
+      ],
+      "extensions": [
+        ".tf",
+        ".tfvars"
+      ]
+    },
+    "tflint": {
+      "command": [
+        "tflint",
+        "--langserver"
+      ],
+      "extensions": [
+        ".tf",
+        ".tfvars"
+      ]
+    },
+    "typescript": {
+      "command": [
+        "tsc",
+        "--lsp",
+        "--stdio"
+      ],
+      "extensions": [
+        ".cjs",
+        ".cts",
+        ".js",
+        ".jsx",
+        ".mjs",
+        ".mts",
+        ".ts",
+        ".tsx"
+      ]
+    },
+    "yaml-ls": {
+      "command": [
+        "yaml-language-server",
+        "--stdio"
+      ],
+      "extensions": [
+        ".yaml",
+        ".yml"
+      ]
+    }
+  },
+  "mcp": {
+    "docs": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://docs.example.com/mcp"
+    },
+    "local": {
+      "command": [
+        "x"
+      ],
+      "type": "local"
+    },
+    "notion": {
+      "enabled": true,
+      "type": "remote",
+      "url": "https://mcp.notion.com/mcp"
+    }
+  },
+  "permissions": [
+    {
+      "action": "shell",
+      "effect": "allow",
+      "resource": "ls *"
+    },
+    {
+      "action": "shell",
+      "effect": "allow",
+      "resource": "git push --force-with-lease origin *"
+    },
+    {
+      "action": "shell",
+      "effect": "ask",
+      "resource": "bw"
+    },
+    {
+      "action": "shell",
+      "effect": "ask",
+      "resource": "bw *"
+    }
+  ],
+  "policies": [
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:rm"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.local"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.*.local"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.development"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.production"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.staging"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.env.test"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/secrets/**"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:~/.config/shell/secrets.sh"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:~/.config/powershell/secrets.ps1"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/*.pem"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/*.key"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/*.p12"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/*.pfx"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/id_rsa*"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/id_ed25519*"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.aws/credentials"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.aws/config"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.ssh/**"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.netrc"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.npmrc"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/.pypirc"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/credentials.json"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/service-account*.json"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/gcp-key*.json"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/*.kubeconfig"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "read:**/kubeconfig"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.local"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.*.local"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.development"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.production"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.staging"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.env.test"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/secrets/**"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:~/.config/shell/secrets.sh"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:~/.config/powershell/secrets.ps1"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.aws/credentials"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "edit:**/.ssh/**"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:gh pr merge * --admin*"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push --force-with-lease origin main"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push --force-with-lease origin main *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push --force-with-lease origin master"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push --force-with-lease origin master *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push * HEAD:main"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push * HEAD:main *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push * HEAD:master"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:git push * HEAD:master *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:env"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:printenv"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:printenv *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pipx"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pipx *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pip"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pip *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pip3"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:pip3 *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:python -m pip"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:python -m pip *"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:python3 -m pip"
+    },
+    {
+      "action": "tool.use",
+      "effect": "deny",
+      "resource": "shell:python3 -m pip *"
+    }
+  ],
+  "theme": "tokyonight"
+}
+

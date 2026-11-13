@@ -1,0 +1,77 @@
+{
+  "bash": {
+    "args": [
+      "start"
+    ],
+    "command": "bash-language-server",
+    "extensionToLanguage": {
+      ".bash": "shellscript",
+      ".sh": "shellscript"
+    }
+  },
+  "gopls": {
+    "args": [],
+    "command": "gopls",
+    "extensionToLanguage": {
+      ".go": "go"
+    }
+  },
+  "json": {
+    "args": [
+      "--stdio"
+    ],
+    "command": "vscode-json-language-server",
+    "extensionToLanguage": {
+      ".json": "json",
+      ".jsonc": "jsonc"
+    }
+  },
+  "pyright": {
+    "args": [
+      "--stdio"
+    ],
+    "command": "pyright-langserver",
+    "extensionToLanguage": {
+      ".py": "python",
+      ".pyi": "python"
+    }
+  },
+  "terraform": {
+    "args": [
+      "serve"
+    ],
+    "command": "terraform-ls",
+    "extensionToLanguage": {
+      ".tf": "terraform",
+      ".tfvars": "terraform-vars"
+    }
+  },
+  "typescript": {
+    "args": [
+      "--lsp",
+      "--stdio"
+    ],
+    "command": "tsc",
+    "extensionToLanguage": {
+      ".cjs": "javascript",
+      ".cts": "typescript",
+      ".js": "javascript",
+      ".jsx": "javascriptreact",
+      ".mjs": "javascript",
+      ".mts": "typescript",
+      ".ts": "typescript",
+      ".tsx": "typescriptreact"
+    }
+  },
+  "yaml-ls": {
+    "args": [
+      "--stdio"
+    ],
+    "command": "yaml-language-server",
+    "extensionToLanguage": {
+      ".yaml": "yaml",
+      ".yml": "yaml"
+    }
+  }
+}
+

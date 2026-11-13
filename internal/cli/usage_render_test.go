@@ -95,7 +95,7 @@ func TestRenderUsageGolden(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read golden (run with -update): %v", err)
 	}
-	if diff := cmp.Diff(string(want), buf.String()); diff != "" {
+	if diff := cmp.Diff(strings.ReplaceAll(string(want), "\r\n", "\n"), buf.String()); diff != "" {
 		t.Errorf("output differs from golden (-want +got):\n%s", diff)
 	}
 }

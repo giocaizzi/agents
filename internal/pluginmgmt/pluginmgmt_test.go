@@ -10,7 +10,6 @@ import (
 	"github.com/google/go-cmp/cmp"
 
 	"github.com/giocaizzi/agents/internal/pluginmgmt"
-	"github.com/giocaizzi/agents/internal/pluginreg"
 )
 
 func TestCompareVersions(t *testing.T) {
@@ -131,27 +130,22 @@ func TestListPlugins(t *testing.T) {
 	}
 
 	// Create claude cache
-	claudeDevTools := filepath.Join(tmpHome, ".claude", "plugins", "cache", "example-harness", "dev-tools", "1.53.0")
+	claudeDevTools := filepath.Join(tmpHome, ".claude", "plugins", "cache", "harness", "dev-tools", "1.53.0")
 	if err := os.MkdirAll(claudeDevTools, 0o700); err != nil {
 		t.Fatal(err)
 	}
 
-	cfg := pluginreg.HarnessConfig{
-		Plugins: map[string][]string{
-			"dev-tools": {"antigravity", "claude"},
-		},
+	plugins := map[string][]string{
+		"dev-tools": {"antigravity", "claude"},
 	}
 
 	mgr := pluginmgmt.Manager{
-		HarnessDir:    tmpHarness,
-		HomeDir:       tmpHome,
-		HarnessConfig: cfg,
+		HarnessDir: tmpHarness,
+		HomeDir:    tmpHome,
+		Plugins:    plugins,
 	}
 
-	list, err := mgr.ListPlugins(context.Background())
-	if err != nil {
-		t.Fatalf("ListPlugins: %v", err)
-	}
+	list := mgr.ListPlugins(context.Background())
 	if len(list) != 1 {
 		t.Fatalf("expected 1 plugin, got %d", len(list))
 	}
@@ -176,7 +170,7 @@ func TestFindPruneCandidates(t *testing.T) {
 	tmpHome := t.TempDir()
 
 	// Claude cache with 2 versions
-	cDir := filepath.Join(tmpHome, ".claude", "plugins", "cache", "example-harness", "dev-tools")
+	cDir := filepath.Join(tmpHome, ".claude", "plugins", "cache", "harness", "dev-tools")
 	if err := os.MkdirAll(filepath.Join(cDir, "1.51.9"), 0o700); err != nil {
 		t.Fatal(err)
 	}
@@ -189,15 +183,13 @@ func TestFindPruneCandidates(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	cfg := pluginreg.HarnessConfig{
-		Plugins: map[string][]string{
-			"dev-tools": {"claude", "antigravity"},
-		},
+	plugins := map[string][]string{
+		"dev-tools": {"claude", "antigravity"},
 	}
 
 	mgr := pluginmgmt.Manager{
-		HomeDir:       tmpHome,
-		HarnessConfig: cfg,
+		HomeDir: tmpHome,
+		Plugins: plugins,
 	}
 
 	candidates, err := mgr.FindPruneCandidates()
@@ -247,35 +239,11 @@ func TestManagerNamespace(t *testing.T) {
 		}
 	})
 
-	t.Run("from-registry", func(t *testing.T) {
-		t.Parallel()
-		mgr := pluginmgmt.Manager{Registry: "octocat/my-harness"}
-		if got := mgr.EffectiveNamespace(); got != "octocat-my-harness" {
-			t.Errorf("EffectiveNamespace() = %q, want octocat-my-harness", got)
-		}
-	})
-
-	t.Run("discovered-from-marketplace-json", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		claudePluginDir := filepath.Join(dir, ".claude-plugin")
-		if err := os.MkdirAll(claudePluginDir, 0o755); err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(claudePluginDir, "marketplace.json"), []byte(`{"name": "discovered-ns"}`), 0o600); err != nil {
-			t.Fatal(err)
-		}
-		mgr := pluginmgmt.Manager{HarnessDir: dir}
-		if got := mgr.EffectiveNamespace(); got != "discovered-ns" {
-			t.Errorf("EffectiveNamespace() = %q, want discovered-ns", got)
-		}
-	})
-
 	t.Run("fallback-default", func(t *testing.T) {
 		t.Parallel()
 		mgr := pluginmgmt.Manager{}
-		if got := mgr.EffectiveNamespace(); got != "example-harness" {
-			t.Errorf("EffectiveNamespace() = %q, want example-harness", got)
+		if got := mgr.EffectiveNamespace(); got != "harness" {
+			t.Errorf("EffectiveNamespace() = %q, want harness", got)
 		}
 	})
 }
@@ -301,15 +269,10 @@ func TestCopilotVersion_InstalledPluginsDir(t *testing.T) {
 		HarnessDir: tmpHarness,
 		HomeDir:    tmpHome,
 		Namespace:  ns,
-		HarnessConfig: pluginreg.HarnessConfig{
-			Plugins: map[string][]string{plugin: {"copilot"}},
-		},
+		Plugins:    map[string][]string{plugin: {"copilot"}},
 	}
 
-	list, err := mgr.ListPlugins(context.Background())
-	if err != nil {
-		t.Fatalf("ListPlugins: %v", err)
-	}
+	list := mgr.ListPlugins(context.Background())
 	if len(list) != 1 {
 		t.Fatalf("expected 1 plugin, got %d", len(list))
 	}
@@ -349,15 +312,10 @@ func TestCopilotVersion_ConfigJSON(t *testing.T) {
 		HarnessDir: tmpHarness,
 		HomeDir:    tmpHome,
 		Namespace:  ns,
-		HarnessConfig: pluginreg.HarnessConfig{
-			Plugins: map[string][]string{plugin: {"copilot"}},
-		},
+		Plugins:    map[string][]string{plugin: {"copilot"}},
 	}
 
-	list, err := mgr.ListPlugins(context.Background())
-	if err != nil {
-		t.Fatalf("ListPlugins: %v", err)
-	}
+	list := mgr.ListPlugins(context.Background())
 	if len(list) != 1 {
 		t.Fatalf("expected 1 plugin, got %d", len(list))
 	}
@@ -387,15 +345,10 @@ func TestCopilotVersion_VSCodeFallback(t *testing.T) {
 		HarnessDir: tmpHarness,
 		HomeDir:    tmpHome,
 		Namespace:  ns,
-		HarnessConfig: pluginreg.HarnessConfig{
-			Plugins: map[string][]string{plugin: {"copilot"}},
-		},
+		Plugins:    map[string][]string{plugin: {"copilot"}},
 	}
 
-	list, err := mgr.ListPlugins(context.Background())
-	if err != nil {
-		t.Fatalf("ListPlugins: %v", err)
-	}
+	list := mgr.ListPlugins(context.Background())
 	if len(list) != 1 {
 		t.Fatalf("expected 1 plugin, got %d", len(list))
 	}
@@ -498,14 +451,11 @@ func TestListPluginsUpstreamFromGit(t *testing.T) { //nolint:paralleltest // t.S
 		t.Run(tt.name, func(t *testing.T) {
 			dir := tt.setup(t)
 			mgr := pluginmgmt.Manager{
-				HarnessDir:    dir,
-				HomeDir:       t.TempDir(),
-				HarnessConfig: pluginreg.HarnessConfig{Plugins: map[string][]string{"dev-tools": {"claude"}}},
+				HarnessDir: dir,
+				HomeDir:    t.TempDir(),
+				Plugins:    map[string][]string{"dev-tools": {"claude"}},
 			}
-			list, err := mgr.ListPlugins(t.Context())
-			if err != nil {
-				t.Fatalf("ListPlugins: %v", err)
-			}
+			list := mgr.ListPlugins(t.Context())
 			if len(list) != 1 {
 				t.Fatalf("expected 1 plugin, got %d", len(list))
 			}

@@ -2,12 +2,15 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/giocaizzi/agents/internal/pluginmgmt"
 	"github.com/giocaizzi/agents/internal/term"
@@ -102,11 +105,20 @@ func planHarness(mgr pluginmgmt.Manager, harness string, changes []pluginChange,
 		} else {
 			plan.steps, plan.skip = harnessSteps(mgr, harness, bin, changes)
 			if harness == harnessPi && plan.skip == "" && len(plan.steps) == 0 {
-				plan.note = "by the checkout pull"
+				plan.note = piNote(changes)
 			}
 		}
 	}
 	return plan
+}
+
+// piNote says how pi gets the changes: the checkout pull updates linked
+// plugins, and apply links the checkout when a plugin is missing.
+func piNote(changes []pluginChange) string {
+	if slices.ContainsFunc(changes, func(c pluginChange) bool { return c.from == "" }) {
+		return "linked by agents apply"
+	}
+	return "by the checkout pull"
 }
 
 // harnessSteps returns the commands for a supported harness, or why there are none.
@@ -150,20 +162,17 @@ func harnessSteps(mgr pluginmgmt.Manager, harness, bin string, changes []pluginC
 		}
 		return installer, ""
 	default: // harnessPi
-		return piSteps(mgr, bin, changes)
+		return piSteps(mgr)
 	}
 }
 
-// piSteps installs the checkout when a plugin is missing. Stale plugins are live
-// in the checkout, which the pull already updated, so they need no command.
-func piSteps(mgr pluginmgmt.Manager, bin string, changes []pluginChange) ([]cmdStep, string) {
+// piSteps has no command: pi loads the registry checkout as a package, which
+// apply links into the pi settings, and the checkout pull updates it in place.
+func piSteps(mgr pluginmgmt.Manager) ([]cmdStep, string) {
 	if mgr.HarnessDir == "" {
 		return nil, "no checkout"
 	}
-	if !slices.ContainsFunc(changes, func(c pluginChange) bool { return c.from == "" }) {
-		return nil, ""
-	}
-	return []cmdStep{{bin, []string{verbInstall, mgr.HarnessDir}}}, ""
+	return nil, ""
 }
 
 // installerStep returns the checkout's install script step for harness, or nothing
@@ -179,46 +188,152 @@ func installerStep(mgr pluginmgmt.Manager, harness string) []cmdStep {
 	return []cmdStep{{"node", []string{script, harness}}}
 }
 
+// runner runs one command and returns its combined output.
+type runner func(ctx context.Context, name string, args ...string) ([]byte, error)
+
+// execRunner runs commands for real, with git prompts disabled.
+func execRunner(ctx context.Context, name string, args ...string) ([]byte, error) {
+	cmd := exec.CommandContext(ctx, name, args...)
+	cmd.Env = append(os.Environ(), "GIT_TERMINAL_PROMPT=0")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return out, fmt.Errorf("run %s: %w", name, err)
+	}
+	return out, nil
+}
+
+// pullInterval is how long a successful pull of the registry checkout lasts.
+const pullInterval = 24 * time.Hour
+
 func (d Deps) runPluginsUpdate(ctx context.Context, args []string) int {
+	return d.pluginsUpdate(ctx, args, execRunner, time.Now)
+}
+
+// pluginsUpdate is runPluginsUpdate with the command runner and the clock injected.
+func (d Deps) pluginsUpdate(ctx context.Context, args []string, run runner, now func() time.Time) int {
 	st := term.NewStyle(d.Stdout, d.Getenv)
 	flags, err := d.parsePluginsFlags("plugins update", args)
 	if err != nil {
 		return d.flagFail(err)
 	}
 
-	mgr, err := d.loadHarnessManager(flags.file, flags.harnessDir)
+	setup, err := d.loadPluginSetup(flags)
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "plugins: %v\n", err)
+		return 1
+	}
+	mgr := setup.mgr
+	if mgr.HarnessDir == "" {
+		fmt.Fprintln(d.Stderr, "plugins: no plugin registry configured; set [plugins] registry or pass -harness-dir")
 		return 1
 	}
 
 	fmt.Fprintf(d.Stdout, "%sagents plugins update — sync and lifecycle across harnesses%s\n\n", st.B, st.O)
 
-	d.syncUpstream(ctx, st, mgr.HarnessDir, flags.dryRun)
-
-	list, err := mgr.ListPlugins(ctx)
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "plugins list: %v\n", err)
+	stamp := ""
+	if setup.registry != "" {
+		stamp = filepath.Join(setup.resolved.Dirs.State, "registries", filepath.FromSlash(setup.registry)+".pulled")
+	}
+	sync := checkoutSync{run: run, now: now, registry: setup.registry, dir: mgr.HarnessDir, stamp: stamp, dryRun: flags.dryRun, force: flags.force}
+	if err := d.syncCheckout(ctx, st, sync); err != nil {
+		fmt.Fprintf(d.Stderr, "plugins update: %v\n", err)
 		return 1
 	}
+
+	list := mgr.ListPlugins(ctx)
 	if slices.ContainsFunc(list, func(p pluginmgmt.PluginInfo) bool { return p.UpstreamStale }) {
 		st.Warn(d.Stdout, "upstream unreachable: cannot tell which plugins are behind; nothing updated")
 		return 1
 	}
 
-	targets := pluginmgmt.SortHarnesses(pluginmgmt.EnabledHarnesses(mgr.HarnessConfig))
-	if flags.harness != "" {
-		targets = []string{flags.harness}
-	}
+	targets := setup.targets
 	d.printPluginMatrix(st, list, targets)
 
-	plans := planUpdates(mgr, list, targets, exec.LookPath)
+	lookPath := d.LookPath
+	if lookPath == nil {
+		lookPath = exec.LookPath
+	}
+	plans := planUpdates(mgr, list, targets, lookPath)
 	d.reportSkips(st, plans)
-	failed := d.applyPlans(ctx, st, plans, flags.dryRun)
+	failed := d.applyPlans(ctx, st, plans, flags.dryRun, run)
 
 	d.pruneCaches(st, mgr, flags.dryRun)
 
 	return d.printUpdateSummary(st, plans, failed, flags.dryRun)
+}
+
+// checkoutSync describes how to bring the registry checkout up to date.
+type checkoutSync struct {
+	run      runner
+	now      func() time.Time
+	registry string // owner/repo; "" when only a -harness-dir is known
+	dir      string
+	stamp    string // file whose mtime is the last successful pull; "" without a registry
+	dryRun   bool
+	force    bool
+}
+
+// syncCheckout clones the checkout when it is missing and otherwise pulls it
+// when the last successful pull is older than pullInterval (or on force). A
+// directory that is not a git checkout is left alone. A failed pull is a
+// warning; a failed clone is an error.
+func (d Deps) syncCheckout(ctx context.Context, st term.Style, sc checkoutSync) error {
+	if _, err := os.Stat(sc.dir); errors.Is(err, fs.ErrNotExist) {
+		if sc.registry == "" {
+			return nil
+		}
+		step := cmdStep{"git", []string{"clone", "https://github.com/" + sc.registry, sc.dir}}
+		if sc.dryRun {
+			fmt.Fprintf(d.Stdout, "  %s[dry-run]%s would run %s\n", st.D, st.O, step)
+			return nil
+		}
+		if err := os.MkdirAll(filepath.Dir(sc.dir), 0o750); err != nil {
+			return fmt.Errorf("create checkout parent: %w", err)
+		}
+		if out, err := sc.run(ctx, step.name, step.args...); err != nil {
+			return fmt.Errorf("%s failed: %s", step, failureDetail(string(out), err))
+		}
+		fmt.Fprintf(d.Stdout, "  %s✓%s cloned the registry checkout to %s\n", st.G, st.O, sc.dir)
+		return sc.touchStamp()
+	}
+	if _, err := os.Stat(filepath.Join(sc.dir, ".git")); err != nil {
+		return nil //nolint:nilerr // a plain directory is not ours to pull
+	}
+	if !sc.force && sc.stamp != "" {
+		if info, err := os.Stat(sc.stamp); err == nil && sc.now().Sub(info.ModTime()) < pullInterval {
+			fmt.Fprintf(d.Stdout, "  %s– registry checkout pulled less than 24h ago, skipped (-force pulls)%s\n", st.D, st.O)
+			return nil
+		}
+	}
+	step := cmdStep{"git", []string{"-C", sc.dir, "pull", "--ff-only"}}
+	if sc.dryRun {
+		fmt.Fprintf(d.Stdout, "  %s[dry-run]%s would run %s\n", st.D, st.O, step)
+		return nil
+	}
+	if out, err := sc.run(ctx, step.name, step.args...); err != nil {
+		st.Warn(d.Stdout, fmt.Sprintf("registry checkout pull failed (%s)", failureDetail(string(out), err)))
+		return nil
+	}
+	fmt.Fprintf(d.Stdout, "  %s✓%s registry checkout updated\n", st.G, st.O)
+	return sc.touchStamp()
+}
+
+// touchStamp records a successful pull now.
+func (sc checkoutSync) touchStamp() error {
+	if sc.stamp == "" {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(sc.stamp), 0o750); err != nil {
+		return fmt.Errorf("create stamp directory: %w", err)
+	}
+	if err := os.WriteFile(sc.stamp, nil, 0o600); err != nil {
+		return fmt.Errorf("write pull stamp: %w", err)
+	}
+	t := sc.now()
+	if err := os.Chtimes(sc.stamp, t, t); err != nil {
+		return fmt.Errorf("touch pull stamp: %w", err)
+	}
+	return nil
 }
 
 // reportSkips prints one line per harness that has nothing to run.
@@ -231,7 +346,7 @@ func (d Deps) reportSkips(st term.Style, plans []harnessPlan) {
 }
 
 // applyPlans prints or runs every plan that has steps and returns how many failed.
-func (d Deps) applyPlans(ctx context.Context, st term.Style, plans []harnessPlan, dryRun bool) int {
+func (d Deps) applyPlans(ctx context.Context, st term.Style, plans []harnessPlan, dryRun bool, run runner) int {
 	failed := 0
 	for _, p := range plans {
 		if p.skip != "" {
@@ -248,7 +363,7 @@ func (d Deps) applyPlans(ctx context.Context, st term.Style, plans []harnessPlan
 			}
 			continue
 		}
-		if step, out, err := runSteps(ctx, p.steps); err != nil {
+		if step, out, err := runSteps(ctx, run, p.steps); err != nil {
 			failed++
 			fmt.Fprintf(d.Stdout, "  %s✗%s %s: %s failed: %s\n", st.R, st.O, p.harness, step, failureDetail(out, err))
 			continue
@@ -268,9 +383,9 @@ func joinChanges(changes []pluginChange) string {
 
 // runSteps runs steps in order and stops at the first failure, returning that
 // step and its combined output.
-func runSteps(ctx context.Context, steps []cmdStep) (cmdStep, string, error) {
+func runSteps(ctx context.Context, run runner, steps []cmdStep) (cmdStep, string, error) {
 	for _, s := range steps {
-		out, err := exec.CommandContext(ctx, s.name, s.args...).CombinedOutput()
+		out, err := run(ctx, s.name, s.args...)
 		if err != nil {
 			return s, string(out), err
 		}

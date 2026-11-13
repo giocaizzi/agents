@@ -17,7 +17,6 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
-	"github.com/giocaizzi/agents/internal/cache"
 	"github.com/giocaizzi/agents/internal/catalog"
 	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/term"
@@ -50,8 +49,12 @@ func defaultEndpoints() endpoints {
 }
 
 type modelsOpts struct {
-	file string
+	file string           // -file: the models.json to use instead of the cache one
+	cfg  *config.Resolved // the resolved configuration; loaded from the environment when nil
 }
+
+// modelsFile is the model catalog file in the cache dir.
+const modelsFile = "models.json"
 
 func (d Deps) runModels(ctx context.Context, args []string) int {
 	if len(args) > 0 && (args[0] == "-h" || args[0] == helpFlag) {
@@ -61,6 +64,8 @@ func (d Deps) runModels(ctx context.Context, args []string) int {
 		switch args[0] {
 		case "sync":
 			return d.runModelsSync(ctx, args[1:])
+		case commandTiers:
+			return d.runModelsTiers(ctx, args[1:])
 		case helpCmd:
 			return d.explicitHelp(ctx, append([]string{"models"}, args[1:]...))
 		default:
@@ -86,22 +91,22 @@ func (d Deps) flagFail(err error) int {
 	return 2
 }
 
-// loadCatalog reads models.json and, when validate is set, validates it. Sync
-// skips validation: it is what fills models and tiers.
-func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, string, error) {
-	path, err := d.findModelsJSON(explicit)
-	if err != nil {
-		if explicit != "" {
-			return catalog.Catalog{}, "", err
-		}
-		p, _, pErr := d.loadPolicy("")
-		if pErr == nil && p != nil && len(p.Models.Catalog.Providers) > 0 {
-			targetPath := d.defaultModelsJSONPath()
-			return d.catalogFromPolicy(p), targetPath, nil
-		}
-		return catalog.Catalog{}, "", err
+// loadCatalog reads models.json (explicit, else <cache dir>/models.json) and,
+// when validate is set, validates it. A missing default file with catalog
+// providers in the config gives a catalog built from the config, to be written
+// by models sync. Sync skips validation: it is what fills models and tiers.
+func (d Deps) loadCatalog(r *config.Resolved, explicit string, validate bool) (catalog.Catalog, string, error) {
+	path := filepath.Join(r.Dirs.Cache, modelsFile)
+	if explicit != "" {
+		path = filepath.Clean(explicit)
 	}
-	data, err := os.ReadFile(filepath.Clean(path))
+	data, err := os.ReadFile(path)
+	if errors.Is(err, os.ErrNotExist) && explicit == "" {
+		if len(r.Config.Models.Catalog.Providers) == 0 {
+			return catalog.Catalog{}, "", fmt.Errorf("%s not found: set models.catalog.providers, then run agents models sync", path)
+		}
+		return catalogFromConfig(r.Config.Models.Catalog), path, nil
+	}
 	if err != nil {
 		return catalog.Catalog{}, "", fmt.Errorf("read %s: %w", path, err)
 	}
@@ -109,11 +114,7 @@ func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, stri
 	if err != nil {
 		return catalog.Catalog{}, "", fmt.Errorf("parse %s: %w", path, err)
 	}
-
-	if p, _, pErr := d.loadPolicy(""); pErr == nil && p != nil {
-		d.overlayCatalogPolicy(&c, p)
-	}
-
+	overlayCatalogConfig(&c, r.Config.Models.Catalog)
 	if !validate {
 		return c, path, nil
 	}
@@ -123,58 +124,45 @@ func (d Deps) loadCatalog(explicit string, validate bool) (catalog.Catalog, stri
 	return c, path, nil
 }
 
-func (d Deps) defaultModelsJSONPath() string {
-	if dir, err := cache.Dir(d.Getenv); err == nil {
-		return filepath.Join(dir, "models.json")
-	}
-	return "models.json"
-}
-
-func (d Deps) catalogFromPolicy(p *config.Policy) catalog.Catalog {
-	since := p.Models.Catalog.Since
+func catalogFromConfig(cc config.Catalog) catalog.Catalog {
+	since := cc.Since
 	if since == "" {
 		since = "2026-01-01"
 	}
-	c := catalog.Catalog{
+	return catalog.Catalog{
 		Schema:    catalog.Schema,
 		Since:     since,
-		Providers: p.Models.Catalog.Providers,
-		Pin:       p.Models.Catalog.Pins,
-		Ignore:    p.Models.Catalog.Ignore,
+		Providers: cc.Providers,
+		Pin:       cc.Pins,
+		Ignore:    cc.Ignore,
+		Aliases:   catalog.Aliases{Arena: cc.Aliases["arena"], Epoch: cc.Aliases["epoch"]},
 		Tiers:     make(map[string][]string),
 		Models:    make(map[string]catalog.Model),
 	}
-	if p.Models.Catalog.Aliases != nil {
-		c.Aliases = catalog.Aliases{
-			Arena: p.Models.Catalog.Aliases["arena"],
-			Epoch: p.Models.Catalog.Aliases["epoch"],
-		}
-	}
-	return c
 }
 
-func (d Deps) overlayCatalogPolicy(c *catalog.Catalog, p *config.Policy) {
-	if len(p.Models.Catalog.Providers) > 0 {
-		c.Providers = p.Models.Catalog.Providers
+// overlayCatalogConfig applies the config's catalog preferences over the ones
+// stored in models.json.
+func overlayCatalogConfig(c *catalog.Catalog, cc config.Catalog) {
+	if len(cc.Providers) > 0 {
+		c.Providers = cc.Providers
 	}
-	if p.Models.Catalog.Since != "" {
-		c.Since = p.Models.Catalog.Since
+	if cc.Since != "" {
+		c.Since = cc.Since
 	}
-	if len(p.Models.Catalog.Pins) > 0 {
+	if len(cc.Pins) > 0 {
 		if c.Pin == nil {
 			c.Pin = make(map[string]string)
 		}
-		maps.Copy(c.Pin, p.Models.Catalog.Pins)
+		maps.Copy(c.Pin, cc.Pins)
 	}
-	if len(p.Models.Catalog.Ignore) > 0 {
-		c.Ignore = p.Models.Catalog.Ignore
+	if len(cc.Ignore) > 0 {
+		c.Ignore = cc.Ignore
 	}
-	if len(p.Models.Catalog.Aliases) > 0 {
-		d.overlayAliases(&c.Aliases, p.Models.Catalog.Aliases)
-	}
+	overlayAliases(&c.Aliases, cc.Aliases)
 }
 
-func (d Deps) overlayAliases(a *catalog.Aliases, aliases map[string]map[string]string) {
+func overlayAliases(a *catalog.Aliases, aliases map[string]map[string]string) {
 	if arena := aliases["arena"]; len(arena) > 0 {
 		if a.Arena == nil {
 			a.Arena = make(map[string]string)
@@ -189,52 +177,17 @@ func (d Deps) overlayAliases(a *catalog.Aliases, aliases map[string]map[string]s
 	}
 }
 
-func (d Deps) findModelsJSON(explicit string) (string, error) {
-	if explicit != "" {
-		cleaned := filepath.Clean(explicit)
-		if _, err := os.Stat(cleaned); err != nil {
-			return "", fmt.Errorf("stat %s: %w", explicit, err)
-		}
-		return cleaned, nil
-	}
-
-	for _, cand := range d.modelsJSONCandidates() {
-		cleaned := filepath.Clean(cand)
-		if _, err := os.Stat(cleaned); err == nil {
-			return cleaned, nil
-		}
-	}
-	return "", errors.New("models.json not found")
-}
-
-func (d Deps) modelsJSONCandidates() []string {
-	var candidates []string
-	if src := d.Getenv("CHEZMOI_SOURCE_DIR"); src != "" {
-		candidates = append(candidates,
-			filepath.Join(src, "home", ".chezmoidata", "models.json"),
-			filepath.Join(src, ".chezmoidata", "models.json"),
-		)
-	}
-	if dir, err := cache.Dir(d.Getenv); err == nil {
-		candidates = append(candidates, filepath.Join(dir, "models.json"))
-	}
-	candidates = append(candidates,
-		filepath.Join("home", ".chezmoidata", "models.json"),
-		filepath.Join(".chezmoidata", "models.json"),
-		"models.json",
-		filepath.Join("..", "home", ".chezmoidata", "models.json"),
-		filepath.Join("..", "..", "home", ".chezmoidata", "models.json"),
-	)
-	return candidates
-}
-
 func (d Deps) runModelsShow(args []string) int {
 	fs := d.newFlags("models")
 	file := fs.String("file", "", "path to models.json")
 	if err := fs.Parse(args); err != nil {
 		return d.parseFailure(fs, err)
 	}
-	c, _, err := d.loadCatalog(*file, true)
+	r, err := d.loadConfig(&configFlags{})
+	if err != nil {
+		return d.modelsFail("%v", err)
+	}
+	c, _, err := d.loadCatalog(r, *file, true)
 	if err != nil {
 		return d.modelsFail("%v", err)
 	}
@@ -254,7 +207,14 @@ func (d Deps) runModelsSync(ctx context.Context, args []string) int {
 // syncModels fetches every source, then writes models.json; any failure before
 // the write leaves the existing file untouched.
 func (d Deps) syncModels(ctx context.Context, opts modelsOpts, ep endpoints, now func() time.Time) int {
-	c, path, err := d.loadCatalog(opts.file, false)
+	r := opts.cfg
+	if r == nil {
+		var err error
+		if r, err = d.loadConfig(&configFlags{}); err != nil {
+			return d.modelsFail("%v", err)
+		}
+	}
+	c, path, err := d.loadCatalog(r, opts.file, false)
 	if err != nil {
 		return d.modelsFail("%v", err)
 	}

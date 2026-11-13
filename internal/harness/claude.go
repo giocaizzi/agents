@@ -1,0 +1,447 @@
+package harness
+
+import (
+	"fmt"
+	"maps"
+	"path/filepath"
+	"slices"
+	"strconv"
+	"strings"
+	"unicode"
+
+	"github.com/giocaizzi/agents/internal/apply"
+	"github.com/giocaizzi/agents/internal/config"
+)
+
+const (
+	claudeOwner       = "claude"
+	claudeLSPPlugin   = "lsp"
+	claudeLocalMarket = "agents"
+
+	keySource = "source"
+	keyName   = "name"
+	keyDesc   = "description"
+	otlp      = "otlp"
+
+	keyPermissions = "permissions"
+	keyAllow       = "allow"
+	keyDeny        = "deny"
+	keyAsk         = "ask"
+)
+
+// claudeLegacy are the key paths the earlier dotfiles manager wrote into
+// ~/.claude/settings.json and agents no longer writes: its local plugin and
+// marketplace. Deleted once, on the first apply of the file; every later
+// removal comes from the manifest.
+//
+//nolint:gochecknoglobals // immutable list
+var claudeLegacy = [][]string{
+	{"enabledPlugins", "lsp@dotfiles"},
+	{"extraKnownMarketplaces", "dotfiles"},
+}
+
+// renderClaude adds the Claude Code targets: settings, user MCP servers, the
+// local LSP plugin and the instructions.
+func renderClaude(c *config.Config, b *builder) error {
+	settings := claudeSettings(c, b)
+	servers := b.lspServers()
+
+	enabled, _ := settings["enabledPlugins"].(map[string]any)
+	if enabled == nil {
+		enabled = map[string]any{}
+	}
+	markets, _ := settings["extraKnownMarketplaces"].(map[string]any)
+	if markets == nil {
+		markets = map[string]any{}
+	}
+	if name := MarketplaceName(c); name != "" {
+		for plugin, on := range PluginStates(c, config.Claude) {
+			enabled[plugin+"@"+name] = on
+		}
+		markets[name] = map[string]any{
+			keySource:    map[string]any{keySource: "github", "repo": c.Plugins.Registry},
+			"autoUpdate": true,
+		}
+	}
+	pluginDir := filepath.Join(b.env.Dirs.Data, "claude-plugins")
+	if len(servers) > 0 {
+		enabled[claudeLSPPlugin+"@"+claudeLocalMarket] = true
+		markets[claudeLocalMarket] = map[string]any{
+			keySource: map[string]any{keySource: "directory", "path": pluginDir},
+		}
+	}
+	setIfAny(settings, "enabledPlugins", enabled)
+	setIfAny(settings, "extraKnownMarketplaces", markets)
+
+	b.add(apply.Target{
+		Owner: claudeOwner, Path: b.home(".claude", "settings.json"), Format: apply.JSON,
+		Managed: settings, Legacy: claudeLegacy, Mode: 0o600,
+		Union: [][]string{{keyPermissions, keyAllow}, {keyPermissions, keyDeny}, {keyPermissions, keyAsk}},
+	})
+
+	if len(servers) > 0 {
+		claudeLSPPluginTargets(b, pluginDir, servers)
+	}
+
+	// Without servers the target is left out: an empty mcpServers object must
+	// never be managed content, and the manifest removes what agents wrote.
+	if mcp := b.mcpServers(); len(mcp) > 0 {
+		b.add(apply.Target{
+			Owner: claudeOwner, Path: b.home(".claude.json"), Format: apply.JSON,
+			Managed: map[string]any{keyMCPServers: claudeMCPServers(mcp)}, Mode: 0o600,
+		})
+	}
+
+	b.instructions(config.Claude, b.home(".claude", "CLAUDE.md"))
+	return nil
+}
+
+func setIfAny(m map[string]any, key string, v map[string]any) {
+	if len(v) > 0 {
+		m[key] = v
+	}
+}
+
+// claudeSettings builds the managed keys of ~/.claude/settings.json except
+// the plugin and marketplace maps the caller completes.
+func claudeSettings(c *config.Config, b *builder) map[string]any {
+	cl := c.Harness.Claude
+	s := map[string]any{}
+	set := func(key string, v any) {
+		switch t := v.(type) {
+		case string:
+			if t == "" {
+				return
+			}
+		case int:
+			if t == 0 {
+				return
+			}
+		case bool:
+			if !t {
+				return
+			}
+		}
+		s[key] = v
+	}
+
+	set("askUserQuestionTimeout", c.Autonomy.AskTimeout)
+	set("effortLevel", c.Models.DefaultEffortLevel)
+	if model, effort := sessionModel(c, config.Claude); model != "" {
+		set(keyModel, model)
+		set("effortLevel", effort) // only when the default tier sets one
+	}
+	set("showThinkingSummaries", c.Models.ShowThinkingSummaries)
+	set("autoCompactEnabled", c.Context.AutoCompact)
+	set("autoCompactWindow", c.Context.AutoCompactWindow)
+	set("promptCacheTtl", c.Context.PromptCacheTTL)
+	set("subagentPromptCacheTtl", c.Context.SubagentPromptCacheTTL)
+	set("theme", c.UI.Theme)
+	set("tui", c.UI.TUIMode)
+	set("viewMode", c.UI.ViewMode)
+	set("outputStyle", c.UI.OutputStyle)
+	set("showTurnDuration", c.UI.ShowTurnDuration)
+	set("terminalProgressBarEnabled", c.UI.ProgressBar)
+	set("timeFormat", c.UI.TimeFormat)
+	if c.Notifications.TerminalBell {
+		s["preferredNotifChannel"] = "terminal_bell"
+	}
+	if v := c.Voice; v != (config.Voice{}) {
+		voice := map[string]any{keyEnabled: v.Enabled, "autoSubmit": v.AutoSubmit}
+		if v.Mode != "" {
+			voice["mode"] = v.Mode
+		}
+		if v.Language != "" {
+			voice["language"] = v.Language
+		}
+		s["voice"] = voice
+	}
+	set("cleanupPeriodDays", cl.CleanupPeriodDays)
+	set("disableClaudeAiConnectors", cl.DisableClaudeAIConnectors)
+	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
+	s[keyPermissions] = claudePermissions(c, b)
+	setIfAny(s, "sandbox", claudeSandbox(c, b))
+
+	env := map[string]any{}
+	if tel, on := b.telemetry(config.Claude); on {
+		env = claudeTelemetry(tel)
+	}
+	if n := c.Context.MaxTokens; n > 0 {
+		env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = strconv.Itoa(n)
+	}
+	setIfAny(s, "env", env)
+	deepMerge(s, b.expandSettings("harness.claude.settings", cl.Settings))
+	return s
+}
+
+// claudeSandbox is the sandbox object: enabled for the shared workspace mode.
+// autoAllowBashIfSandboxed defaults to true and would skip the prompts that
+// ask wants (and an unset mode must not silently widen), so it is written
+// false unless execution_mode is auto or full.
+func claudeSandbox(c *config.Config, b *builder) map[string]any {
+	sandbox := b.sandboxEnabled(c.Autonomy.SandboxMode, "Claude Code", "sandbox.enabled")
+	if sandbox != nil && (c.Autonomy.ExecutionMode == "" || c.Autonomy.ExecutionMode == config.ExecutionAsk) {
+		sandbox["autoAllowBashIfSandboxed"] = false
+	}
+	return sandbox
+}
+
+// claudePermissions maps the shared permission rules to Claude's schema.
+func claudePermissions(c *config.Config, b *builder) map[string]any {
+	goos := b.env.GOOS
+	p := c.Permissions
+	allow := slices.Clone(c.Harness.Claude.Allow)
+	for _, pat := range slices.Concat(p.AllowCommandPatterns, p.AllowCommands) {
+		allow = append(allow, "Bash("+pat+")")
+	}
+	allow = append(allow, b.claudeURLRules(p.AllowedURLs)...)
+	for _, name := range p.AllowedMCP {
+		allow = append(allow, claudeMCPRule(name))
+	}
+	var deny []string
+	for _, pat := range p.DenyCommandPatterns {
+		deny = append(deny, "Bash("+pat+")")
+	}
+	for _, path := range p.DenyRead {
+		deny = append(deny, "Read("+path+")")
+	}
+	for _, path := range p.DenyWrite {
+		deny = append(deny, "Edit("+path+")")
+	}
+	for _, cmd := range p.DenyCommandExact {
+		deny = append(deny, "Bash("+cmd+")")
+	}
+	for _, pfx := range p.DenyCommandPrefixes {
+		deny = append(deny, "Bash("+pfx+":*)")
+	}
+	if goos == goosWindows {
+		for _, pfx := range p.DenyCommandPrefixes {
+			if pfx != "printenv" {
+				deny = append(deny, "PowerShell("+pfx+" *)")
+			}
+		}
+	}
+	ask := make([]string, 0, 2*len(p.AskCommandPrefixes))
+	for _, pfx := range p.AskCommandPrefixes {
+		ask = append(ask, "Bash("+pfx+")", "Bash("+pfx+" *)")
+	}
+	// The typed field wins, then the shared execution mode, then Claude's auto.
+	mode := valueOr(c.Harness.Claude.DefaultMode,
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Claude Code", "permissions.defaultMode", claudeExecution()))
+	if mode == "" {
+		mode = nativeAuto
+	}
+	out := map[string]any{"defaultMode": mode}
+	for k, v := range map[string][]string{keyAllow: allow, keyDeny: deny, keyAsk: ask} {
+		if len(v) > 0 {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+// claudeURLRules are the WebFetch(domain:) rules of the allowed URLs; an entry
+// that is not a whole host is skipped and warned.
+func (b *builder) claudeURLRules(urls []string) []string {
+	var out []string
+	for _, u := range urls {
+		host, ok := claudeHost(u)
+		if !ok {
+			b.warnf("permissions.allowed_urls: %q skipped for Claude, WebFetch(domain:) matches a whole host and cannot express a path or an inner wildcard", u)
+			continue
+		}
+		out = appendUnique(out, "WebFetch(domain:"+host+")")
+	}
+	return out
+}
+
+// claudeHost is the WebFetch(domain:) target of an allowed URL. The rule
+// matches a whole host, so only a URL with no path, or a trailing /, /* or /**,
+// can be expressed. A leading "*." stays: Claude Code reads it as any subdomain
+// at any depth, not the bare domain.
+func claudeHost(u string) (string, bool) {
+	_, rest, found := strings.Cut(u, "://")
+	if !found {
+		rest = u
+	}
+	host, path, _ := strings.Cut(rest, "/")
+	if path != "" && path != "*" && path != "**" {
+		return "", false
+	}
+	if host == "" || strings.Contains(strings.TrimPrefix(host, "*."), "*") {
+		return "", false
+	}
+	return host, true
+}
+
+// claudeMCPRule is the allow rule for an MCP entry. Claude writes a server
+// into tool names with every character outside letters, digits, "_" and "-"
+// turned into "_", and only the wildcard form matches every server name. A
+// "server/tool" entry names one tool: mcp__<server>__<tool>. An entry that
+// already starts with mcp__ is a rule and stays as is.
+func claudeMCPRule(name string) string {
+	if strings.HasPrefix(name, "mcp__") {
+		return name
+	}
+	server, tool, ok := strings.Cut(name, "/")
+	if !ok {
+		return "mcp__" + claudeMCPName(server) + "__*"
+	}
+	return "mcp__" + claudeMCPName(server) + "__" + claudeMCPName(tool)
+}
+
+// claudeMCPName replaces the characters Claude does not keep in a tool-name
+// segment; "*" stays so a tool glob such as get_* still works.
+func claudeMCPName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '_' || r == '-' || r == '*' || unicode.IsDigit(r) || (r < unicode.MaxASCII && unicode.IsLetter(r)) {
+			return r
+		}
+		return '_'
+	}, s)
+}
+
+// claudeTelemetry is the env of Claude Code's OpenTelemetry export.
+func claudeTelemetry(t Telemetry) map[string]any {
+	flag := func(on bool) string {
+		if on {
+			return "1"
+		}
+		return "0"
+	}
+	res := []string{"service.namespace=" + t.Service, "host.name=" + t.Hostname, "host.arch=" + t.Arch}
+	for _, k := range slices.Sorted(maps.Keys(t.Attributes)) {
+		if k == "service.namespace" {
+			continue
+		}
+		res = append(res, k+"="+t.Attributes[k])
+	}
+	return map[string]any{
+		"CLAUDE_CODE_ENABLE_TELEMETRY":                      "1",
+		"OTEL_EXPORTER_OTLP_ENDPOINT":                       t.Endpoint,
+		"OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE": t.Temporality,
+		"OTEL_EXPORTER_OTLP_PROTOCOL":                       t.Protocol,
+		"OTEL_LOGS_EXPORTER":                                otlp,
+		"OTEL_LOG_TOOL_CONTENT":                             flag(t.LogToolContent),
+		"OTEL_LOG_TOOL_DETAILS":                             flag(t.LogToolDetails),
+		"OTEL_METRICS_EXPORTER":                             otlp,
+		"OTEL_RESOURCE_ATTRIBUTES":                          strings.Join(res, ","),
+		"OTEL_TRACES_EXPORTER":                              otlp,
+	}
+}
+
+// expandSettings expands ${VAR} in every string of in. A map entry or list
+// element with an unset variable is skipped and warned.
+func (b *builder) expandSettings(where string, in map[string]any) map[string]any {
+	out := map[string]any{}
+	for _, k := range slices.Sorted(maps.Keys(in)) {
+		if v, ok := b.expandValue(where+"."+k, in[k]); ok {
+			out[k] = v
+		}
+	}
+	return out
+}
+
+func (b *builder) expandValue(where string, v any) (any, bool) {
+	switch t := v.(type) {
+	case string:
+		return b.expand(where, t)
+	case map[string]any:
+		return b.expandSettings(where, t), true
+	case []any:
+		out := make([]any, 0, len(t))
+		for i, e := range t {
+			if x, ok := b.expandValue(fmt.Sprintf("%s[%d]", where, i), e); ok {
+				out = append(out, x)
+			}
+		}
+		return out, true
+	default:
+		return v, true
+	}
+}
+
+// claudeLSPPluginTargets writes the local marketplace and plugin that carry
+// the language servers.
+func claudeLSPPluginTargets(b *builder, dir string, servers []LSPServer) {
+	const desc = "Language servers from the agents configuration"
+	add := func(path string, m map[string]any) {
+		b.add(apply.Target{Owner: claudeOwner, Path: filepath.Join(dir, filepath.FromSlash(path)), Format: apply.JSON, Managed: m, Mode: 0o644})
+	}
+	add(".claude-plugin/marketplace.json", map[string]any{
+		keyName: claudeLocalMarket,
+		"owner": map[string]any{keyName: claudeLocalMarket},
+		keyDesc: "Local plugins generated by agents",
+		"plugins": []any{map[string]any{
+			keyName: claudeLSPPlugin, keySource: "./" + claudeLSPPlugin, keyDesc: desc,
+		}},
+	})
+	add("lsp/.claude-plugin/plugin.json", map[string]any{
+		keyName: claudeLSPPlugin, keyDesc: desc, "author": map[string]any{keyName: claudeLocalMarket},
+	})
+	add("lsp/.lsp.json", claudeLSPConfig(servers))
+}
+
+// claudeLSPConfig lists the servers by name. Claude gives each extension to
+// one server, so a server keeps only the extensions no earlier server claimed
+// and is left out when none remain.
+func claudeLSPConfig(servers []LSPServer) map[string]any {
+	out := map[string]any{}
+	claimed := map[string]bool{}
+	for _, s := range servers {
+		ext := map[string]any{}
+		for e, lang := range s.Extensions {
+			if !claimed[e] {
+				ext[e] = lang
+			}
+		}
+		if len(ext) == 0 {
+			continue
+		}
+		for e := range ext {
+			claimed[e] = true
+		}
+		out[s.Name] = map[string]any{
+			"command":             s.Command[0],
+			keyArgs:               append([]string{}, s.Command[1:]...),
+			"extensionToLanguage": ext,
+		}
+	}
+	return out
+}
+
+// claudeMCPServers is the mcpServers value of ~/.claude.json.
+func claudeMCPServers(in map[string]config.MCPServer) map[string]any {
+	out := map[string]any{}
+	for name, s := range in {
+		m := map[string]any{}
+		if s.URL != "" {
+			m["type"] = "http"
+			m["url"] = s.URL
+			if len(s.Headers) > 0 {
+				m["headers"] = s.Headers
+			}
+			if oauth := claudeOAuth(s.OAuth); len(oauth) > 0 {
+				m["oauth"] = oauth
+			}
+		} else {
+			m["type"] = "stdio"
+			m["command"] = s.Command
+			m[keyArgs] = append([]string{}, s.Args...)
+			m["env"] = s.Env
+		}
+		out[name] = m
+	}
+	return out
+}
+
+func claudeOAuth(o config.OAuth) map[string]any {
+	out := map[string]any{}
+	if o.ClientID != "" {
+		out["clientId"] = o.ClientID
+	}
+	if o.CallbackPort != 0 {
+		out["callbackPort"] = o.CallbackPort
+	}
+	return out
+}

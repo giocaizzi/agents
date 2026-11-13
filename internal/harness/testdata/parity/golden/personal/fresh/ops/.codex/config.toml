@@ -1,0 +1,6 @@
+
+[mcp_servers.alpha]
+url = "https://alpha.acct.example.com/mcp"
+
+[mcp_servers.beta]
+url = "https://beta.acct.example.com/mcp?toolset=admin"

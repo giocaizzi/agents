@@ -1,0 +1,19 @@
+schema_version = 1
+
+[instructions.layers.core]
+file = "core.md"
+
+[os.windows.harness.claude.settings]
+defaultShell = "powershell"
+
+[os.windows.ui]
+theme = "light"
+
+[os.darwin.notifications]
+terminal_bell = true
+
+[os.linux.voice]
+enabled = false
+
+[profiles.dev.ui]
+theme = "dark"

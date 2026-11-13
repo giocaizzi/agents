@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "alpha": {
+      "type": "http",
+      "url": "https://alpha.acct.example.com/mcp"
+    },
+    "beta": {
+      "type": "http",
+      "url": "https://beta.acct.example.com/mcp?toolset=admin"
+    },
+    "crm": {
+      "auth": {
+        "redirectPort": 8765
+      },
+      "oauth": {
+        "callbackPort": 8765,
+        "clientId": "client-123"
+      },
+      "oauthClientId": "client-123",
+      "oauthPublicClient": false,
+      "type": "http",
+      "url": "https://crm.example.com/mcp"
+    }
+  }
+}
+

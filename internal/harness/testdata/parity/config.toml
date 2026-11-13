@@ -1,0 +1,375 @@
+#:schema https://raw.githubusercontent.com/giocaizzi/agents/main/schema/config.schema.json
+
+# Parity fixture: the same settings a dotfiles repo rendered with templates before
+# agents applied them itself. Secrets and per-machine values are ${VAR} references.
+schema_version = 1
+harnesses = ["claude", "copilot", "vscode", "codex", "opencode", "pi", "antigravity"]
+
+[autonomy]
+execution_mode = "auto"
+sandbox_mode = "off"
+allow_non_workspace_access = true
+subagent_depth = 2
+allow_subagent_invocations = true
+ask_timeout = "60s"
+
+[permissions]
+allow_commands = [
+    "git *",
+    "gh *",
+    "make *",
+    "uv *",
+    "jq *",
+    "npm *",
+    "cargo *",
+    "go *",
+    "terraform *",
+]
+allowed_urls = [
+    "https://github.com/**",
+    "https://api.github.com/**",
+    "https://docs.github.com/**",
+    "https://learn.microsoft.com/**",
+    "https://*.example.org/**",
+    "https://*.claude.ai/**",
+    "https://*.claude.com/**",
+    "https://docs.anthropic.com/**",
+    "https://*.openai.com/**",
+    "https://*.google.com/**",
+]
+deny_read = [
+    "**/.env",
+    "**/.env.local",
+    "**/.env.*.local",
+    "**/.env.development",
+    "**/.env.production",
+    "**/.env.staging",
+    "**/.env.test",
+    "**/secrets/**",
+    "~/.config/shell/secrets.sh",
+    "~/.config/powershell/secrets.ps1",
+    "**/*.pem",
+    "**/*.key",
+    "**/*.p12",
+    "**/*.pfx",
+    "**/id_rsa*",
+    "**/id_ed25519*",
+    "**/.aws/credentials",
+    "**/.aws/config",
+    "**/.ssh/**",
+    "**/.netrc",
+    "**/.npmrc",
+    "**/.pypirc",
+    "**/credentials.json",
+    "**/service-account*.json",
+    "**/gcp-key*.json",
+    "**/*.kubeconfig",
+    "**/kubeconfig",
+]
+deny_write = [
+    "**/.env",
+    "**/.env.local",
+    "**/.env.*.local",
+    "**/.env.development",
+    "**/.env.production",
+    "**/.env.staging",
+    "**/.env.test",
+    "**/secrets/**",
+    "~/.config/shell/secrets.sh",
+    "~/.config/powershell/secrets.ps1",
+    "**/.aws/credentials",
+    "**/.ssh/**",
+]
+allow_command_patterns = [
+    "git push --force-with-lease origin *",
+]
+deny_command_patterns = [
+    "gh pr merge * --admin*",
+    "git push --force-with-lease origin main",
+    "git push --force-with-lease origin main *",
+    "git push --force-with-lease origin master",
+    "git push --force-with-lease origin master *",
+    "git push * HEAD:main",
+    "git push * HEAD:main *",
+    "git push * HEAD:master",
+    "git push * HEAD:master *",
+]
+deny_command_exact = [
+    "env",
+]
+deny_command_prefixes = [
+    "printenv",
+    "pipx",
+    "pip",
+    "pip3",
+    "python -m pip",
+    "python3 -m pip",
+]
+ask_command_prefixes = [
+    "bw",
+]
+
+[models]
+default_effort_level = "medium"
+show_thinking_summaries = true
+
+[models.catalog]
+providers = ["anthropic", "google", "moonshotai", "openai", "xai"]
+since = "2026-01-01"
+
+# Free-named tiers; models.assign is the only join between agent ids and tiers.
+[models.tiers.light]
+copilot = "gpt-6-luna"
+effort = "low"
+
+[models.tiers.standard]
+copilot = "gpt-6-luna"
+effort = "medium"
+
+[models.tiers.strong]
+copilot = "gpt-6.1-sol"
+effort = "medium"
+
+[models.tiers.frontier]
+copilot = "gpt-6-astra"
+effort = "medium"
+
+[models.assign]
+"dev-tools:scout" = "light"
+"dev-tools:worker" = "standard"
+"dev-tools:reviewer" = "standard"
+"dev-tools:driver" = "strong"
+"foundations:api-reviewer" = "strong"
+"dev-tools:escalate" = "frontier"
+
+[context]
+auto_compact = true
+auto_compact_window = 500000
+prompt_cache_ttl = "1h"
+subagent_prompt_cache_ttl = "1h"
+max_turn_tokens = 32000
+max_tokens = 200000
+
+[ui]
+tui_mode = "fullscreen"
+view_mode = "focus"
+output_style = "Concise"
+show_turn_duration = true
+progress_bar = true
+time_format = "24h"
+
+[notifications]
+terminal_bell = true
+
+[voice]
+enabled = true
+mode = "hold"
+auto_submit = false
+
+# Enabled per profile (profiles.personal); the endpoint is a per-machine value.
+[telemetry]
+enabled = false
+endpoint = "${AGENTS_OTEL_ENDPOINT}"
+protocol = "http/protobuf"
+temporality = "cumulative"
+log_tool_details = true
+log_tool_content = false
+service_namespace = "agent-harness"
+attributes = { "deployment.environment.name" = "production", "service.namespace" = "agent-harness" }
+services = { claude = "claude-code", copilot = "copilot-cli", vscode = "vscode-copilot", codex = "codex-cli", opencode = "opencode", pi = "pi-agent", antigravity = "antigravity-cli" }
+
+[lsp]
+enabled = true
+
+[lsp.servers.pyright]
+command = ["pyright-langserver", "--stdio"]
+extensions = { ".py" = "python", ".pyi" = "python" }
+
+[lsp.servers.ruff]
+command = ["ruff", "server"]
+extensions = { ".py" = "python", ".pyi" = "python" }
+format = true
+
+[lsp.servers.typescript]
+command = ["tsc", "--lsp", "--stdio"]
+extensions = { ".ts" = "typescript", ".mts" = "typescript", ".cts" = "typescript", ".tsx" = "typescriptreact", ".js" = "javascript", ".mjs" = "javascript", ".cjs" = "javascript", ".jsx" = "javascriptreact" }
+format = true
+
+[lsp.servers.gopls]
+command = ["gopls"]
+extensions = { ".go" = "go" }
+format = true
+
+[lsp.servers.bash]
+command = ["bash-language-server", "start"]
+extensions = { ".sh" = "shellscript", ".bash" = "shellscript" }
+filetypes = ["sh", "bash"]
+format = true
+
+[lsp.servers.yaml-ls]
+command = ["yaml-language-server", "--stdio"]
+extensions = { ".yaml" = "yaml", ".yml" = "yaml" }
+
+[lsp.servers.json]
+command = ["vscode-json-language-server", "--stdio"]
+extensions = { ".json" = "json", ".jsonc" = "jsonc" }
+
+[lsp.servers.terraform]
+command = ["terraform-ls", "serve"]
+extensions = { ".tf" = "terraform", ".tfvars" = "terraform-vars" }
+format = true
+
+[lsp.servers.tflint]
+command = ["tflint", "--langserver"]
+extensions = { ".tf" = "terraform", ".tfvars" = "terraform-vars" }
+
+# Layer files live in the default directory, ~/.config/agents/instructions/<name>.md.
+[instructions.vars]
+tools = ["git", "make", "uv"]
+
+[instructions.layers.core]
+[instructions.layers.env]
+[instructions.layers.personal]
+[instructions.layers.work]
+
+[plugins]
+registry = "giocaizzi/harness"
+
+[plugins.enabled]
+dev-tools = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+foundations = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+go = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+guard = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+hud = ["claude", "antigravity", "opencode", "pi"]
+infra = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+javascript = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+python = ["claude", "copilot", "codex", "antigravity", "opencode", "pi"]
+sounds = ["claude", "codex", "antigravity", "opencode", "pi"]
+
+[mcp.servers.docs]
+url = "https://docs.example.com/mcp"
+
+[harness.claude]
+default_mode = "auto"
+skip_auto_permission_prompt = true
+cleanup_period_days = 365
+disable_claude_ai_connectors = true
+allow = ["WebSearch", "WebFetch", "Bash", "Bash(gh pr merge * --auto*)"]
+
+# Claude Code keys agents does not model, merged into ~/.claude/settings.json as written.
+[harness.claude.settings]
+terminalTitleFromRename = true
+skipWorkflowUsageWarning = true
+theme = "dark"
+remoteControlAtStartup = false
+inputNeededNotifEnabled = true
+agentPushNotifEnabled = true
+
+[harness.claude.settings.env]
+CLAUDE_CODE_SUBAGENT_MODEL = "sonnet"
+
+[harness.claude.settings.statusLine]
+type = "command"
+command = "node ${HOME}/.claude/plugins/marketplaces/giocaizzi-harness/plugins/hud/hooks/statusline.mjs claude"
+
+[harness.claude.settings.subagentStatusLine]
+type = "command"
+command = "node ${HOME}/.claude/plugins/marketplaces/giocaizzi-harness/plugins/hud/hooks/statusline.mjs subagent"
+
+[harness.claude.settings.enabledPlugins]
+"next-steps@claude-community" = false
+"frontend-design@claude-plugins-official" = true
+"skill-creator@claude-plugins-official" = true
+"pyright-lsp@claude-plugins-official" = false
+"typescript-lsp@claude-plugins-official" = false
+"gopls-lsp@claude-plugins-official" = false
+
+[harness.claude.settings.extraKnownMarketplaces.obsidian-skills]
+source = { source = "github", repo = "kepano/obsidian-skills" }
+autoUpdate = true
+
+[harness.claude.settings.extraKnownMarketplaces.impeccable]
+source = { source = "github", repo = "pbakaus/impeccable" }
+autoUpdate = true
+
+[harness.claude.settings.extraKnownMarketplaces.anthropic-agent-skills]
+source = { source = "github", repo = "anthropics/skills" }
+
+[harness.claude.settings.extraKnownMarketplaces.claude-community]
+source = { source = "github", repo = "anthropics/claude-plugins-community" }
+
+[harness.claude.settings.pluginConfigs."sounds@giocaizzi-harness".options]
+notify = true
+notifyAfterSeconds = 0
+soundCacheExpiring = "off"
+soundCacheExpired = "off"
+soundSubagent = "off"
+
+[harness.copilot.settings]
+inlineImages = false
+showReasoning = false
+theme = "default"
+ide = { autoConnect = false, openDiffOnEdit = false }
+
+[harness.copilot.settings.footer]
+showModelEffort = true
+showDirectory = true
+showBranch = true
+showContextWindow = true
+showQuota = true
+showAiUsed = true
+showAgent = true
+showCodeChanges = true
+showUsername = false
+showSandbox = true
+showYolo = true
+showCiStatus = true
+showSchedules = false
+showPullRequest = true
+showCustom = true
+
+[harness.antigravity]
+agent_mode = "auto"
+tool_permission = "always-proceed"
+enable_terminal_sandbox = false
+allow_non_workspace_access = true
+allow = ["command(*)", "command(gh pr merge * --auto*)", "read_url(*)", "execute_url(*)", "mcp(*)"]
+
+[harness.codex]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[harness.pi]
+default_provider = "openai"
+default_model = "gpt-6.1-sol"
+default_thinking_level = "medium"
+
+# Windows only: Claude Code runs PowerShell.
+[os.windows.harness.claude.settings]
+defaultShell = "powershell"
+
+[os.windows.harness.claude.settings.env]
+CLAUDE_CODE_USE_POWERSHELL_TOOL = "1"
+CLAUDE_CODE_SCROLL_SPEED = "3"
+
+[profiles.personal]
+telemetry.enabled = true
+instructions = ["core", "env", "personal"]
+
+[profiles.personal.harness.claude.settings.env]
+CLAUDE_CODE_ENHANCED_TELEMETRY_BETA = "1"
+
+[profiles.personal.mcp.servers.notion]
+url = "https://mcp.notion.com/mcp"
+
+[profiles.personal.mcp.workspaces.ops]
+path = "${HOME}/ops"
+
+[profiles.personal.mcp.workspaces.ops.servers]
+alpha = { url = "https://alpha.${MCP_ACCOUNT}.example.com/mcp" }
+beta = { url = "https://beta.${MCP_ACCOUNT}.example.com/mcp?toolset=admin" }
+crm = { url = "https://crm.example.com/mcp", oauth = { client_id = "${MCP_CLIENT_ID}", callback_port = 8765 } }
+
+[profiles.work]
+plugins.disabled = ["go"]
+instructions = ["core", "env", "work"]

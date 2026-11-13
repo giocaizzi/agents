@@ -1,0 +1,18 @@
+approval_policy = "on-request"
+model = "gpt-5"
+sandbox_mode = "workspace-write"
+
+[mcp_servers]
+  [mcp_servers.docs]
+    url = "https://docs.example.com/mcp"
+  [mcp_servers.local]
+    command = "x"
+
+[projects]
+  [projects."/work/repo"]
+    trust_level = "trusted"
+
+[tui]
+  notification_method = "bel"
+  notifications = true
+  theme = "dark"
