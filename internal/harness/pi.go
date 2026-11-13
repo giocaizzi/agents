@@ -36,10 +36,12 @@ func renderPi(c *config.Config, b *builder) error {
 		Owner: string(config.Pi), Path: filepath.Join(base, "settings.json"), Format: apply.JSON,
 		Managed: settings, Union: union, Mode: 0o600,
 	})
-	b.add(apply.Target{
-		Owner: string(config.Pi), Path: filepath.Join(base, "mcp.json"), Format: apply.JSON,
-		Managed: map[string]any{keyMCPServers: mcpJSON(b.mcpServers(), true)}, Mode: 0o600,
-	})
+	if mcp := b.mcpServers(); len(mcp) > 0 { // never an empty mcpServers object
+		b.add(apply.Target{
+			Owner: string(config.Pi), Path: filepath.Join(base, "mcp.json"), Format: apply.JSON,
+			Managed: map[string]any{keyMCPServers: mcpJSON(mcp, true)}, Mode: 0o600,
+		})
+	}
 	b.instructions(config.Pi, filepath.Join(base, "AGENTS.md"))
 	return nil
 }

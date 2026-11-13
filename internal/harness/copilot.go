@@ -23,13 +23,12 @@ func renderCopilotFiles(c *config.Config, b *builder, owner string) {
 	b.add(apply.Target{
 		Owner: owner, Path: b.home(".copilot", "settings.json"), Format: apply.JSON,
 		Managed: copilotSettings(c, b), Union: [][]string{{"allowedUrls"}},
-		Legacy: [][]string{{"statusLine"}}, Mode: 0o600,
+		Mode: 0o600,
 	})
-	if servers := b.lspServers(); len(servers) > 0 || len(c.LSP.Servers) > 0 {
+	if servers := b.lspServers(); len(servers) > 0 {
 		b.add(apply.Target{
 			Owner: owner, Path: b.home(".copilot", "lsp-config.json"), Format: apply.JSON,
-			Managed: map[string]any{"lspServers": copilotLSP(servers)},
-			Legacy:  copilotLSPRemove(c, servers), Mode: 0o600,
+			Managed: map[string]any{"lspServers": copilotLSP(servers)}, Mode: 0o600,
 		})
 	}
 	if servers := b.mcpServers(); len(servers) > 0 {
@@ -85,22 +84,6 @@ func copilotLSP(servers []LSPServer) map[string]any {
 			copilotKeyCommand: s.Command[0],
 			keyArgs:           append([]string{}, s.Command[1:]...),
 			"fileExtensions":  maps.Clone(s.Extensions),
-		}
-	}
-	return out
-}
-
-// copilotLSPRemove lists the managed keys of every configured server that is
-// not rendered (lsp off, or its command is not on PATH), so an entry from an
-// earlier run goes while keys the user added to it stay.
-func copilotLSPRemove(c *config.Config, rendered []LSPServer) [][]string {
-	var out [][]string
-	for _, name := range slices.Sorted(maps.Keys(c.LSP.Servers)) {
-		if slices.ContainsFunc(rendered, func(s LSPServer) bool { return s.Name == name }) {
-			continue
-		}
-		for _, key := range []string{copilotKeyCommand, keyArgs, "fileExtensions"} {
-			out = append(out, []string{"lspServers", name, key})
 		}
 	}
 	return out
