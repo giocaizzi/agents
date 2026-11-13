@@ -33,11 +33,15 @@ func adjustClaude(c parityCase, file string, want any) any {
 	env["CLAUDE_CODE_MAX_OUTPUT_TOKENS"] = "200000"
 	if perms, ok := root["permissions"].(map[string]any); ok {
 		allow, _ := perms["allow"].([]any)
+		// permissions.allow merges as a union: the live file's own rule stays, first.
+		if c.Start == "live" {
+			allow = append([]any{"Bash(ls)"}, allow...)
+		}
 		for _, cmd := range []string{"git", "gh", "make", "uv", "jq", "npm", "cargo", "go", "terraform"} {
 			allow = append(allow, "Bash("+cmd+" *)")
 		}
 		// permissions.allowed_urls entries that cover a whole host become WebFetch(domain:) rules.
-		for _, host := range []string{"github.com", "api.github.com", "docs.github.com", "learn.microsoft.com", "example.org", "claude.ai", "claude.com", "docs.anthropic.com", "openai.com", "google.com"} {
+		for _, host := range []string{"github.com", "api.github.com", "docs.github.com", "learn.microsoft.com", "*.example.org", "*.claude.ai", "*.claude.com", "docs.anthropic.com", "*.openai.com", "*.google.com"} {
 			allow = append(allow, "WebFetch(domain:"+host+")")
 		}
 		perms["allow"] = allow

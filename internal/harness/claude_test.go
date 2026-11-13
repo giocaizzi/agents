@@ -112,7 +112,7 @@ func TestClaudeSettingsFromSharedKeys(t *testing.T) {
 		Permissions: config.Permissions{
 			AllowCommands:        []string{"git status *"},
 			AllowCommandPatterns: []string{"make *"},
-			AllowedMCP:           []string{"docs", "my.server", "mcp__acme__search"},
+			AllowedMCP:           []string{"docs", "my.server", "mcp__acme__search", "my.server/get.x"},
 			AllowedURLs: []string{
 				"https://example.com/**", "https://*.example.org/", "docs.acme.dev", "https://acme.dev/docs/**",
 				"https://*.cdn.acme.dev/**", "https://a.example/x", "https://example.com/*",
@@ -131,8 +131,8 @@ func TestClaudeSettingsFromSharedKeys(t *testing.T) {
 	perms, _ := s["permissions"].(map[string]any)
 	want := []string{
 		"Bash(make *)", "Bash(git status *)",
-		"WebFetch(domain:example.com)", "WebFetch(domain:example.org)", "WebFetch(domain:docs.acme.dev)", "WebFetch(domain:cdn.acme.dev)",
-		"mcp__docs__*", "mcp__my_server__*", "mcp__acme__search",
+		"WebFetch(domain:example.com)", "WebFetch(domain:*.example.org)", "WebFetch(domain:docs.acme.dev)", "WebFetch(domain:*.cdn.acme.dev)",
+		"mcp__docs__*", "mcp__my_server__*", "mcp__acme__search", "mcp__my_server__get_x",
 	}
 	if diff := cmp.Diff(want, perms["allow"]); diff != "" {
 		t.Errorf("allow (-want +got):\n%s", diff)
@@ -197,7 +197,6 @@ func TestClaudeReviewRound2XFail(t *testing.T) {
 
 	t.Run("xfail: a *.host allowed URL keeps its subdomain wildcard", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: claudeHost drops a leading *., but WebFetch(domain:host) matches that host only (Claude Code permissions docs)")
 		c := &config.Config{Permissions: config.Permissions{AllowedURLs: []string{"https://*.example.org/"}}}
 		b := claudeBuilder(c, nil)
 		perms, _ := claudeSettings(c, b)["permissions"].(map[string]any)
