@@ -26,7 +26,7 @@ func helpDeps(out, err *bytes.Buffer) Deps {
 
 func TestHelpNodes(t *testing.T) {
 	t.Parallel()
-	paths := []string{"", "init", "check", "config", "config show", "schema", "render", "apply", "prompt", "prompt edit", "prompt show", "prompt matrix", "prompt check", "mcp", "mcp sync", "mcp add", "models", "models tiers", "models sync", "plugins", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "version", "help"}
+	paths := []string{"", "init", "check", "config", "config show", "schema", "features", "render", "apply", "prompt", "prompt edit", "prompt show", "prompt matrix", "prompt check", "mcp", "mcp sync", "mcp add", "models", "models tiers", "models sync", "plugins", "plugins list", "plugins update", "plugins prune", "usage", "doctor", "version", "help"}
 	for _, path := range paths {
 		for _, spelling := range []string{"-h", "--help", "explicit"} {
 			t.Run(path+"/"+spelling, func(t *testing.T) {
@@ -224,7 +224,7 @@ func TestHelpRootScope(t *testing.T) {
 			names = append(names, fields[0])
 		}
 	}
-	want := "init check config schema render apply prompt mcp models plugins usage doctor version help"
+	want := "init check config schema features render apply prompt mcp models plugins usage doctor version help"
 	if got := strings.Join(names, " "); got != want {
 		t.Errorf("command list=%q, want %q", got, want)
 	}

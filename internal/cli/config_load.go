@@ -95,6 +95,7 @@ func (d Deps) harnessEnv(r *config.Resolved) harness.Env {
 	if err != nil {
 		host = ""
 	}
+	host, _, _ = strings.Cut(host, ".")                                          // short name: macOS answers name.local
 	agents, _ := harness.InstalledAgents(harness.RegistryDir(&r.Config, r.Dirs)) // a missing checkout lists none
 	return harness.Env{
 		Home:     d.home(),

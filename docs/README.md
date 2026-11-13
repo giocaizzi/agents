@@ -7,3 +7,4 @@ Source of truth for decisions, architecture and runbooks of this repo.
 - [CLI reference and runbook](cli.md): commands, flags, exit statuses, and the procedures for first setup, everyday apply, previewing, recovering from drift or a refused symlink, editing instructions and plugin updates.
 - [Harness parity matrix](parity.md): what `agents apply` writes per config key and harness, MCP OAuth clients, model tiers.
 - [Voice input parity](voice.md): what `agents` maps, checks and leaves manual for dictation, per harness.
+- [Feature matrix](features.md): which config keys each harness supports, where `agents` writes them, and what is planned (generated from `internal/feature`).

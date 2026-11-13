@@ -1,6 +1,6 @@
 # Configuration reference
 
-`agents` reads one TOML file and writes the native files of every selected harness from it. This page lists every key, how the layers combine, and where files live. The committed JSON Schema is [`schema/config.schema.json`](../schema/config.schema.json); `agents schema` prints the one generated from the running binary. Every key is optional. Unset means "agents manages nothing for it".
+`agents` reads one TOML file and writes the native files of every selected harness from it. This page lists every key, how the layers combine, and where files live. The committed JSON Schema is [`schema/config.schema.json`](../schema/config.schema.json); `agents schema` prints the one generated from the running binary. Every key is optional. Unset means "agents manages nothing for it". Which harnesses honour each key is in the [feature matrix](features.md).
 
 ## Files and directories
 
@@ -81,6 +81,7 @@ Shared rules, translated to each harness's own syntax (Claude `Bash(...)`/`Read(
 | `deny_command_prefixes` | array of string | Denied command prefixes |
 | `ask_command_prefixes` | array of string | Prefixes that always ask |
 | `allowed_mcp` | array of string | MCP servers or tools allowed without asking |
+| `reasons` | table of string | Message shown when a rule matches, keyed by a pattern listed in one of the command lists above (validated; no harness renders it yet) |
 
 ## `[models]`
 

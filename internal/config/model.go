@@ -107,17 +107,17 @@ type Autonomy struct {
 
 // Permissions are the command and path rules shared by all harnesses.
 type Permissions struct {
-	AllowCommands        []string `json:"allow_commands,omitempty"         jsonschema:"description=Commands allowed without asking"                        toml:"allow_commands,omitempty"`
-	AllowedURLs          []string `json:"allowed_urls,omitempty"           jsonschema:"description=URLs agents may fetch"                                  toml:"allowed_urls,omitempty"`
-	AllowCommandPatterns []string `json:"allow_command_patterns,omitempty" jsonschema:"description=Regular expressions of commands allowed without asking" toml:"allow_command_patterns,omitempty"`
-	DenyRead             []string `json:"deny_read,omitempty"              jsonschema:"description=Path globs agents may not read"                         toml:"deny_read,omitempty"`
-	DenyWrite            []string `json:"deny_write,omitempty"             jsonschema:"description=Path globs agents may not write"                        toml:"deny_write,omitempty"`
-	DenyCommandPatterns  []string `json:"deny_command_patterns,omitempty"  jsonschema:"description=Regular expressions of denied commands"                 toml:"deny_command_patterns,omitempty"`
-	DenyCommandExact     []string `json:"deny_command_exact,omitempty"     jsonschema:"description=Exact command lines that are denied"                    toml:"deny_command_exact,omitempty"`
-	DenyCommandPrefixes  []string `json:"deny_command_prefixes,omitempty"  jsonschema:"description=Command prefixes that are denied"                       toml:"deny_command_prefixes,omitempty"`
-	AskCommandPrefixes   []string `json:"ask_command_prefixes,omitempty"   jsonschema:"description=Command prefixes that always ask"                       toml:"ask_command_prefixes,omitempty"`
-	AllowedMCP           []string `json:"allowed_mcp,omitempty"            jsonschema:"description=MCP servers or tools allowed without asking"            toml:"allowed_mcp,omitempty"`
-	Reasons              map[string]string `json:"reasons,omitempty" jsonschema:"description=Message shown when a permission rule matches (keyed by the rule pattern)" toml:"reasons,omitempty"`
+	AllowCommands        []string          `json:"allow_commands,omitempty"         jsonschema:"description=Commands allowed without asking"                                          toml:"allow_commands,omitempty"`
+	AllowedURLs          []string          `json:"allowed_urls,omitempty"           jsonschema:"description=URLs agents may fetch"                                                    toml:"allowed_urls,omitempty"`
+	AllowCommandPatterns []string          `json:"allow_command_patterns,omitempty" jsonschema:"description=Regular expressions of commands allowed without asking"                   toml:"allow_command_patterns,omitempty"`
+	DenyRead             []string          `json:"deny_read,omitempty"              jsonschema:"description=Path globs agents may not read"                                           toml:"deny_read,omitempty"`
+	DenyWrite            []string          `json:"deny_write,omitempty"             jsonschema:"description=Path globs agents may not write"                                          toml:"deny_write,omitempty"`
+	DenyCommandPatterns  []string          `json:"deny_command_patterns,omitempty"  jsonschema:"description=Regular expressions of denied commands"                                   toml:"deny_command_patterns,omitempty"`
+	DenyCommandExact     []string          `json:"deny_command_exact,omitempty"     jsonschema:"description=Exact command lines that are denied"                                      toml:"deny_command_exact,omitempty"`
+	DenyCommandPrefixes  []string          `json:"deny_command_prefixes,omitempty"  jsonschema:"description=Command prefixes that are denied"                                         toml:"deny_command_prefixes,omitempty"`
+	AskCommandPrefixes   []string          `json:"ask_command_prefixes,omitempty"   jsonschema:"description=Command prefixes that always ask"                                         toml:"ask_command_prefixes,omitempty"`
+	AllowedMCP           []string          `json:"allowed_mcp,omitempty"            jsonschema:"description=MCP servers or tools allowed without asking"                              toml:"allowed_mcp,omitempty"`
+	Reasons              map[string]string `json:"reasons,omitempty"                jsonschema:"description=Message shown when a permission rule matches (keyed by the rule pattern)" toml:"reasons,omitempty"`
 }
 
 // Models holds the model tiers, the agent assignments and the catalog

@@ -23,7 +23,8 @@ var Features = slices.Concat( //nolint:gochecknoglobals // the feature table is 
 )
 
 func internalFeatures() []Feature {
-	out := []Feature{
+	out := make([]Feature, 0, 9+len(HarnessIDs()))
+	out = append(out,
 		internal("schema_version", "Version of the config file format (must be 1)."),
 		internal("profile", "Selected profile, a machine fact."),
 		internal("harnesses", "Harnesses to configure."),
@@ -33,7 +34,7 @@ func internalFeatures() []Feature {
 		internal("models.catalog", "Model catalog preferences for agents models; never written to a harness."),
 		internal("plugins.standalone", "Plugins outside the registry, managed by agents plugins."),
 		internal("plugins.external", "Plugins outside the registry, managed by agents plugins."),
-	}
+	)
 	for _, h := range HarnessIDs() {
 		out = append(out, internal("harness."+h+".instructions", "Instruction layers composed for this harness."))
 	}

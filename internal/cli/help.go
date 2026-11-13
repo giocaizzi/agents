@@ -12,23 +12,24 @@ import (
 )
 
 const (
-	commandRender  = "render"
-	commandApply   = "apply"
-	commandCheck   = "check"
-	commandConfig  = "config"
-	commandSchema  = "schema"
-	commandShow    = "show"
-	commandPrompt  = "prompt"
-	commandMCP     = "mcp"
-	commandModels  = "models"
-	commandPlugins = "plugins"
-	commandVersion = "version"
-	commandSync    = "sync"
-	commandAdd     = "add"
-	commandList    = "list"
-	commandTiers   = "tiers"
-	configHelpEnv  = "AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory."
-	pluginHelpEnv  = configHelpEnv + " XDG_DATA_HOME (Windows LOCALAPPDATA): registry checkouts."
+	commandRender   = "render"
+	commandApply    = "apply"
+	commandCheck    = "check"
+	commandConfig   = "config"
+	commandSchema   = "schema"
+	commandFeatures = "features"
+	commandShow     = "show"
+	commandPrompt   = "prompt"
+	commandMCP      = "mcp"
+	commandModels   = "models"
+	commandPlugins  = "plugins"
+	commandVersion  = "version"
+	commandSync     = "sync"
+	commandAdd      = "add"
+	commandList     = "list"
+	commandTiers    = "tiers"
+	configHelpEnv   = "AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory."
+	pluginHelpEnv   = configHelpEnv + " XDG_DATA_HOME (Windows LOCALAPPDATA): registry checkouts."
 )
 
 // helpNode contains prose only. Options are rendered from the executing parser.
@@ -45,6 +46,7 @@ func helpTree() helpNode {
 			{name: commandShow, summary: "Print the resolved configuration", defaults: "Prints TOML; -json prints JSON; -origin names the layer that set each key.", env: configHelpEnv, example: "agents config show -origin"},
 		}},
 		{name: commandSchema, summary: "Print the JSON Schema of the configuration", defaults: "Writes the schema generated from the running binary to stdout.", example: "agents schema"},
+		{name: commandFeatures, summary: "Show which config keys each harness supports", defaults: "Prints one row per key and one column per harness: written, no native setting, or planned. -harnesses limits the columns; -json prints the table with the evidence behind each cell. Reads no configuration.", example: "agents features -harnesses claude,codex"},
 		{name: commandRender, summary: "Print the native files apply would write", defaults: "Prints each target path and the keys agents manages in it; -harness limits the output to one harness.", env: configHelpEnv, example: "agents render -harness claude"},
 		{name: commandApply, summary: "Write the native files of every selected harness", defaults: "Merges only the keys agents manages into each file and records them in its state; -n prints the diff and writes nothing. Symlinked targets are refused.", env: configHelpEnv, example: "agents apply -n"},
 		{name: commandPrompt, summary: "Edit, show and check instruction layers", children: []helpNode{

@@ -154,7 +154,7 @@ func Source(h string) string {
 	case opencode:
 		return "https://opencode.ai/docs/config"
 	case pi:
-		return "https://github.com/badlogic/pi-mono (coding-agent settings)"
+		return "https://github.com/badlogic/pi-mono, coding-agent settings"
 	case antigravity:
 		return "Antigravity CLI settings documentation"
 	}

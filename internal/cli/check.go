@@ -31,6 +31,7 @@ func (d Deps) runCheck(ctx context.Context, args []string) int {
 	findings := config.Validate(r.Config)
 	findings = append(findings, d.pluginFindings(ctx, r)...)
 	findings = append(findings, d.modelFindings(r)...)
+	findings = append(findings, d.featureFindings(r)...)
 	plan, err := d.renderPlan(r)
 	if err != nil {
 		findings = append(findings, finding.New("render", "%v", err))

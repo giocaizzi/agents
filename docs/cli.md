@@ -41,7 +41,7 @@ Writes a starter `config.toml` (mode 0600) in the config directory with the sche
 
 ### `check`
 
-Validates the resolved config (schema version, harness names, declared layers and tiers, MCP server shape, OAuth values), the plugin registry and the model assignments, and renders every target to report warnings (skipped entries). Findings are errors, warnings or info; only errors give exit 1.
+Validates the resolved config (schema version, harness names, declared layers and tiers, MCP server shape, OAuth values), the plugin registry and the model assignments, and renders every target to report warnings (skipped entries). A key set in the config that a selected harness ignores is reported once per key: info when the harness has no such setting, a warning when it has one that `agents` does not write yet ([feature matrix](features.md)). Findings are errors, warnings or info; only errors give exit 1.
 
 | Flag | Meaning |
 |---|---|
@@ -57,6 +57,15 @@ Prints the resolved config as TOML. `-json` prints JSON; `-origin` appends the l
 ### `schema`
 
 Prints the JSON Schema generated from the running binary. The committed copy is [`schema/config.schema.json`](../schema/config.schema.json); a test fails when they differ.
+
+### `features`
+
+Prints the [feature matrix](features.md): one row per config key, one column per harness, `✓` when `apply` writes the key, `-` when the harness has no such setting and `planned` when it has one that `agents` does not write yet. Reads no configuration.
+
+| Flag | Meaning |
+|---|---|
+| `-harnesses` | Comma-separated harnesses to show (default: all) |
+| `-json` | Print `{"harnesses": [...], "features": [...]}` with the target or evidence of every cell |
 
 ### `render`
 

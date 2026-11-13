@@ -8,6 +8,7 @@ COMMANDS
   check        Validate the configuration and the native files
   config       Inspect the resolved configuration
   schema       Print the JSON Schema of the configuration
+  features     Show which config keys each harness supports
   render       Print the native files apply would write
   apply        Write the native files of every selected harness
   prompt       Edit, show and check instruction layers

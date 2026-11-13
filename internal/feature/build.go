@@ -67,7 +67,9 @@ func rd(h, target string) pair { return pair{h, Cell{Status: StatusRendered, Tar
 func pl(h, what string) pair { return pair{h, Cell{Status: StatusPlanned, Evidence: reason(h, what)}} }
 
 // un is an unsupported cell: the harness has no such setting.
-func un(h, what string) pair { return pair{h, Cell{Status: StatusUnsupported, Evidence: reason(h, what)}} }
+func un(h, what string) pair {
+	return pair{h, Cell{Status: StatusUnsupported, Evidence: reason(h, what)}}
+}
 
 // reason builds the evidence of a non-rendered cell. A finding that could not
 // be decided starts with "ambiguous:" and stands alone.

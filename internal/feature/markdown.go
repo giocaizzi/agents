@@ -34,8 +34,9 @@ func Markdown() []byte {
 	b.WriteString(intro)
 
 	b.WriteString("\n## Matrix\n\n")
-	header := []string{"Key"}
-	rule := []string{"---"}
+	header := make([]string, 0, len(HarnessIDs())+1)
+	rule := make([]string, 0, len(HarnessIDs())+1)
+	header, rule = append(header, "Key"), append(rule, "---")
 	for _, h := range HarnessIDs() {
 		header = append(header, DisplayName(h))
 		rule = append(rule, ":-:")
@@ -45,7 +46,8 @@ func Markdown() []byte {
 		if f.Scope == ScopeInternal {
 			continue
 		}
-		row := []string{"`" + f.Key + "`"}
+		row := make([]string, 0, len(HarnessIDs())+1)
+		row = append(row, "`"+f.Key+"`")
 		for _, h := range HarnessIDs() {
 			row = append(row, symbol(f.Cells, h))
 		}

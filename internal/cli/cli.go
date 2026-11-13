@@ -83,6 +83,8 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 		return d.runConfig(ctx, rest)
 	case commandSchema:
 		return d.runSchema(ctx, rest)
+	case commandFeatures:
+		return d.runFeatures(ctx, rest)
 	case commandRender:
 		return d.runRender(ctx, rest)
 	case commandApply:
