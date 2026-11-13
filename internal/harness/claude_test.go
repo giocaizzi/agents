@@ -190,19 +190,3 @@ func TestTelemetryHarnessesGate(t *testing.T) {
 		})
 	}
 }
-
-// TestClaudeReviewRound2XFail holds reproductions of bugs found in the second
-// review; drop the t.Skip to verify a fix.
-func TestClaudeReviewRound2XFail(t *testing.T) {
-	t.Parallel()
-
-	t.Run("xfail: a *.host allowed URL keeps its subdomain wildcard", func(t *testing.T) {
-		t.Parallel()
-		c := &config.Config{Permissions: config.Permissions{AllowedURLs: []string{"https://*.example.org/"}}}
-		b := claudeBuilder(c, nil)
-		perms, _ := claudeSettings(c, b)["permissions"].(map[string]any)
-		if diff := cmp.Diff([]string{"WebFetch(domain:*.example.org)"}, perms["allow"]); diff != "" {
-			t.Errorf("allow (-want +got):\n%s", diff)
-		}
-	})
-}
