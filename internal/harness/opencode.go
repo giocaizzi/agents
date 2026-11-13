@@ -12,6 +12,13 @@ import (
 // instructions.
 func renderOpenCode(c *config.Config, b *builder) error {
 	cfg := map[string]any{"$schema": "https://opencode.ai/config.json"}
+	model, _ := sessionModel(c, config.OpenCode) // opencode has no session-level effort
+	if c.Harness.OpenCode.DefaultModel == "" {   // the typed field wins over the default tier
+		setIf(cfg, keyModel, model)
+	}
+	if agents := openCodeAgentModels(c, b.env.Agents); len(agents) > 0 {
+		cfg["agents"] = agents
+	}
 	if d := c.Autonomy.SubagentDepth; d > 0 {
 		cfg["experimental"] = map[string]any{"subagent_depth": int64(d)}
 	}
@@ -100,4 +107,16 @@ func openCodeRules(p *config.Permissions) (permissions, policies []any) {
 		deny("shell", pre, pre+" *")
 	}
 	return permissions, policies
+}
+
+// openCodeAgentModels maps each assigned agent's opencode name to its tier's
+// model. Two plugins' agents of the same name share one entry: the later id
+// in sorted order wins.
+func openCodeAgentModels(c *config.Config, agents []string) map[string]any {
+	out := map[string]any{}
+	tiers := agentTiers(c, config.OpenCode, agents)
+	for _, id := range slices.Sorted(maps.Keys(tiers)) {
+		out[openCodeAgentName(id)] = map[string]any{keyModel: tiers[id].Model(config.OpenCode)}
+	}
+	return out
 }

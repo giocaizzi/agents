@@ -95,6 +95,7 @@ func (d Deps) harnessEnv(r *config.Resolved) harness.Env {
 	if err != nil {
 		host = ""
 	}
+	agents, _ := harness.InstalledAgents(harness.RegistryDir(&r.Config, r.Dirs)) // a missing checkout lists none
 	return harness.Env{
 		Home:     d.home(),
 		Hostname: host,
@@ -103,5 +104,6 @@ func (d Deps) harnessEnv(r *config.Resolved) harness.Env {
 		Getenv:   d.Getenv,
 		LookPath: lookPath,
 		Dirs:     r.Dirs,
+		Agents:   agents,
 	}
 }

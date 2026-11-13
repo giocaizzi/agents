@@ -131,6 +131,10 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 
 	set("askUserQuestionTimeout", c.Autonomy.AskTimeout)
 	set("effortLevel", c.Models.DefaultEffortLevel)
+	if model, effort := sessionModel(c, config.Claude); model != "" {
+		set(keyModel, model)
+		set("effortLevel", effort) // only when the default tier sets one
+	}
 	set("showThinkingSummaries", c.Models.ShowThinkingSummaries)
 	set("autoCompactWindow", c.Context.AutoCompactWindow)
 	set("promptCacheTtl", c.Context.PromptCacheTTL)

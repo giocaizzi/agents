@@ -28,6 +28,7 @@ type Env struct {
 	LookPath func(string) (string, error) // finds a language server on PATH
 	ReadFile func(string) ([]byte, error) // reads instruction layers
 	Dirs     config.Dirs                  // agents' own directories
+	Agents   []string                     // installed agent ids (plugin:agent), to expand glob assignments; may be empty
 }
 
 // Plan is the rendered result: the targets to apply, in a stable order, and

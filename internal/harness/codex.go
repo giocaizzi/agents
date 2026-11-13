@@ -19,8 +19,11 @@ func renderCodex(c *config.Config, b *builder) error {
 		},
 	}
 	h := c.Harness.Codex
+	tierModel, tierEffort := sessionModel(c, config.Codex)
+	h.Model = valueOr(h.Model, tierModel) // the typed field wins over the default tier
+	h.ModelReasoningEffort = valueOr(h.ModelReasoningEffort, tierEffort)
 	for k, v := range map[string]string{
-		"model":                  h.Model,
+		keyModel:                 h.Model,
 		"model_reasoning_effort": h.ModelReasoningEffort,
 		"approval_policy":        h.ApprovalPolicy,
 		"sandbox_mode":           h.SandboxMode,
