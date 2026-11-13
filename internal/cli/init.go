@@ -70,7 +70,7 @@ func (d Deps) runInit(_ context.Context, args []string) int {
 		}
 	}
 
-	hs, err := d.detectHarnesses(dirs.Config, target)
+	hs, err := d.detectHarnesses(target)
 	if err != nil {
 		fmt.Fprintf(d.Stderr, "%s%v%s\n", st.R, err, st.O)
 		return exitFindings
@@ -96,7 +96,7 @@ func (d Deps) runInit(_ context.Context, args []string) int {
 
 // detectHarnesses lists the harnesses whose home exists, ignoring any config
 // file at target so that -force and -print detect afresh.
-func (d Deps) detectHarnesses(cwd, target string) ([]string, error) {
+func (d Deps) detectHarnesses(target string) ([]string, error) {
 	r, err := config.Load(config.Options{
 		Getenv: func(k string) string {
 			switch k {
@@ -107,7 +107,6 @@ func (d Deps) detectHarnesses(cwd, target string) ([]string, error) {
 		},
 		GOOS: d.GOOS,
 		Home: d.home(),
-		Cwd:  cwd,
 		Stat: func(p string) (fs.FileInfo, error) {
 			if p == target {
 				return nil, fs.ErrNotExist

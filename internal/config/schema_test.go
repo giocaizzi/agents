@@ -136,7 +136,6 @@ func TestInvalidFilesFail(t *testing.T) {
 				Getenv:     func(string) string { return "" },
 				GOOS:       "linux",
 				Home:       t.TempDir(),
-				Cwd:        t.TempDir(),
 				ConfigPath: f,
 			})
 			if err != nil {
