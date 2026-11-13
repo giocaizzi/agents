@@ -175,14 +175,7 @@ func claudePermissions(c *config.Config, b *builder) map[string]any {
 	for _, pat := range slices.Concat(p.AllowCommandPatterns, p.AllowCommands) {
 		allow = append(allow, "Bash("+pat+")")
 	}
-	for _, u := range p.AllowedURLs {
-		host, ok := claudeHost(u)
-		if !ok {
-			b.warnf("permissions.allowed_urls: %q skipped for Claude, WebFetch(domain:) matches a whole host and cannot express a path or an inner wildcard", u)
-			continue
-		}
-		allow = appendUnique(allow, "WebFetch(domain:"+host+")")
-	}
+	allow = append(allow, b.claudeURLRules(p.AllowedURLs)...)
 	for _, name := range p.AllowedMCP {
 		allow = append(allow, claudeMCPRule(name))
 	}
@@ -222,6 +215,21 @@ func claudePermissions(c *config.Config, b *builder) map[string]any {
 		if len(v) > 0 {
 			out[k] = v
 		}
+	}
+	return out
+}
+
+// claudeURLRules are the WebFetch(domain:) rules of the allowed URLs; an entry
+// that is not a whole host is skipped and warned.
+func (b *builder) claudeURLRules(urls []string) []string {
+	var out []string
+	for _, u := range urls {
+		host, ok := claudeHost(u)
+		if !ok {
+			b.warnf("permissions.allowed_urls: %q skipped for Claude, WebFetch(domain:) matches a whole host and cannot express a path or an inner wildcard", u)
+			continue
+		}
+		out = appendUnique(out, "WebFetch(domain:"+host+")")
 	}
 	return out
 }

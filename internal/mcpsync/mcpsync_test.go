@@ -436,9 +436,7 @@ func TestWarnings(t *testing.T) {
 			},
 			want: []string{
 				`antigravity: server "alpha": callback port 8765 not supported, left out (register https://antigravity.google/oauth-callback as a redirect URI)`,
-				`opencode skips server "alpha": OAuth clients are not supported`,
 				`antigravity: server "zed": callback port 9000 not supported, left out (register https://antigravity.google/oauth-callback as a redirect URI)`,
-				`opencode skips server "zed": OAuth clients are not supported`,
 			},
 		},
 		{
@@ -446,7 +444,7 @@ func TestWarnings(t *testing.T) {
 			servers: map[string]mcpsync.ServerEntry{
 				"a": {Type: "http", OAuth: &mcpsync.OAuth{ClientID: "example-client"}, OAuthPublicClient: new(true)},
 			},
-			want: []string{`opencode skips server "a": OAuth clients are not supported`},
+			want: nil,
 		},
 		{
 			name: "confidential client, flag false or unset",
@@ -456,9 +454,7 @@ func TestWarnings(t *testing.T) {
 				"none":  {Type: "http", URL: "https://a.example.com"},
 			},
 			want: []string{
-				`opencode skips server "false": OAuth clients are not supported`,
 				`server "false": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
-				`opencode skips server "unset": OAuth clients are not supported`,
 				`server "unset": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
 			},
 		},

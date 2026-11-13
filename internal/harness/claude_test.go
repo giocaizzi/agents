@@ -129,9 +129,11 @@ func TestClaudeSettingsFromSharedKeys(t *testing.T) {
 		t.Errorf("env (-want +got):\n%s", diff)
 	}
 	perms, _ := s["permissions"].(map[string]any)
-	want := []string{"Bash(make *)", "Bash(git status *)",
+	want := []string{
+		"Bash(make *)", "Bash(git status *)",
 		"WebFetch(domain:example.com)", "WebFetch(domain:example.org)", "WebFetch(domain:docs.acme.dev)", "WebFetch(domain:cdn.acme.dev)",
-		"mcp__docs__*", "mcp__my_server__*", "mcp__acme__search"}
+		"mcp__docs__*", "mcp__my_server__*", "mcp__acme__search",
+	}
 	if diff := cmp.Diff(want, perms["allow"]); diff != "" {
 		t.Errorf("allow (-want +got):\n%s", diff)
 	}
