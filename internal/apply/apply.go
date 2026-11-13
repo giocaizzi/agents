@@ -81,7 +81,8 @@ func (e Engine) Run(targets []Target) ([]Result, error) {
 	next := old.clone()
 	results := make([]Result, 0, len(targets))
 	for _, t := range targets {
-		res, entry := e.apply(t, old.Files[t.Path])
+		prev, seen := old.Files[t.Path]
+		res, entry := e.apply(t, prev, !seen)
 		results = append(results, res)
 		if entry != nil {
 			next.Files[t.Path] = *entry
@@ -96,7 +97,7 @@ func (e Engine) Run(targets []Target) ([]Result, error) {
 }
 
 // apply handles one target; the entry is non-nil when the manifest should record the file.
-func (e Engine) apply(t Target, prev fileEntry) (Result, *fileEntry) {
+func (e Engine) apply(t Target, prev fileEntry, first bool) (Result, *fileEntry) {
 	res := Result{Target: t}
 	if !filepath.IsAbs(t.Path) {
 		res.Err = fmt.Errorf("%s: %s: path is not absolute", t.Owner, t.Path)
@@ -116,7 +117,7 @@ func (e Engine) apply(t Target, prev fileEntry) (Result, *fileEntry) {
 	}
 	liveText := string(raw)
 
-	newText, entry, same, err := plan(t, prev, liveText)
+	newText, entry, same, err := plan(t, prev, first, liveText)
 	if err != nil {
 		res.Err = fmt.Errorf("%s: %s: %w", t.Owner, t.Path, err)
 		return res, nil
@@ -151,9 +152,9 @@ func (e Engine) apply(t Target, prev fileEntry) (Result, *fileEntry) {
 
 // plan returns the new file text, the manifest entry and whether the live
 // document already equals the managed result.
-func plan(t Target, prev fileEntry, liveText string) (string, *fileEntry, bool, error) {
+func plan(t Target, prev fileEntry, first bool, liveText string) (string, *fileEntry, bool, error) {
 	if t.Format != Text {
-		return merge(t, prev, liveText)
+		return merge(t, prev, first, liveText)
 	}
 	s, ok := t.Managed.(string)
 	if !ok {
@@ -178,7 +179,7 @@ func writeFile(t Target, data []byte) error {
 
 // merge returns the rendering, the manifest entry and
 // whether the merged document equals the live one.
-func merge(t Target, prev fileEntry, liveText string) (string, *fileEntry, bool, error) {
+func merge(t Target, prev fileEntry, first bool, liveText string) (string, *fileEntry, bool, error) {
 	live, err := parseLive(t.Format, liveText)
 	if err != nil {
 		return "", nil, false, err
@@ -206,8 +207,10 @@ func merge(t Target, prev fileEntry, liveText string) (string, *fileEntry, bool,
 	}
 
 	merged, _ := clone(live).(*Object)
-	for _, p := range t.Legacy {
-		deletePath(merged, p, false)
+	if first {
+		for _, p := range t.Legacy {
+			deletePath(merged, p, false)
+		}
 	}
 	dropStale(merged, prev, entry)
 	mergeInto(merged, mo, nil, unions)
@@ -316,19 +319,18 @@ func collect(o *Object, path []string, unions map[string]bool, entry *fileEntry)
 		p := append(append([]string(nil), path...), k)
 		switch v := o.Values[k].(type) {
 		case *Object:
-			if len(v.Keys) == 0 {
-				entry.Keys = append(entry.Keys, p)
-			} else {
-				collect(v, p, unions, entry)
-			}
+			// An empty object is a container, never a leaf: recording it
+			// would later delete whatever the user puts under it.
+			collect(v, p, unions, entry)
 		case []any:
-			if unions[pathID(p)] {
+			switch {
+			case unions[pathID(p)]:
 				elems := make([]string, len(v))
 				for i, e := range v {
 					elems[i] = canon(e)
 				}
 				entry.Union[pathID(p)] = elems
-			} else {
+			case len(v) > 0:
 				entry.Keys = append(entry.Keys, p)
 			}
 		default:
@@ -344,7 +346,9 @@ func dropStale(live *Object, prev fileEntry, next *fileEntry) {
 		keep[pathID(p)] = true
 	}
 	for _, p := range prev.Keys {
-		if !keep[pathID(p)] {
+		// Manifests written before empty containers stopped being recorded
+		// may list an object or an empty array: it holds the user's entries.
+		if !keep[pathID(p)] && !isContainer(getPath(live, p)) {
 			deletePath(live, p, true)
 		}
 	}
@@ -380,6 +384,18 @@ func dropStaleUnion(live *Object, path, elems, now []string) {
 		return
 	}
 	setPath(live, path, kept)
+}
+
+// isContainer reports whether v is an object or an empty array.
+func isContainer(v any) bool {
+	switch t := v.(type) {
+	case *Object:
+		return true
+	case []any:
+		return len(t) == 0
+	default:
+		return false
+	}
 }
 
 func getPath(o *Object, path []string) any {

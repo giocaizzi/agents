@@ -424,7 +424,8 @@ func TestManifestRemovesStaleKeys(t *testing.T) {
 	if res.Err != nil || res.Status != StatusUpdate {
 		t.Fatalf("second run: %+v", res)
 	}
-	want := "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\",\n    \"b\"\n  ],\n  \"keep\": 1\n}\n"
+	// "empty" is a container, never recorded, so it is never removed.
+	want := "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\",\n    \"b\"\n  ],\n  \"empty\": {},\n  \"keep\": 1\n}\n"
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -434,7 +435,7 @@ func TestManifestRemovesStaleKeys(t *testing.T) {
 	if res.Err != nil || res.Status != StatusUpdate {
 		t.Fatalf("third run: %+v", res)
 	}
-	want = "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\"\n  ],\n  \"keep\": 1\n}\n"
+	want = "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\"\n  ],\n  \"empty\": {},\n  \"keep\": 1\n}\n"
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -622,9 +623,8 @@ func TestObject(t *testing.T) {
 func TestReviewXFail(t *testing.T) {
 	t.Parallel()
 
-	t.Run("xfail: an empty managed object recorded as a leaf wipes user entries once a child is managed", func(t *testing.T) {
+	t.Run("an empty managed object is not recorded as a leaf, so user entries survive once a child is managed", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: dropStale deletes the whole object a previous run managed as an empty leaf ({}), including keys the user added under it")
 		dir := t.TempDir()
 		path := filepath.Join(dir, ".claude.json")
 		// The user's own MCP servers (e.g. added with the harness's own CLI).
