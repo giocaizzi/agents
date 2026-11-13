@@ -22,10 +22,12 @@ func adjustClaude(c parityCase, file string, want any) any {
 			}}
 		}
 	}
-	// agents removes only the env keys it sets, so a live OTEL_OLD that it never wrote stays.
+	// agents removes only the env keys it wrote (known from its manifest), so with telemetry
+	// off the live OTEL_OLD and CLAUDE_CODE_ENABLE_TELEMETRY stay on the first apply.
 	if c.Profile == "work" && c.Start == "live" {
 		if env, ok := root["env"].(map[string]any); ok {
 			env["OTEL_OLD"] = "x"
+			env["CLAUDE_CODE_ENABLE_TELEMETRY"] = "1"
 		}
 	}
 	return want

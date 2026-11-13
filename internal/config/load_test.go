@@ -2,7 +2,6 @@ package config_test
 
 import (
 	"io/fs"
-	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -110,14 +109,6 @@ default_mode = "auto"
 theme = "other"
 `
 
-const projectCfg = `
-[ui]
-theme = "project"
-
-[permissions]
-allow_commands = ["make"]
-`
-
 func load(t *testing.T, fsys *fakeFS, mut func(*config.Options), envs map[string]string) (*config.Resolved, error) {
 	t.Helper()
 	o := config.Options{
@@ -137,33 +128,31 @@ func load(t *testing.T, fsys *fakeFS, mut func(*config.Options), envs map[string
 func standardFS() *fakeFS {
 	return newFS(map[string]string{
 		p("home", "u", ".config", "agents", "config.toml"): userCfg,
-		p("repo", "agents.toml"):                           projectCfg,
 	}, p("repo", ".git"))
 }
 
 func TestLoadPrecedenceChain(t *testing.T) {
 	t.Parallel()
 	user := p("home", "u", ".config", "agents", "config.toml")
-	proj := p("repo", "agents.toml")
 
 	r, err := load(t, standardFS(), func(o *config.Options) { o.GOOS = "linux" }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got, want := r.Files, []string{user, proj}; !slices.Equal(got, want) {
+	if got, want := r.Files, []string{user}; !slices.Equal(got, want) {
 		t.Errorf("Files = %v, want %v", got, want)
 	}
 	if r.Profile != "dev" {
 		t.Errorf("Profile = %q, want dev", r.Profile)
 	}
-	// defaults < user < project < os linux < profile dev
+	// defaults < user < os linux < profile dev
 	want := map[string]string{
 		"schema_version":              user,
 		"instructions.dir":            "default",
 		"ui.theme":                    "profile dev",
 		"ui.output_style":             "profile dev",
 		"ui.progress_bar":             user,
-		"permissions.allow_commands":  proj,
+		"permissions.allow_commands":  user,
 		"permissions.deny_read":       user,
 		"harness.claude.default_mode": "profile dev",
 		"profile":                     user,
@@ -177,8 +166,8 @@ func TestLoadPrecedenceChain(t *testing.T) {
 	if c.UI.Theme != "profile" || c.UI.OutputStyle != "terse" || !c.UI.ProgressBar {
 		t.Errorf("ui = %+v", c.UI)
 	}
-	if got, want := c.Permissions.AllowCommands, []string{"make"}; !slices.Equal(got, want) {
-		t.Errorf("arrays must replace: allow_commands = %v, want %v", got, want)
+	if got, want := c.Permissions.AllowCommands, []string{"ls", "cat"}; !slices.Equal(got, want) {
+		t.Errorf("allow_commands = %v, want %v", got, want)
 	}
 	if c.Instructions.Dir != filepath.Join(r.Dirs.Config, "instructions") {
 		t.Errorf("instructions.dir = %q", c.Instructions.Dir)
@@ -190,7 +179,7 @@ func TestLoadOSOverlayOrder(t *testing.T) {
 	tests := []struct {
 		name, goos, profile, wantTheme, wantOrigin string
 	}{
-		{"linux overlay beats project, loses to profile", "linux", "", "profile", "profile dev"},
+		{"linux overlay loses to profile", "linux", "", "profile", "profile dev"},
 		{"windows overlay", "windows", "other", "other", "profile other"},
 		{"no overlay for darwin", "darwin", "", "profile", "profile dev"},
 	}
@@ -315,83 +304,28 @@ func TestLoadEnvAndFlags(t *testing.T) {
 	}
 }
 
-func TestLoadProjectFileDiscovery(t *testing.T) {
+func TestLoadIgnoresProjectFile(t *testing.T) {
 	t.Parallel()
-	tests := []struct {
-		name  string
-		files map[string]string
-		dirs  []string
-		cwd   string
-		want  string // theme, "" = no project file
-	}{
-		{
-			name:  "nearest wins and only one file",
-			files: map[string]string{p("repo", "agents.toml"): "[ui]\ntheme = \"root\"\n", p("repo", "sub", "agents.toml"): "[ui]\nprogress_bar = true\n"},
-			dirs:  []string{p("repo", ".git")},
-			cwd:   p("repo", "sub"),
-			want:  "",
-		},
-		{
-			name:  "walks up to the git root",
-			files: map[string]string{p("repo", "agents.toml"): "[ui]\ntheme = \"root\"\n"},
-			dirs:  []string{p("repo", ".git")},
-			cwd:   p("repo", "a", "b"),
-			want:  "root",
-		},
-		{
-			name:  "stops at the git root",
-			files: map[string]string{p("agents.toml"): "[ui]\ntheme = \"above\"\n"},
-			dirs:  []string{p("repo", ".git")},
-			cwd:   p("repo", "a"),
-			want:  "",
-		},
-		{
-			name:  "outside a repo only cwd",
-			files: map[string]string{p("repo", "agents.toml"): "[ui]\ntheme = \"parent\"\n"},
-			cwd:   p("repo", "sub"),
-			want:  "",
-		},
-		{
-			name:  "outside a repo cwd file",
-			files: map[string]string{p("repo", "sub", "agents.toml"): "[ui]\ntheme = \"here\"\n"},
-			cwd:   p("repo", "sub"),
-			want:  "here",
-		},
-		{
-			name:  ".git as a file also marks the root",
-			files: map[string]string{p("repo", ".git"): "gitdir: x", p("repo", "agents.toml"): "[ui]\ntheme = \"root\"\n"},
-			cwd:   p("repo", "sub"),
-			want:  "root",
-		},
+	files := map[string]string{
+		p("repo", "agents.toml"):        "[ui]\ntheme = \"root\"\n",
+		p("repo", "sub", "agents.toml"): "[ui]\ntheme = \"here\"\n",
 	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			r, err := load(t, newFS(tt.files, tt.dirs...), func(o *config.Options) { o.Cwd = tt.cwd }, nil)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if tt.name == "nearest wins and only one file" {
-				// the nearest file sets progress_bar and the root file is not read
-				if !r.Config.UI.ProgressBar || r.Config.UI.Theme != "" {
-					t.Errorf("ui = %+v, want only the nearest file", r.Config.UI)
-				}
-				return
-			}
-			if r.Config.UI.Theme != tt.want {
-				t.Errorf("theme = %q, want %q", r.Config.UI.Theme, tt.want)
-			}
-		})
+	r, err := load(t, newFS(files, p("repo", ".git")), func(o *config.Options) { o.Cwd = p("repo", "sub") }, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Config.UI.Theme != "" || len(r.Files) != 0 {
+		t.Errorf("theme = %q, files = %v: an agents.toml in the working directory must be ignored", r.Config.UI.Theme, r.Files)
 	}
 }
 
 func TestLoadMergeRule(t *testing.T) {
 	t.Parallel()
 	fsys := newFS(map[string]string{
-		p("a.toml"):              "[models.tiers.fast]\nclaude = \"m1\"\neffort = \"low\"\n[models.catalog]\nproviders = [\"x\", \"y\"]\n[instructions.vars]\nk = 1\n",
-		p("repo", "agents.toml"): "[models.tiers.fast]\nclaude = \"m2\"\n[models.tiers.deep]\nclaude = \"m3\"\n[models.catalog]\nproviders = [\"z\"]\n[instructions.vars]\nj = \"v\"\n",
-	}, p("repo", ".git"))
-	r, err := load(t, fsys, func(o *config.Options) { o.ConfigPath = p("a.toml"); o.Cwd = p("repo") }, nil)
+		p("a.toml"): "profile = \"p\"\n[models.tiers.fast]\nclaude = \"m1\"\neffort = \"low\"\n[models.catalog]\nproviders = [\"x\", \"y\"]\n[harness.claude.settings]\nk = 1\n" +
+			"[profiles.p.models.tiers.fast]\nclaude = \"m2\"\n[profiles.p.models.tiers.deep]\nclaude = \"m3\"\n[profiles.p.models.catalog]\nproviders = [\"z\"]\n[profiles.p.harness.claude.settings]\nj = \"v\"\n",
+	})
+	r, err := load(t, fsys, func(o *config.Options) { o.ConfigPath = p("a.toml") }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -402,10 +336,10 @@ func TestLoadMergeRule(t *testing.T) {
 	if got := r.Config.Models.Catalog.Providers; !slices.Equal(got, []string{"z"}) {
 		t.Errorf("arrays replace: providers = %v", got)
 	}
-	if diff := cmp.Diff(map[string]any{"k": int64(1), "j": "v"}, r.Config.Instructions.Vars); diff != "" {
+	if diff := cmp.Diff(map[string]any{"k": int64(1), "j": "v"}, r.Config.Harness.Claude.Settings); diff != "" {
 		t.Errorf("free maps merge (-want +got):\n%s", diff)
 	}
-	if r.Origin["models.tiers.fast.effort"] != p("a.toml") || r.Origin["models.tiers.fast.claude"] != p("repo", "agents.toml") {
+	if r.Origin["models.tiers.fast.effort"] != p("a.toml") || r.Origin["models.tiers.fast.claude"] != "profile p" {
 		t.Errorf("origin = %v", r.Origin)
 	}
 }
@@ -601,7 +535,9 @@ func TestExpand(t *testing.T) {
 		{"${M1}-${A}-${M2}-${M1}", "${M1}-1-${M2}-${M1}", []string{"M1", "M2"}},
 		{"$A", "$A", nil},
 		{"$$A", "$$A", nil},
-		{"$${A}", "$1", nil},
+		{"$${A}", "${A}", nil},
+		{"x$${A}y${A}", "x${A}y1", nil},
+		{"$${MISSING}", "${MISSING}", nil},
 		{"${", "${", nil},
 		{"${A", "${A", nil},
 		{"${}", "${}", nil},
@@ -632,6 +568,9 @@ func TestExpandPath(t *testing.T) {
 	}{
 		{"~/a/${D}", j("/h", "a", "dir"), nil},
 		{"~", "/h", nil},
+		{`~\a`, j("/h", "a"), nil},
+		{`~\${NOPE}`, j("/h", "${NOPE}"), []string{"NOPE"}},
+		{"~/$${D}", j("/h", "${D}"), nil},
 		{"~/${NOPE}/x", j("/h", "${NOPE}", "x"), []string{"NOPE"}},
 		{"~user/a", "~user/a", nil},
 		{"/abs/${D}", "/abs/dir", nil},
@@ -767,30 +706,5 @@ func TestHarness(t *testing.T) {
 	}
 	if config.Harness("emacs").Valid() || config.Harness("").Valid() {
 		t.Error("unknown harness reported valid")
-	}
-}
-
-func TestLoadTestdataProjectOverFull(t *testing.T) {
-	t.Parallel()
-	read := func(name string) string {
-		b, err := os.ReadFile(filepath.Join("testdata", "valid", name))
-		if err != nil {
-			t.Fatal(err)
-		}
-		return string(b)
-	}
-	fsys := newFS(map[string]string{
-		p("home", "u", ".config", "agents", "config.toml"): read("full.toml"),
-		p("repo", "agents.toml"):                           read("project.toml"),
-	}, p("repo", ".git"))
-	r, err := load(t, fsys, nil, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.Profile != "review" || r.Config.UI.Theme != "light" || !slices.Equal(r.Config.Permissions.DenyWrite, []string{"**"}) {
-		t.Errorf("profile=%q theme=%q deny_write=%v", r.Profile, r.Config.UI.Theme, r.Config.Permissions.DenyWrite)
-	}
-	if fs := config.Validate(r.Config); len(fs) != 0 {
-		t.Errorf("findings: %v", fs)
 	}
 }

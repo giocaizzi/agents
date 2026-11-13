@@ -48,7 +48,7 @@ func TestRenderPiPackages(t *testing.T) {
 		{name: "no registry keeps extra packages", packages: []string{"npm:x"}, want: []any{"npm:x"}, wantUnion: true},
 		{
 			name: "registry and extra", registry: "acme/app", packages: []string{"npm:x"},
-			want: []any{filepath.Join("/data", "registries", "app"), "npm:x"}, wantUnion: true,
+			want: []any{filepath.Join("/data", "registries", "acme", "app"), "npm:x"}, wantUnion: true,
 		},
 	}
 	for _, tt := range tests {

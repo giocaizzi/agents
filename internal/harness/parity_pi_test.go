@@ -11,7 +11,7 @@ func adjustPi(_ parityCase, file string, want any) any {
 	for i, p := range pkgs {
 		// agents derives the package from its registry checkout under its data dir.
 		if p == "../../.local/share/giocaizzi-harness" {
-			pkgs[i] = "/home/user/.local/share/agents/registries/harness"
+			pkgs[i] = "/home/user/.local/share/agents/registries/giocaizzi/harness"
 		}
 	}
 	return want

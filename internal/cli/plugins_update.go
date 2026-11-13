@@ -232,7 +232,7 @@ func (d Deps) pluginsUpdate(ctx context.Context, args []string, run runner, now 
 
 	stamp := ""
 	if setup.registry != "" {
-		stamp = filepath.Join(setup.resolved.Dirs.State, "registries", filepath.Base(setup.registry)+".pulled")
+		stamp = filepath.Join(setup.resolved.Dirs.State, "registries", filepath.FromSlash(setup.registry)+".pulled")
 	}
 	sync := checkoutSync{run: run, now: now, registry: setup.registry, dir: mgr.HarnessDir, stamp: stamp, dryRun: flags.dryRun, force: flags.force}
 	if err := d.syncCheckout(ctx, st, sync); err != nil {

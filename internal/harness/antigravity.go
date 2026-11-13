@@ -32,10 +32,12 @@ func renderAntigravity(c *config.Config, b *builder) error {
 		Owner: string(config.Antigravity), Path: filepath.Join(gemini, "antigravity-cli", "settings.json"),
 		Format: apply.JSON, Managed: settings, Mode: 0o600,
 	})
-	b.add(apply.Target{
-		Owner: string(config.Antigravity), Path: filepath.Join(gemini, "config", "mcp_config.json"),
-		Format: apply.JSON, Managed: map[string]any{keyMCPServers: mcpJSON(b.mcpServers(), false)}, Mode: 0o600,
-	})
+	if mcp := b.mcpServers(); len(mcp) > 0 { // never an empty mcpServers object
+		b.add(apply.Target{
+			Owner: string(config.Antigravity), Path: filepath.Join(gemini, "config", "mcp_config.json"),
+			Format: apply.JSON, Managed: map[string]any{keyMCPServers: mcpJSON(mcp, false)}, Mode: 0o600,
+		})
+	}
 	b.instructions(config.Antigravity, filepath.Join(gemini, "config", "AGENTS.md"))
 	return nil
 }

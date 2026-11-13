@@ -91,10 +91,38 @@ jobs:
   #     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
   #     - run: make integration
 
+  lint:
+    if: ${{ !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: make lint
+
+  # Unit tests on every OS the CLI ships for (Windows paths, APPDATA dirs and cmd shims are only exercised here).
+  # Same command as `make test`, called directly because windows-latest has no make.
+  test:
+    if: ${{ !github.event.pull_request.draft }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - run: go test -race -shuffle=on ./...
+
   # Required status check of the GitHub standard. Add jobs to `needs`, never rename this job.
   check:
     name: ${{ github.event.pull_request.draft && 'Skip CI (draft)' || 'check' }}
-    needs: [secrets, changes]
+    needs: [secrets, changes, lint, test]
     if: ${{ always() && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -117,5 +145,3 @@ jobs:
       #       | to_entries | all(.value.result == "success"
       #         or (.value.result == "skipped" and ($event == "pull_request" or $event == "push") and (.key | IN($f[])))
       #         or (.value.result == "skipped" and $gated[.key] != null and $changes[$gated[.key]] == "false"))' <<<"$RESULTS"
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - run: make check

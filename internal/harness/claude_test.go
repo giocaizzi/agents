@@ -1,7 +1,6 @@
 package harness
 
 import (
-	"slices"
 	"strings"
 	"testing"
 
@@ -51,15 +50,15 @@ func TestClaudeLSPClaimsExtensionsOnce(t *testing.T) {
 	}
 }
 
-func TestClaudeTelemetryOffRemovesKeys(t *testing.T) {
+func TestClaudeTelemetryEnvAndLegacy(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
-		name      string
-		enabled   bool
-		wantRmEnv bool
+		name    string
+		enabled bool
+		wantEnv bool
 	}{
-		{"off", false, true},
-		{"on", true, false},
+		{"off", false, false},
+		{"on", true, true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -70,14 +69,13 @@ func TestClaudeTelemetryOffRemovesKeys(t *testing.T) {
 				t.Fatal(err)
 			}
 			st := claudeTarget(t, b, "/home/u/.claude/settings.json")
-			has := slices.ContainsFunc(st.Remove, func(p []string) bool {
-				return slices.Equal(p, []string{"env", "OTEL_TRACES_EXPORTER"})
-			})
-			if has != tt.wantRmEnv {
-				t.Errorf("Remove has OTEL_TRACES_EXPORTER = %v, want %v", has, tt.wantRmEnv)
+			managed, _ := st.Managed.(map[string]any)
+			if _, has := managed["env"]; has != tt.wantEnv {
+				t.Errorf("managed env present = %v, want %v", has, tt.wantEnv)
 			}
-			if !slices.ContainsFunc(st.Remove, func(p []string) bool { return slices.Equal(p, []string{"enabledPlugins", "lsp@dotfiles"}) }) {
-				t.Error("Remove misses the old local marketplace plugin")
+			// Only the old manager's keys migrate; telemetry env keys leave through the manifest.
+			if diff := cmp.Diff(claudeLegacy, st.Legacy); diff != "" {
+				t.Errorf("Legacy (-want +got):\n%s", diff)
 			}
 		})
 	}
