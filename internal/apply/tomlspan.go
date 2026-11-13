@@ -165,6 +165,13 @@ func (p *tomlPatcher) object(path []string, live, merged *Object) {
 			p.object(join(path, k), lo, mo)
 		default:
 			kv := p.kv[pathID(join(path, k))]
+			if kv == nil && lok {
+				// A table written as sections becomes a scalar: drop the
+				// sections, then write the scalar in the parent.
+				p.remove(join(path, k))
+				p.insert(path, k, mv)
+				continue
+			}
 			if kv == nil {
 				p.failf("toml: cannot rewrite %s in place", strings.Join(join(path, k), "."))
 				return
