@@ -1,8 +1,10 @@
 package config_test
 
 import (
+	"maps"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 
@@ -95,8 +97,13 @@ func TestValidateWorkspacesSymlinkIntoRepo(t *testing.T) {
 					t.Fatal(err)
 				}
 			}
-			for name, target := range tt.links {
-				target = strings.NewReplacer("@", repo, "%", scratch).Replace(target)
+			// Create the links whose targets are other links last-name first: on
+			// Windows a symlink to a target that does not exist yet becomes a file
+			// link, which cannot be followed as a directory (map order is random).
+			names := slices.Sorted(maps.Keys(tt.links))
+			slices.Reverse(names)
+			for _, name := range names {
+				target := strings.NewReplacer("@", repo, "%", scratch).Replace(tt.links[name])
 				if err := os.Symlink(target, filepath.Join(scratch, name)); err != nil {
 					t.Skipf("symlinks unavailable: %v", err)
 				}
