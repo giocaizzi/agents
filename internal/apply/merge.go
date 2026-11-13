@@ -4,222 +4,144 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/fs"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/pelletier/go-toml/v2"
 )
 
-// Format is the on-disk syntax of a Target.
-type Format int
-
-// Supported formats.
-const (
-	JSON Format = iota
-	JSONC
-	TOML
-	Text
-)
-
-// Target is one native file and the keys agents manages in it.
-type Target struct {
-	Owner   string     // harness name, for messages only
-	Path    string     // absolute
-	Format  Format     // syntax of the file
-	Managed any        // JSON/JSONC/TOML: map[string]any or *Object (ordered); Text: string (whole file content)
-	Union   [][]string // key paths whose arrays merge as a union (live elements kept, managed ones appended when new)
-	// Legacy lists key paths of a known earlier manager, deleted only on the
-	// first apply of this path (no manifest entry yet): a one-time migration.
-	// Every later deletion comes from the manifest, never from this list.
-	Legacy [][]string
-	// Sensitive holds expanded secret values this target carries; output
-	// meant for a terminal (diffs, render) prints them redacted.
-	Sensitive []string
-	Mode      fs.FileMode // mode for a new file; 0 means 0o600
-	CheckOnly bool        // never written: compared only (drift)
+// planned is what one target would do to its file.
+type planned struct {
+	text   string     // new file text
+	entry  *fileEntry // manifest entry to record; nil forgets the path
+	same   bool       // the live document already equals the managed result
+	skip   bool       // nothing managed and nothing to remove: leave the file alone
+	remove bool       // delete the file
+	paths  [][]string // key paths agents manages, for diffs
 }
 
-// Status is the outcome for one Target.
-type Status string
-
-// Possible statuses.
-const (
-	StatusCreate    Status = "create"
-	StatusUpdate    Status = "update"
-	StatusUnchanged Status = "unchanged"
-	StatusDrift     Status = "drift"   // CheckOnly target differs
-	StatusRefused   Status = "refused" // symlink target that is not CheckOnly
-)
-
-// Result reports what happened to one Target.
-type Result struct {
-	Target Target
-	Status Status
-	Diff   string // unified diff of the change, empty when unchanged
-	Err    error
-}
-
-// Engine applies Targets and remembers what it manages in a manifest.
-type Engine struct {
-	StatePath string // manifest file, e.g. $XDG_STATE_HOME/agents/apply.json
-	DryRun    bool   // compute statuses and diffs, write nothing
-}
-
-// Run applies every target and returns one Result per target, in order. A
-// per-target failure is reported in Result.Err; the returned error is for
-// failures of the manifest itself.
-func (e Engine) Run(targets []Target) ([]Result, error) {
-	old := newManifest()
-	if e.StatePath != "" {
-		var err error
-		if old, err = loadManifest(e.StatePath); err != nil {
-			return nil, err
-		}
-	}
-	next := old.clone()
-	results := make([]Result, 0, len(targets))
-	for _, t := range targets {
-		prev, seen := old.Files[t.Path]
-		res, entry := e.apply(t, prev, !seen)
-		results = append(results, res)
-		if entry != nil {
-			next.Files[t.Path] = *entry
-		}
-	}
-	if e.StatePath != "" && !e.DryRun && !next.equal(old) {
-		if err := next.save(e.StatePath); err != nil {
-			return results, fmt.Errorf("save manifest: %w", err)
-		}
-	}
-	return results, nil
-}
-
-// apply handles one target; the entry is non-nil when the manifest should record the file.
-func (e Engine) apply(t Target, prev fileEntry, first bool) (Result, *fileEntry) {
-	res := Result{Target: t}
-	if !filepath.IsAbs(t.Path) {
-		res.Err = fmt.Errorf("%s: %s: path is not absolute", t.Owner, t.Path)
-		return res, nil
-	}
-	if info, err := os.Lstat(t.Path); err == nil && info.Mode()&fs.ModeSymlink != 0 && !t.CheckOnly {
-		res.Status = StatusRefused
-		res.Err = fmt.Errorf("%s: %s is a symlink: agents does not write through symlinks", t.Owner, t.Path)
-		return res, nil
-	}
-
-	raw, err := os.ReadFile(t.Path)
-	exists := err == nil
-	if err != nil && !errors.Is(err, fs.ErrNotExist) {
-		res.Err = fmt.Errorf("%s: %s: read: %w", t.Owner, t.Path, err)
-		return res, nil
-	}
-	liveText := string(raw)
-
-	newText, entry, same, err := plan(t, prev, first, liveText)
-	if err != nil {
-		res.Err = fmt.Errorf("%s: %s: %w", t.Owner, t.Path, err)
-		return res, nil
-	}
-	same = same && exists
-
-	switch {
-	case same:
-		res.Status = StatusUnchanged
-	case t.CheckOnly:
-		res.Status = StatusDrift
-	case exists:
-		res.Status = StatusUpdate
-	default:
-		res.Status = StatusCreate
-	}
-	if !same {
-		res.Diff = unifiedDiff(t.Path, liveText, newText)
-	}
-	if t.CheckOnly {
-		return res, nil
-	}
-	if !e.DryRun && !same {
-		if err := writeFile(t, []byte(newText)); err != nil {
-			res.Err = fmt.Errorf("%s: %w", t.Owner, err)
-			res.Status = ""
-			return res, nil
-		}
-	}
-	return res, entry
-}
-
-// plan returns the new file text, the manifest entry and whether the live
-// document already equals the managed result.
-func plan(t Target, prev fileEntry, first bool, liveText string) (string, *fileEntry, bool, error) {
+// plan works out the new file text and manifest entry of one target.
+func plan(t Target, prev fileEntry, had bool, liveText string, exists bool) (planned, error) {
 	if t.Format != Text {
-		return merge(t, prev, first, liveText)
+		return merge(t, prev, had, liveText, exists)
 	}
 	s, ok := t.Managed.(string)
 	if !ok {
-		return "", nil, false, fmt.Errorf("text target needs a string, got %T", t.Managed)
+		return planned{}, fmt.Errorf("text target needs a string, got %T", t.Managed)
 	}
-	return s, nil, s == liveText, nil
+	entry := &fileEntry{Owner: t.Owner, Format: formatName(Text), Hash: hashText(s)}
+	return planned{text: s, entry: entry, same: s == liveText}, nil
 }
 
-func writeFile(t Target, data []byte) error {
-	mode := t.Mode
-	if mode == 0 {
-		mode = 0o600
-	}
-	if info, err := os.Stat(t.Path); err == nil {
-		mode = info.Mode().Perm()
-	}
-	if err := os.MkdirAll(filepath.Dir(t.Path), 0o700); err != nil {
-		return fmt.Errorf("create dir for %s: %w", t.Path, err)
-	}
-	return writeAtomic(t.Path, data, mode)
-}
-
-// merge returns the rendering, the manifest entry and
-// whether the merged document equals the live one.
-func merge(t Target, prev fileEntry, first bool, liveText string) (string, *fileEntry, bool, error) {
+// merge applies the managed document onto the live one: it drops what the
+// manifest says agents managed before and no longer does, then merges the
+// managed keys. A target with nothing managed only removes.
+func merge(t Target, prev fileEntry, had bool, liveText string, exists bool) (planned, error) {
 	live, err := parseLive(t.Format, liveText)
 	if err != nil {
-		return "", nil, false, err
+		return planned{}, err
 	}
 	managed, err := normalize(t.Managed)
 	if err != nil {
-		return "", nil, false, err
+		return planned{}, err
 	}
 	if managed == nil {
 		managed = NewObject()
 	}
 	mo, ok := managed.(*Object)
 	if !ok {
-		return "", nil, false, fmt.Errorf("managed document must be an object, got %T", t.Managed)
+		return planned{}, fmt.Errorf("managed document must be an object, got %T", t.Managed)
 	}
 
 	unions := map[string]bool{}
 	for _, p := range t.Union {
 		unions[pathID(p)] = true
 	}
-	entry := &fileEntry{Keys: [][]string{}, Union: map[string][]string{}}
+	entry := &fileEntry{Owner: t.Owner, Format: formatName(t.Format), Keys: [][]string{}, Union: map[string][]string{}}
 	collect(mo, nil, unions, entry)
 	if len(entry.Union) == 0 {
 		entry.Union = nil
 	}
 
 	merged, _ := clone(live).(*Object)
-	if first {
+	if !had {
 		for _, p := range t.Legacy {
 			deletePath(merged, p, false)
 		}
 	}
 	dropStale(merged, prev, entry)
-	mergeInto(merged, mo, nil, unions)
-
-	text, err := render(t.Format, merged)
-	if err != nil {
-		return "", nil, false, err
+	p := planned{paths: managedPaths(prev, entry, t.Legacy)}
+	empty := len(mo.Keys) == 0
+	if !empty {
+		mergeInto(merged, mo, nil, unions)
 	}
-	return text, entry, equal(merged, live), nil
+
+	switch {
+	case empty && !exists:
+		p.skip = true
+		return p, nil
+	case empty:
+		// Nothing is managed any more: forget the file, and delete it if
+		// agents made it and nothing else is left in it.
+		p.remove = prev.Created && len(merged.Keys) == 0
+	default:
+		entry.Created = prev.Created || !exists
+		p.entry = entry
+	}
+
+	p.same = equal(merged, live)
+	switch {
+	case p.remove:
+	case p.same && exists:
+		p.text = liveText
+	default:
+		if p.text, err = renderOrPatch(t.Format, liveText, live, merged); err != nil {
+			return planned{}, err
+		}
+	}
+	return p, nil
+}
+
+// managedPaths lists every key path agents manages or managed in the file.
+func managedPaths(prev fileEntry, next *fileEntry, legacy [][]string) [][]string {
+	out := make([][]string, 0, len(prev.Keys)+len(next.Keys)+len(legacy)+len(prev.Union)+len(next.Union))
+	out = append(out, prev.Keys...)
+	out = append(out, next.Keys...)
+	out = append(out, legacy...)
+	for id := range prev.Union {
+		out = append(out, pathOf(id))
+	}
+	for id := range next.Union {
+		out = append(out, pathOf(id))
+	}
+	return out
+}
+
+// renderOrPatch returns the text of merged: the live text edited in place
+// when there is one, so comments, key order and layout survive, else a fresh
+// rendering.
+func renderOrPatch(f Format, liveText string, live, merged *Object) (string, error) {
+	if strings.TrimSpace(liveText) == "" {
+		return render(f, merged)
+	}
+	var out string
+	var err error
+	if f == TOML {
+		out, err = patchTOML(liveText, live, merged)
+	} else {
+		out, err = patchJSON(liveText, live, merged)
+	}
+	if err != nil {
+		return "", fmt.Errorf("edit in place: %w", err)
+	}
+	// Never write a file whose document is not the merged one.
+	back, err := parseLive(f, out)
+	if err != nil {
+		return "", fmt.Errorf("edit in place produced an unreadable file: %w", err)
+	}
+	if !equal(back, merged) {
+		return "", errors.New("edit in place did not produce the merged document")
+	}
+	return out, nil
 }
 
 func parseLive(f Format, text string) (*Object, error) {

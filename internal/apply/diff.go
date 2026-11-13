@@ -2,7 +2,6 @@ package apply
 
 import (
 	"fmt"
-	"slices"
 	"strconv"
 	"strings"
 )
@@ -18,6 +17,71 @@ type diffOp struct {
 type hunk struct {
 	ops                []diffOp
 	oldStart, newStart int
+}
+
+// buildDiff returns the diff of a change to t, safe to print: values of keys
+// agents does not manage show as «unmanaged» and every secret of the target
+// as «redacted». It never falls back to the raw texts.
+func buildDiff(t Target, managed [][]string, oldText, newText string) string {
+	a, b := oldText, newText
+	if t.Format != Text {
+		isManaged := func(path []string) bool {
+			for _, m := range managed {
+				if hasPrefixPath(path, m) {
+					return true
+				}
+			}
+			return false
+		}
+		var errA, errB error
+		a, errA = maskText(t.Format, oldText, isManaged)
+		b, errB = maskText(t.Format, newText, isManaged)
+		if errA != nil || errB != nil {
+			return "(diff unavailable: the file could not be scanned)\n"
+		}
+	}
+	return redact(unifiedDiff(t.Path, a, b), t.Sensitive)
+}
+
+// maskText replaces the values of unmanaged keys in text with a marker.
+func maskText(f Format, text string, managed func([]string) bool) (string, error) {
+	if strings.TrimSpace(text) == "" {
+		return text, nil
+	}
+	if f == TOML {
+		return maskTOML(text, managed)
+	}
+	return maskJSON(text, managed)
+}
+
+// redact replaces every secret in text, as written raw or escaped for JSON or TOML.
+func redact(text string, secrets []string) string {
+	var pairs []string
+	for _, s := range secrets {
+		if s == "" {
+			continue
+		}
+		pairs = append(pairs, s)
+		for _, q := range []string{plainString(s), tomlString(s)} {
+			if inner := q[1 : len(q)-1]; inner != s {
+				pairs = append(pairs, inner)
+			}
+		}
+	}
+	if len(pairs) == 0 {
+		return text
+	}
+	// Longest first, so a secret that contains another is replaced whole.
+	for i := 1; i < len(pairs); i++ {
+		for j := i; j > 0 && len(pairs[j]) > len(pairs[j-1]); j-- {
+			pairs[j], pairs[j-1] = pairs[j-1], pairs[j]
+		}
+	}
+	args := make([]string, 0, 2*len(pairs))
+	for _, p := range pairs {
+		args = append(args, p, redactedMark)
+	}
+	return strings.NewReplacer(args...).Replace(text)
 }
 
 // unifiedDiff returns a unified diff of old and new, or "" when they are equal.
@@ -110,58 +174,173 @@ func splitLines(s string) []string {
 	return parts
 }
 
-// lcsTable returns t where t[i][j] is the longest common subsequence length of a[i:] and b[j:].
-func lcsTable(a, b []string) [][]int {
-	t := make([][]int, len(a)+1)
-	for i := range t {
-		t[i] = make([]int, len(b)+1)
-	}
-	for i := range slices.Backward(a) {
-		for j := len(b) - 1; j >= 0; j-- {
-			if a[i] == b[j] {
-				t[i][j] = t[i+1][j+1] + 1
-			} else {
-				t[i][j] = max(t[i+1][j], t[i][j+1])
-			}
-		}
-	}
-	return t
+// lineDiff computes an edit script from a to b with Myers' O(ND) algorithm in
+// linear space: it finds the middle of the shortest edit script and recurses
+// on both halves.
+func lineDiff(a, b []string) []diffOp {
+	return diffRange(make([]diffOp, 0, len(a)+len(b)), a, b)
 }
 
-// lineDiff computes an edit script from a to b.
-func lineDiff(a, b []string) []diffOp {
+func diffRange(ops []diffOp, a, b []string) []diffOp {
 	pre := 0
 	for pre < len(a) && pre < len(b) && a[pre] == b[pre] {
 		pre++
 	}
-	suf := 0
-	for suf < len(a)-pre && suf < len(b)-pre && a[len(a)-1-suf] == b[len(b)-1-suf] {
-		suf++
-	}
-	ma, mb := a[pre:len(a)-suf], b[pre:len(b)-suf]
-	lcs := lcsTable(ma, mb)
-
-	ops := make([]diffOp, 0, len(a)+len(b))
 	for _, l := range a[:pre] {
 		ops = append(ops, diffOp{' ', l})
 	}
-	i, j := 0, 0
-	for i < len(ma) || j < len(mb) {
-		switch {
-		case i < len(ma) && j < len(mb) && ma[i] == mb[j]:
-			ops = append(ops, diffOp{' ', ma[i]})
-			i++
-			j++
-		case i < len(ma) && (j >= len(mb) || lcs[i+1][j] >= lcs[i][j+1]):
-			ops = append(ops, diffOp{'-', ma[i]})
-			i++
-		default:
-			ops = append(ops, diffOp{'+', mb[j]})
-			j++
+	a, b = a[pre:], b[pre:]
+	suf := 0
+	for suf < len(a) && suf < len(b) && a[len(a)-1-suf] == b[len(b)-1-suf] {
+		suf++
+	}
+	ma, mb := a[:len(a)-suf], b[:len(b)-suf]
+	switch {
+	case len(ma) == 0:
+		for _, l := range mb {
+			ops = append(ops, diffOp{'+', l})
 		}
+	case len(mb) == 0:
+		for _, l := range ma {
+			ops = append(ops, diffOp{'-', l})
+		}
+	default:
+		x, y, ok := middleSnake(ma, mb)
+		if !ok {
+			for _, l := range ma {
+				ops = append(ops, diffOp{'-', l})
+			}
+			for _, l := range mb {
+				ops = append(ops, diffOp{'+', l})
+			}
+			break
+		}
+		ops = diffRange(ops, ma[:x], mb[:y])
+		ops = diffRange(ops, ma[x:], mb[y:])
 	}
 	for _, l := range a[len(a)-suf:] {
 		ops = append(ops, diffOp{' ', l})
 	}
 	return ops
+}
+
+// pass is one direction of the middle-snake search: v[off+k] is the furthest
+// x reached on diagonal k, or -1 when the diagonal was not reached.
+type pass struct {
+	v      []int
+	ks, ke int                 // diagonals trimmed off the low and high end after a path left the grid
+	eq     func(x, y int) bool // whether the next step along a diagonal matches
+}
+
+func (p *pass) has(j int) bool { return j >= 0 && j < len(p.v) && p.v[j] != -1 }
+
+// extend moves diagonal k to the furthest point reachable with d edits.
+func (p *pass) extend(off, d, k, n, m int) (int, int) {
+	i := off + k
+	var x int
+	if k == -d || (k != d && p.v[i-1] < p.v[i+1]) {
+		x = p.v[i+1]
+	} else {
+		x = p.v[i-1] + 1
+	}
+	y := x - k
+	for x < n && y < m && p.eq(x, y) {
+		x++
+		y++
+	}
+	p.v[i] = x
+	return x, y
+}
+
+// inside reports whether (x, y) is on the grid; if not it trims the diagonal range.
+func (p *pass) inside(x, y, n, m int) bool {
+	switch {
+	case x > n:
+		p.ke += 2
+		return false
+	case y > m:
+		p.ks += 2
+		return false
+	}
+	return true
+}
+
+// middleSnake searches forward from the start and backward from the end, one
+// edit at a time, until the two paths meet, and returns the meeting point
+// (x in a, y in b). It reports false when the point does not split the
+// problem into smaller ones.
+func middleSnake(a, b []string) (int, int, bool) {
+	n, m := len(a), len(b)
+	maxD := (n + m + 1) / 2
+	off := maxD
+	newPass := func(eq func(x, y int) bool) *pass {
+		v := make([]int, 2*maxD+2)
+		for i := range v {
+			v[i] = -1
+		}
+		v[off+1] = 0
+		return &pass{v: v, eq: eq}
+	}
+	s := &snake{
+		f:     newPass(func(x, y int) bool { return a[x] == b[y] }),
+		r:     newPass(func(x, y int) bool { return a[n-x-1] == b[m-y-1] }),
+		n:     n,
+		m:     m,
+		off:   off,
+		delta: n - m,
+	}
+	s.front = s.delta%2 != 0 // the paths first meet in the forward pass when the lengths differ by an odd number
+	for d := range maxD {
+		if x, y, ok := s.forward(d); ok {
+			return split(x, y, n, m)
+		}
+		if x, y, ok := s.reverse(d); ok {
+			return split(x, y, n, m)
+		}
+	}
+	return 0, 0, false
+}
+
+// snake holds both searches of one middleSnake call.
+type snake struct {
+	f, r             *pass
+	n, m, off, delta int
+	front            bool
+}
+
+// forward extends the forward paths by one edit and reports where they meet the backward ones.
+func (s *snake) forward(d int) (int, int, bool) {
+	for k := -d + s.f.ks; k <= d-s.f.ke; k += 2 {
+		x, y := s.f.extend(s.off, d, k, s.n, s.m)
+		if !s.f.inside(x, y, s.n, s.m) || !s.front {
+			continue
+		}
+		if j := s.off + s.delta - k; s.r.has(j) && x >= s.n-s.r.v[j] {
+			return x, y, true
+		}
+	}
+	return 0, 0, false
+}
+
+// reverse extends the backward paths by one edit and reports where they meet the forward ones.
+func (s *snake) reverse(d int) (int, int, bool) {
+	for k := -d + s.r.ks; k <= d-s.r.ke; k += 2 {
+		x, _ := s.r.extend(s.off, d, k, s.n, s.m)
+		y := x - k
+		if !s.r.inside(x, y, s.n, s.m) || s.front {
+			continue
+		}
+		if j := s.off + s.delta - k; s.f.has(j) && s.f.v[j] >= s.n-x {
+			return s.f.v[j], s.f.v[j] - (j - s.off), true
+		}
+	}
+	return 0, 0, false
+}
+
+// split accepts a meeting point only when both halves are smaller than the whole.
+func split(x, y, n, m int) (int, int, bool) {
+	if x < 0 || y < 0 || x > n || y > m || (x == 0 && y == 0) || (x == n && y == m) {
+		return 0, 0, false
+	}
+	return x, y, true
 }

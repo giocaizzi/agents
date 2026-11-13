@@ -14,8 +14,12 @@ const manifestVersion = 1
 
 // fileEntry records what agents managed in one file on the last run.
 type fileEntry struct {
-	Keys  [][]string          `json:"keys"`
-	Union map[string][]string `json:"union,omitempty"`
+	Owner   string              `json:"owner,omitempty"`
+	Format  string              `json:"format,omitempty"`  // json, jsonc, toml or text
+	Created bool                `json:"created,omitempty"` // agents made the file
+	Hash    string              `json:"hash,omitempty"`    // text: sha-256 of what agents wrote
+	Keys    [][]string          `json:"keys"`
+	Union   map[string][]string `json:"union,omitempty"`
 }
 
 type manifest struct {
@@ -50,6 +54,16 @@ func (m *manifest) equal(o *manifest) bool {
 	return reflect.DeepEqual(m, o)
 }
 
+// record stores entry for path, or drops the path when forget is set.
+func (m *manifest) record(path string, entry *fileEntry, forget bool) {
+	switch {
+	case entry != nil:
+		m.Files[path] = *entry
+	case forget:
+		delete(m.Files, path)
+	}
+}
+
 func (m *manifest) clone() *manifest {
 	data, _ := json.Marshal(m) //nolint:errchkjson // plain strings cannot fail
 	var out manifest
@@ -68,5 +82,5 @@ func (m *manifest) save(path string) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("create manifest dir: %w", err)
 	}
-	return writeAtomic(path, append(data, '\n'), 0o600)
+	return writeAtomic(path, append(data, '\n'), 0o600, nil)
 }

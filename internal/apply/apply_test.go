@@ -32,7 +32,7 @@ func readFileT(t *testing.T, path string) string {
 }
 
 func engineIn(dir string) Engine {
-	return Engine{StatePath: filepath.Join(dir, "state", "apply.json")}
+	return Engine{StatePath: filepath.Join(dir, "state", "apply.json"), Diff: true}
 }
 
 func runOne(t *testing.T, e Engine, tg Target) Result {
@@ -74,14 +74,14 @@ func TestRunJSON(t *testing.T) {
 			name:       "merge keeps unmanaged keys and live order",
 			live:       `{"zeta": 1, "alpha": {"keep": true, "mine": 1}, "omega": "x"}`,
 			managed:    map[string]any{"alpha": map[string]any{"mine": 2, "new": "n"}, "added": 1},
-			want:       "{\n  \"zeta\": 1,\n  \"alpha\": {\n    \"keep\": true,\n    \"mine\": 2,\n    \"new\": \"n\"\n  },\n  \"omega\": \"x\",\n  \"added\": 1\n}\n",
+			want:       `{"zeta": 1, "alpha": {"keep": true, "mine": 2, "new": "n"}, "omega": "x", "added": 1}`,
 			wantStatus: StatusUpdate,
 		},
 		{
 			name:       "scalars and arrays replace",
 			live:       `{"s": "old", "arr": [1, 2, 3], "o": {"a": 1}}`,
 			managed:    map[string]any{"s": "new", "arr": []any{"x"}, "o": "scalar"},
-			want:       "{\n  \"s\": \"new\",\n  \"arr\": [\n    \"x\"\n  ],\n  \"o\": \"scalar\"\n}\n",
+			want:       `{"s": "new", "arr": ["x"], "o": "scalar"}`,
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -89,7 +89,7 @@ func TestRunJSON(t *testing.T) {
 			live:       `{"chat": {"allowedUrls": ["https://mine.example", "https://a.example"]}}`,
 			managed:    map[string]any{"chat": map[string]any{"allowedUrls": []any{"https://a.example", "https://b.example"}}},
 			union:      [][]string{{"chat", "allowedUrls"}},
-			want:       "{\n  \"chat\": {\n    \"allowedUrls\": [\n      \"https://mine.example\",\n      \"https://a.example\",\n      \"https://b.example\"\n    ]\n  }\n}\n",
+			want:       `{"chat": {"allowedUrls": ["https://mine.example", "https://a.example", "https://b.example"]}}`,
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -100,7 +100,7 @@ func TestRunJSON(t *testing.T) {
 				map[string]any{"tool": "edit", "action": "deny"},
 			}},
 			union:      [][]string{{"permission"}},
-			want:       "{\n  \"permission\": [\n    {\n      \"tool\": \"bash\",\n      \"action\": \"ask\"\n    },\n    {\n      \"action\": \"allow\",\n      \"tool\": \"read\"\n    },\n    {\n      \"action\": \"deny\",\n      \"tool\": \"edit\"\n    }\n  ]\n}\n",
+			want:       `{"permission": [{"tool": "bash", "action": "ask"}, {"action": "allow", "tool": "read"}, {"action": "deny", "tool": "edit"}]}`,
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -108,7 +108,7 @@ func TestRunJSON(t *testing.T) {
 			live:       `{}`,
 			managed:    map[string]any{"u": []any{"a"}},
 			union:      [][]string{{"u"}},
-			want:       "{\n  \"u\": [\n    \"a\"\n  ]\n}\n",
+			want:       "{\n  \"u\": [\n    \"a\"\n  ]\n}",
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -116,7 +116,7 @@ func TestRunJSON(t *testing.T) {
 			live:       `{"a": {"b": 1, "c": 2}, "d": 3}`,
 			managed:    map[string]any{"e": 4},
 			remove:     [][]string{{"a", "b"}, {"d"}, {"missing", "path"}},
-			want:       "{\n  \"a\": {\n    \"c\": 2\n  },\n  \"e\": 4\n}\n",
+			want:       `{"a": {"c": 2}, "e": 4}`,
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -124,14 +124,14 @@ func TestRunJSON(t *testing.T) {
 			live:       `{"a": 1}`,
 			managed:    map[string]any{"a": 2},
 			remove:     [][]string{{"a"}},
-			want:       "{\n  \"a\": 2\n}\n",
+			want:       `{"a": 2}`,
 			wantStatus: StatusUpdate,
 		},
 		{
 			name:       "keys with dots are single segments",
 			live:       `{"chat.tools.terminal.autoApprove": {"ls": true}}`,
 			managed:    map[string]any{"chat.tools.terminal.autoApprove": map[string]any{"git status": true}},
-			want:       "{\n  \"chat.tools.terminal.autoApprove\": {\n    \"ls\": true,\n    \"git status\": true\n  }\n}\n",
+			want:       `{"chat.tools.terminal.autoApprove": {"ls": true, "git status": true}}`,
 			wantStatus: StatusUpdate,
 		},
 		{
@@ -222,7 +222,8 @@ func TestJSONCUpdate(t *testing.T) {
 	if res.Err != nil || res.Status != StatusUpdate {
 		t.Fatalf("result = %+v", res)
 	}
-	want := "{\n  \"url\": \"http://x//y\",\n  \"list\": [\n    1\n  ],\n  \"new\": true\n}\n"
+	// Comments, the trailing comma and the layout survive; the new key joins the last one.
+	want := "{\n  // note\n  \"url\": \"http://x//y\", /* c */\n  \"list\": [1,],\n  \"new\": true,\n}\n"
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -268,7 +269,8 @@ func TestTOMLMerge(t *testing.T) {
 	if res.Err != nil || res.Status != StatusUpdate {
 		t.Fatalf("result = %+v", res)
 	}
-	want := "approval = 'never'\nmodel = 'x'\n\n[mcp_servers]\n[mcp_servers.added]\nport = 8080\nurl = 'https://x.example'\n\n[mcp_servers.mine]\ncommand = 'a'\n\n[mcp_servers.shared]\nargs = ['1']\ncommand = 'new'\n"
+	// Live order and text stay; new keys join their table, new tables go last.
+	want := "model = \"x\"\napproval = \"never\"\n\n[mcp_servers.mine]\ncommand = \"a\"\n\n[mcp_servers.shared]\ncommand = \"new\"\nargs = [\"1\"]\n\n[mcp_servers.added]\nport = 8080\nurl = \"https://x.example\"\n"
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -425,7 +427,7 @@ func TestManifestRemovesStaleKeys(t *testing.T) {
 		t.Fatalf("second run: %+v", res)
 	}
 	// "empty" is a container, never recorded, so it is never removed.
-	want := "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\",\n    \"b\"\n  ],\n  \"empty\": {},\n  \"keep\": 1\n}\n"
+	want := `{"user": 1, "u": ["mine", "b"], "empty": {}, "keep": 1}`
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -435,7 +437,7 @@ func TestManifestRemovesStaleKeys(t *testing.T) {
 	if res.Err != nil || res.Status != StatusUpdate {
 		t.Fatalf("third run: %+v", res)
 	}
-	want = "{\n  \"user\": 1,\n  \"u\": [\n    \"mine\"\n  ],\n  \"empty\": {},\n  \"keep\": 1\n}\n"
+	want = `{"user": 1, "u": ["mine"], "empty": {}, "keep": 1}`
 	if diff := cmp.Diff(want, readFileT(t, path)); diff != "" {
 		t.Errorf("file (-want +got):\n%s", diff)
 	}
@@ -618,9 +620,8 @@ func TestObject(t *testing.T) {
 	}
 }
 
-// TestReviewXFail holds reproductions of engine bugs found in review. Each
-// subtest is skipped until the source is fixed; drop the t.Skip to verify.
-func TestReviewXFail(t *testing.T) {
+// TestReview holds reproductions of engine bugs found in review.
+func TestReview(t *testing.T) {
 	t.Parallel()
 
 	t.Run("an empty managed object is not recorded as a leaf, so user entries survive once a child is managed", func(t *testing.T) {
@@ -644,9 +645,8 @@ func TestReviewXFail(t *testing.T) {
 		}
 	})
 
-	t.Run("xfail: an update keeps the comments of a JSONC file", func(t *testing.T) {
+	t.Run("an update keeps the comments of a JSONC file", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: JSONC is stripped and re-encoded as plain JSON, so every user comment is lost on the first update")
 		dir := t.TempDir()
 		path := filepath.Join(dir, "opencode.jsonc")
 		writeFileT(t, path, "{\n  // why this theme: contrast\n  \"theme\": \"x\"\n}\n")
@@ -658,9 +658,8 @@ func TestReviewXFail(t *testing.T) {
 		}
 	})
 
-	t.Run("xfail: an update keeps the live key order and comments of a TOML file", func(t *testing.T) {
+	t.Run("an update keeps the live key order and comments of a TOML file", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: TOML goes through map[string]any, so live keys are re-sorted and comments dropped, against the documented 'keeps the live key order'")
 		dir := t.TempDir()
 		path := filepath.Join(dir, "config.toml")
 		writeFileT(t, path, "# my codex setup\nzeta = 1\nalpha = 2\n")
@@ -681,9 +680,8 @@ func TestReviewXFail(t *testing.T) {
 // process-wide allocation.
 //
 //nolint:paralleltest // measures process-wide allocation
-func TestReviewXFailDiffMemory(t *testing.T) {
-	t.Run("xfail: updating a large file does not allocate a quadratic diff table", func(t *testing.T) {
-		t.Skip("xfail: unifiedDiff builds an O(n*m) LCS table for every changed target, even when not a dry run; ~1.2 GB for a 12k-line file changed at both ends")
+func TestReviewDiffMemory(t *testing.T) {
+	t.Run("updating a large file does not allocate a quadratic diff table", func(t *testing.T) {
 		dir := t.TempDir()
 		path := filepath.Join(dir, "state.json")
 		var sb strings.Builder
