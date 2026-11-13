@@ -96,6 +96,7 @@ type builder struct {
 	warnings []string
 	errs     []error
 	seen     map[string]bool // target paths already added
+	expanded map[string]bool // values substituted for ${VAR} so far
 
 	lspDone bool
 	lsp     []LSPServer
@@ -113,7 +114,34 @@ func (b *builder) add(t apply.Target) {
 		return
 	}
 	b.seen[t.Path] = true
+	t.Sensitive = b.sensitiveIn(t.Managed)
 	b.targets = append(b.targets, t)
+}
+
+// getenv reads a variable for ${VAR} expansion and remembers its value, so a
+// target that ends up holding it can be redacted in terminal output.
+func (b *builder) getenv(name string) string {
+	v := b.env.Getenv(name)
+	if v != "" {
+		if b.expanded == nil {
+			b.expanded = map[string]bool{}
+		}
+		b.expanded[v] = true
+	}
+	return v
+}
+
+// sensitiveIn lists, sorted, the expanded values that managed content holds.
+func (b *builder) sensitiveIn(managed any) []string {
+	var out []string
+	text := fmt.Sprint(managed)
+	for v := range b.expanded {
+		if strings.Contains(text, v) {
+			out = append(out, v)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // warnf records a warning, once per distinct text.
@@ -132,7 +160,7 @@ func (b *builder) home(elem ...string) string {
 // expand expands ${VAR} references in s. When one is unset it warns, naming
 // where, and reports false: the caller skips the entry.
 func (b *builder) expand(where, s string) (string, bool) {
-	out, unset := config.Expand(s, b.env.Getenv)
+	out, unset := config.Expand(s, b.getenv)
 	if len(unset) > 0 {
 		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
@@ -142,7 +170,7 @@ func (b *builder) expand(where, s string) (string, bool) {
 
 // expandPath is expand with a leading ~ replaced by the home directory.
 func (b *builder) expandPath(where, p string) (string, bool) {
-	out, unset := config.ExpandPath(p, b.env.Home, b.env.Getenv)
+	out, unset := config.ExpandPath(p, b.env.Home, b.getenv)
 	if len(unset) > 0 {
 		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
@@ -327,7 +355,7 @@ func (b *builder) workspaceServers(where string, in map[string]config.MCPServer)
 func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServer, bool) {
 	var missing []string
 	ex := func(v string) string {
-		out, unset := config.Expand(v, b.env.Getenv)
+		out, unset := config.Expand(v, b.getenv)
 		missing = append(missing, unset...)
 		return out
 	}
