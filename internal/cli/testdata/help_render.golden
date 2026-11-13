@@ -1,4 +1,4 @@
-agents render — Render client-native configuration or prompt
+agents render — Print the native files apply would write
 
 USAGE
   agents render [options]
@@ -18,10 +18,10 @@ OPTIONS
     Show this help and exit.
 
 DEFAULTS
-  -part defaults to settings; -os defaults to the host operating system. Output goes to stdout.
+  Prints each target path and the keys agents manages in it; -harness limits the output to one harness.
 
 ENVIRONMENT
-  AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: configuration discovery.
+  AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory.
 
 EXAMPLES
-  agents render -harness pi -os linux
+  agents render -harness claude

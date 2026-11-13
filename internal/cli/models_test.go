@@ -228,7 +228,7 @@ func TestModelsRouting(t *testing.T) {
 		if code := d.Run(ctx, []string{"models", "help"}); code != 0 {
 			t.Fatalf("exit %d, want 0", code)
 		}
-		for _, want := range []string{"agents models", "COMMANDS", "sync", "Without a subcommand, displays the model tier list."} {
+		for _, want := range []string{"agents models", "COMMANDS", "sync", "Without a subcommand, displays the model tier list"} {
 			if !strings.Contains(stdout.String(), want) {
 				t.Errorf("usage lacks %q", want)
 			}

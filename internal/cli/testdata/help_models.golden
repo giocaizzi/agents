@@ -7,9 +7,9 @@ COMMANDS
   sync         Refresh model data and recompute tiers
 
 DEFAULTS
-  Without a subcommand, displays the model tier list.
+  Without a subcommand, displays the model tier list from the model catalog cache.
 
 ENVIRONMENT
-  AGENTS_CONFIG, CHEZMOI_SOURCE_DIR, HOME: catalog and configuration discovery.
+  AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory. XDG_CACHE_HOME (Windows LOCALAPPDATA): model catalog cache.
 
 Use agents help <command> for command-specific help.

@@ -1,14 +1,17 @@
-agents — Universal AI harness configuration and policy tools
+agents — Configure every AI coding harness from one config file
 
 USAGE
   agents [command] [options]
 
 COMMANDS
-  init         Detect harnesses and scaffold agents.toml
-  check        Validate policy, client parity, and plugins
-  render       Render client-native configuration or prompt
-  prompt       Display or validate the effective system prompt
-  mcp          Manage workspace MCP configuration
+  init         Write a starter config.toml
+  check        Validate the configuration and the native files
+  config       Inspect the resolved configuration
+  schema       Print the JSON Schema of the configuration
+  render       Print the native files apply would write
+  apply        Write the native files of every selected harness
+  prompt       Edit, show and check instruction layers
+  mcp          Manage MCP servers of workspaces
   models       Display model tiers (default) or sync data
   plugins      Inspect, update, or prune plugins
   usage        Show live provider account usage and refresh the cache

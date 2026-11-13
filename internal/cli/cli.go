@@ -24,6 +24,10 @@ type Deps struct {
 	Getenv  func(string) string
 	GOOS    string
 	Version string
+	// LookPath finds executables (default exec.LookPath).
+	LookPath func(string) (string, error)
+	// Hostname names this machine (default os.Hostname).
+	Hostname func() (string, error)
 }
 
 // Run dispatches subcommands with standard OS dependencies.
@@ -73,10 +77,16 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	}
 
 	switch cmd {
-	case "check":
+	case commandCheck:
 		return d.runCheck(ctx, rest)
+	case commandConfig:
+		return d.runConfig(ctx, rest)
+	case commandSchema:
+		return d.runSchema(ctx, rest)
 	case commandRender:
 		return d.runRender(ctx, rest)
+	case commandApply:
+		return d.runApply(ctx, rest)
 	case commandPrompt:
 		return d.runPrompt(ctx, rest)
 	case commandMCP:

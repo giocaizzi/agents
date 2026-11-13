@@ -22,10 +22,10 @@ OPTIONS
     Show this help and exit.
 
 DEFAULTS
-  Discovers harness.toml; -n previews changes; -f forces updates.
+  Pulls the registry checkout at most once a day (-force always); -n previews changes.
 
 ENVIRONMENT
-  HARNESS_DIR: registry checkout; CHEZMOI_SOURCE_DIR, HOME: configuration discovery.
+  AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory. XDG_DATA_HOME (Windows LOCALAPPDATA): registry checkouts.
 
 EXAMPLES
   agents plugins update -n
