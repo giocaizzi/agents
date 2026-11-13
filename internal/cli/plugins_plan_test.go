@@ -262,7 +262,7 @@ func TestPrintUpdateSummary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			var out bytes.Buffer
-			d := Deps{Stdout: &out}
+			d := Deps{Stdout: &out, Getenv: hermeticGetenv(t, nil)}
 			if got := d.printUpdateSummary(term.Style{}, tt.plans, tt.failed, tt.dryRun); got != tt.wantCode {
 				t.Errorf("printUpdateSummary() = %d, want %d", got, tt.wantCode)
 			}

@@ -53,12 +53,7 @@ func usageDeps(t *testing.T) (Deps, *bytes.Buffer, *bytes.Buffer, string) {
 	var out, errb bytes.Buffer
 	d := Deps{
 		Stdout: &out, Stderr: &errb, GOOS: runtime.GOOS,
-		Getenv: func(k string) string {
-			if k == "XDG_CACHE_HOME" {
-				return cacheHome
-			}
-			return ""
-		},
+		Getenv: hermeticGetenv(t, map[string]string{"XDG_CACHE_HOME": cacheHome}),
 	}
 	return d, &out, &errb, filepath.Join(cacheHome, "agents", "usage.json")
 }

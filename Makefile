@@ -31,10 +31,9 @@ check-fast: ## Tests without the race detector
 build: ## Static binary into bin/
 	CGO_ENABLED=0 go build -trimpath -o bin/agents ./cmd/agents
 
-install: build ## Put the binary on PATH (~/.local/bin) with chezmoi plugin symlink
+install: build ## Put the binary on PATH (~/.local/bin)
 	install -d $(HOME)/.local/bin
 	install bin/agents $(HOME)/.local/bin/agents
-	ln -sf $(HOME)/.local/bin/agents $(HOME)/.local/bin/chezmoi-agents
 
 readme-images: ## Frame raw screenshots with macOS canvas styling for README
 	@if [ -f scripts/readme-images.mjs ]; then node scripts/readme-images.mjs; fi

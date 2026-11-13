@@ -86,7 +86,7 @@ func TestPromptGroup(t *testing.T) {
 		code int
 	}{{nil, 0}, {[]string{"-h"}, 0}, {[]string{"bogus"}, 2}} {
 		var out, errb bytes.Buffer
-		d := Deps{Stdout: &out, Stderr: &errb, Getenv: func(string) string { return "" }}
+		d := Deps{Stdout: &out, Stderr: &errb, Getenv: hermeticGetenv(t, nil)}
 		if code := d.Run(t.Context(), append([]string{"prompt"}, tt.args...)); code != tt.code {
 			t.Errorf("prompt %v: code=%d, want %d", tt.args, code, tt.code)
 		}

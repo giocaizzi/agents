@@ -16,6 +16,8 @@ func helpDeps(out, err *bytes.Buffer) Deps {
 		switch key {
 		case "HARNESS_DIR", "NO_COLOR", "TERM":
 			return ""
+		case "HOME", "USERPROFILE": // a path that exists nowhere
+			return filepath.Join(string(filepath.Separator), "nonexistent", "agents-test-home")
 		default:
 			panic("help accessed execution environment: " + key)
 		}
@@ -141,20 +143,24 @@ func TestHelpGroupAliases(t *testing.T) {
 
 func TestHelpParserBoundaries(t *testing.T) {
 	t.Parallel()
-	for _, args := range [][]string{
-		{"render", "-file", "--help"},
-		{"render", "-file=--help"},
-		{"render", "--", "--help"},
-		{"render", "positional", "--help"},
-		{"models", "-file", "--help"},
-		{"plugins", "-file", "--help"},
+	for _, tt := range []struct {
+		args []string
+		code int
+	}{
+		{[]string{"render", "-file", "--help"}, 1},
+		{[]string{"render", "-file=--help"}, 1},
+		{[]string{"render", "--", "--help"}, 0},
+		{[]string{"render", "positional", "--help"}, 0},
+		{[]string{"models", "-file", "--help"}, 1},
+		{[]string{"plugins", "-file", "--help"}, 1},
 	} {
+		args := tt.args
 		t.Run(strings.Join(args, " "), func(t *testing.T) {
 			t.Parallel()
 			var out, err bytes.Buffer
-			d := Deps{Stdout: &out, Stderr: &err, Getenv: func(string) string { return "" }}
-			if code := d.Run(t.Context(), args); code != 1 {
-				t.Errorf("code=%d, want execution error 1; out=%s err=%s", code, &out, &err)
+			d := Deps{Stdout: &out, Stderr: &err, Getenv: hermeticGetenv(t, nil)}
+			if code := d.Run(t.Context(), args); code != tt.code {
+				t.Errorf("code=%d, want %d; out=%s err=%s", code, tt.code, &out, &err)
 			}
 			if strings.Contains(out.String()+err.String(), "USAGE") {
 				t.Errorf("argument or flag value interpreted as help: %s %s", &out, &err)
@@ -170,7 +176,7 @@ func TestHelpMCPForwardedArguments(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			var out, err bytes.Buffer
-			d := Deps{Stdout: &out, Stderr: &err, Getenv: func(string) string { return "" }}
+			d := Deps{Stdout: &out, Stderr: &err, Getenv: hermeticGetenv(t, nil)}
 			args := append([]string{"mcp", "add", "-dir", dir, "-no-sync", "example", "example-server"}, forwarded...)
 			if code := d.Run(t.Context(), args); code != 0 {
 				t.Fatalf("code=%d: %s", code, &err)
@@ -260,22 +266,20 @@ func TestHelpPluginAliases(t *testing.T) {
 }
 
 func TestHelpBareGroupsStillExecute(t *testing.T) {
-	// Discovery falls back to the real home and relative paths: isolate both.
-	dir := t.TempDir()
-	t.Chdir(dir)
-	for _, command := range []string{"models", "plugins"} {
-		t.Run(command, func(t *testing.T) {
+	t.Parallel()
+	// models has no catalog without a config (1 with an error); plugins lists none (0).
+	for _, tt := range []struct {
+		command string
+		code    int
+	}{{"models", 1}, {"plugins", 0}} {
+		t.Run(tt.command, func(t *testing.T) {
+			t.Parallel()
 			var out, err bytes.Buffer
-			d := Deps{Stdout: &out, Stderr: &err, Getenv: func(key string) string {
-				if key == "HOME" || key == "CHEZMOI_SOURCE_DIR" || key == "XDG_CACHE_HOME" {
-					return dir
-				}
-				return ""
-			}}
-			if code := d.Run(t.Context(), []string{command}); code != 1 {
-				t.Errorf("code=%d, want configuration discovery error 1: %s %s", code, &out, &err)
+			d := Deps{Stdout: &out, Stderr: &err, Getenv: hermeticGetenv(t, nil)}
+			if code := d.Run(t.Context(), []string{tt.command}); code != tt.code {
+				t.Errorf("code=%d, want %d: %s %s", code, tt.code, &out, &err)
 			}
-			if err.Len() == 0 || strings.Contains(out.String()+err.String(), "USAGE") {
+			if out.Len()+err.Len() == 0 || strings.Contains(out.String()+err.String(), "USAGE") {
 				t.Errorf("bare group did not execute default action: %s %s", &out, &err)
 			}
 		})
@@ -299,16 +303,27 @@ func TestHelpVersionAliases(t *testing.T) {
 
 func TestHelpBeforeWrites(t *testing.T) {
 	t.Parallel()
-	for _, args := range [][]string{
-		{"init", "-dir"}, {"mcp", "add", "-dir"},
-	} {
-		t.Run(strings.Join(args, " "), func(t *testing.T) {
+	tests := []struct {
+		name string
+		args func(dir string) []string
+		env  func(dir string) map[string]string
+	}{
+		{
+			"init", func(string) []string { return []string{"init", "-force", "--help"} },
+			func(dir string) map[string]string { return map[string]string{"XDG_CONFIG_HOME": dir} },
+		},
+		{
+			"mcp add", func(dir string) []string { return []string{"mcp", "add", "-dir", dir, "--help"} },
+			func(string) map[string]string { return nil },
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			dir := t.TempDir()
 			var out, err bytes.Buffer
-			d := helpDeps(&out, &err)
-			invocation := append(append([]string{}, args...), dir, "--help")
-			if code := d.Run(t.Context(), invocation); code != 0 {
+			d := Deps{Stdout: &out, Stderr: &err, Getenv: hermeticGetenv(t, tt.env(dir))}
+			if code := d.Run(t.Context(), tt.args(dir)); code != 0 {
 				t.Fatalf("code=%d: %s", code, &err)
 			}
 			entries, e := os.ReadDir(dir)
