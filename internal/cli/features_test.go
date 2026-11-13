@@ -7,6 +7,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/giocaizzi/agents/internal/feature"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -108,22 +109,40 @@ auto_compact_window = 500000
 	for _, f := range got.Findings {
 		bySeverity[f["where"]+"/"+f["severity"]] = f
 	}
-	if len(got.Findings) != 4 {
-		t.Fatalf("findings = %v, want one warning and one info for each of the two keys", got.Findings)
+	// The expectation follows the registry, so rendering a planned cell does
+	// not break this test: each set key gives one info naming its unsupported
+	// selected harnesses and one warning naming its planned ones.
+	selected := []string{"claude", "codex", "pi"}
+	want := 0
+	for _, key := range []string{"context.max_tokens", "context.auto_compact_window"} {
+		f, ok := feature.Lookup(key)
+		if !ok {
+			t.Fatalf("%s is not in the registry", key)
+		}
+		for sev, status := range map[string]feature.Status{"info": feature.StatusUnsupported, "warning": feature.StatusPlanned} {
+			var hs []string
+			for _, h := range selected {
+				if f.Cells[h].Status == status {
+					hs = append(hs, h)
+				}
+			}
+			m, found := bySeverity[key+"/"+sev]
+			if len(hs) == 0 {
+				if found {
+					t.Errorf("%s %s = %q, want none", key, sev, m["message"])
+				}
+				continue
+			}
+			want++
+			for _, h := range hs {
+				if !strings.Contains(m["message"], h+" (") {
+					t.Errorf("%s %s = %q, want %s", key, sev, m["message"], h)
+				}
+			}
+		}
 	}
-	warn := bySeverity["context.max_tokens/warning"]["message"]
-	if !strings.HasPrefix(warn, "no effect on claude (") || !strings.Contains(warn, "CLAUDE_CODE_MAX_OUTPUT_TOKENS") {
-		t.Errorf("planned message = %q", warn)
-	}
-	info := bySeverity["context.max_tokens/info"]["message"]
-	if !strings.HasPrefix(info, "no effect on codex (") || !strings.Contains(info, "; pi (") {
-		t.Errorf("unsupported message = %q: want every harness once", info)
-	}
-	if m := bySeverity["context.auto_compact_window/warning"]["message"]; !strings.HasPrefix(m, "no effect on pi (") || strings.Contains(m, "claude") {
-		t.Errorf("auto_compact_window warning = %q, want pi only", m)
-	}
-	if m := bySeverity["context.auto_compact_window/info"]["message"]; !strings.HasPrefix(m, "no effect on codex (") || strings.Contains(m, "claude") {
-		t.Errorf("auto_compact_window info = %q, want codex only", m)
+	if len(got.Findings) != want {
+		t.Errorf("findings = %v, want %d", got.Findings, want)
 	}
 }
 
