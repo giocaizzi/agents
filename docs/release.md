@@ -20,12 +20,12 @@
 1. On an up-to-date `main` with CI green: `git switch main && git pull --ff-only`.
 2. Tag with release notes in the message (highlights and breaking changes, with what users must do): `git tag -a vX.Y.Z -m "vX.Y.Z" -m "<notes>"`.
 3. Push only the tag: `git push origin vX.Y.Z`. `release.yml` builds, attests and publishes the release.
-4. After it succeeds, set `.release-please-manifest.json` to `X.Y.Z` in a follow-up commit on `main`, so release-please continues from it once activated. No `CHANGELOG.md` entry is written for manual releases.
+4. After it succeeds, set `.release-please-manifest.json` to `X.Y.Z` in a follow-up PR to `main` (it requires PRs), so release-please continues from it once activated. No `CHANGELOG.md` entry is written for manual releases.
 
 ### Activating release-please
 
 1. Create a GitHub App with repository permissions Contents: write and Pull requests: write, and install it on this repository.
-2. Add the repository secrets `RP_APP_ID` (the App ID) and `RP_APP_KEY` (a generated private key).
+2. Add the repository secrets `RP_CLIENT_ID` (the App's Client ID) and `RP_APP_KEY` (a generated private key).
 3. Check `.release-please-manifest.json` matches the latest released version.
 4. Set the repository variable `RELEASE_PLEASE` to `true`. From then on `release.yml` stops publishing; do not push tags by hand.
 5. Release: land changes with the right Conventional Commit type, wait for the Release PR, check its version and changelog against `git log --oneline v<last>..main`, merge it. Do not edit `CHANGELOG.md` or `.release-please-manifest.json`; release-please owns them.
