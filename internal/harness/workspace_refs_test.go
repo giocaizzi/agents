@@ -33,7 +33,7 @@ func TestWorkspaceKeepsReferences(t *testing.T) {
 	servers := func(rel, key string) map[string]any {
 		t.Helper()
 		for _, tg := range b.targets {
-			if r, _ := filepath.Rel(filepath.Join(home, "ops"), tg.Path); r == rel {
+			if r, _ := filepath.Rel(filepath.Join(home, "ops"), tg.Path); filepath.ToSlash(r) == rel {
 				m, _ := tg.Managed.(map[string]any)
 				s, _ := m[key].(map[string]any)
 				return s

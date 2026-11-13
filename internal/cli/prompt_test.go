@@ -128,7 +128,7 @@ func TestPromptEdit(t *testing.T) {
 			if tt.want != nil {
 				argv := make([]string, len(tt.want))
 				for i, a := range tt.want {
-					argv[i] = strings.ReplaceAll(a, "DIR", e.dir)
+					argv[i] = strings.ReplaceAll(strings.ReplaceAll(a, "DIR/", e.dir+string(filepath.Separator)), "DIR", e.dir)
 				}
 				want = [][]string{argv}
 			}

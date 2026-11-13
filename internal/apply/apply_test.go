@@ -444,14 +444,14 @@ func TestManifestRemovesStaleKeys(t *testing.T) {
 
 	// Manifest format.
 	got := readFileT(t, e.StatePath)
-	if !strings.Contains(got, `"version": 1`) || !strings.Contains(got, path) {
+	if !strings.Contains(got, `"version": 1`) || !strings.Contains(got, strconv.Quote(path)) {
 		t.Errorf("manifest = %s", got)
 	}
 	info, statErr := os.Stat(e.StatePath)
 	if statErr != nil {
 		t.Fatal(statErr)
 	}
-	if info.Mode().Perm() != 0o600 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o600 {
 		t.Errorf("manifest mode = %v", info.Mode().Perm())
 	}
 }
@@ -478,7 +478,7 @@ func TestManifestVersionMismatchIsEmpty(t *testing.T) {
 	path := filepath.Join(dir, "s.json")
 	e := engineIn(dir)
 	writeFileT(t, path, `{"old": 1, "k": 1}`)
-	writeFileT(t, e.StatePath, `{"version":99,"files":{"`+path+`":{"keys":[["old"]]}}}`)
+	writeFileT(t, e.StatePath, `{"version":99,"files":{`+strconv.Quote(path)+`:{"keys":[["old"]]}}}`)
 	res := runOne(t, e, Target{Path: path, Format: JSON, Managed: map[string]any{"k": 1}})
 	if res.Status != StatusUnchanged {
 		t.Errorf("status = %q, want unchanged (old manifest ignored)", res.Status)
@@ -508,7 +508,7 @@ func TestModes(t *testing.T) {
 		if statErr != nil {
 			t.Fatal(statErr)
 		}
-		if info.Mode().Perm() != want {
+		if runtime.GOOS != "windows" && info.Mode().Perm() != want {
 			t.Errorf("%s mode = %v, want %v", filepath.Base(path), info.Mode().Perm(), want)
 		}
 	}
@@ -516,7 +516,7 @@ func TestModes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if info.Mode().Perm() != 0o700 {
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0o700 {
 		t.Errorf("dir mode = %v", info.Mode().Perm())
 	}
 	// No temp files left behind.

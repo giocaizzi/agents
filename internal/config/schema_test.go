@@ -36,7 +36,7 @@ func TestSchemaDrift(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(got, want) {
+	if !bytes.Equal(got, bytes.ReplaceAll(want, []byte("\r\n"), []byte("\n"))) {
 		t.Error("schema/config.schema.json is stale; run go test ./internal/config -run TestSchemaDrift -update")
 	}
 }

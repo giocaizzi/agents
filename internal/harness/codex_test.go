@@ -30,7 +30,7 @@ func renderOne(t *testing.T, cfg config.Config, h config.Harness, home string) P
 func planTargetAt(t *testing.T, plan Plan, path string) apply.Target {
 	t.Helper()
 	for _, tg := range plan.Targets {
-		if tg.Path == path {
+		if tg.Path == filepath.FromSlash(path) {
 			return tg
 		}
 	}

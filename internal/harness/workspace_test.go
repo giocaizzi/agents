@@ -63,7 +63,7 @@ func TestRenderWorkspaces(t *testing.T) {
 	got := map[string]string{}
 	for _, tg := range b.targets {
 		rel, _ := filepath.Rel(filepath.Join(home, "ops"), tg.Path)
-		got[rel] = tg.Owner + " " + tg.Mode.String()
+		got[filepath.ToSlash(rel)] = tg.Owner + " " + tg.Mode.String()
 	}
 	want := map[string]string{
 		".mcp.json":          "claude -rw-------",
@@ -98,7 +98,7 @@ func TestRenderWorkspacesOnly(t *testing.T) {
 	got := make([]string, 0, len(plan.Targets))
 	for _, tg := range plan.Targets {
 		rel, _ := filepath.Rel(home, tg.Path)
-		got = append(got, rel)
+		got = append(got, filepath.ToSlash(rel))
 	}
 	want := []string{"ops/.mcp.json", "ops/.codex/config.toml"}
 	if diff := cmp.Diff(want, got); diff != "" {
