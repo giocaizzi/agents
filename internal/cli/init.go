@@ -2,124 +2,142 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
+	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/term"
 )
 
-const initialConfigTemplate = `# agents.toml — Universal AI Agent Harness Configuration
-
-[agents]
+// starterConfig is the starter file; the verbs are the schema id and the
+// harnesses array.
+const starterConfig = `#:schema %s
+schema_version = 1
 harnesses = %s
-theme     = "dark"
 
-[models]
-driver    = "claude-3-7-sonnet"
-scout     = "gemini-2.5-flash"
-routine   = "claude-3-5-haiku"
-escalate  = "claude-3-opus"
+# Everything below is an example: uncomment and adapt.
 
-[tools]
-deny      = ["rm -rf", "sudo", "git push --force"]
-allow     = ["git status", "git diff", "make", "cargo test", "uv run"]
+# Select a profile (a machine fact) and give it instruction layers.
+# profile = "work"
+# [profiles.work]
+# instructions = ["core"]
 
-[lsp]
-pyright   = { command = "pyright-langserver", languages = ["python"] }
-gopls     = { command = "gopls",              languages = ["go"] }
-ts        = { command = "typescript-language-server", languages = ["typescript", "javascript"] }
+# Instruction layers are files in the instructions directory.
+# [instructions.layers.core]
+# file = "core.md"
 
-[mcp]
-filesystem = { command = "npx", args = ["-y", "@modelcontextprotocol/server-filesystem", "."] }
-fetch      = { command = "uvx", args = ["mcp-server-fetch"] }
+# Model tiers hold one native model id per harness; assign tiers to agents.
+# [models]
+# default = "main"
+# [models.tiers.main]
+# claude = "claude-sonnet-4-5"
+# [models.assign]
+# "acme/*" = "main"
 
-[profiles.default]
-instructions = ["prompts/core.md", "prompts/principles.md"]
-
-[plugins]
-registry = "https://github.com/example/harness"
-enabled  = ["core", "dev-tools"]
+# MCP servers: exactly one of url or command.
+# [mcp.servers.docs]
+# url = "https://mcp.example.com/mcp"
 `
 
 func (d Deps) runInit(_ context.Context, args []string) int {
-	fs := d.newFlags("init")
-	global := fs.Bool("global", false, "Write config to ~/.config/agents/agents.toml")
-	dirFlag := fs.String("dir", "", "Target directory to write agents.toml")
-	if err := fs.Parse(args); err != nil {
-		return d.parseFailure(fs, err)
+	flags := d.newFlags("init")
+	cf := addConfigFlags(flags)
+	force := flags.Bool("force", false, "overwrite an existing config file")
+	printOnly := flags.Bool("print", false, "write the starter file to stdout and touch nothing")
+	if err := flags.Parse(args); err != nil {
+		return d.parseFailure(flags, err)
 	}
-
 	st := term.NewStyle(d.Stdout, d.Getenv)
-	b := st.B
-	m := st.M
-	o := st.O
 
-	detected := detectInstalledHarnesses()
-	harnessList := `["claude", "copilot", "antigravity", "codex", "opencode", "pi"]`
-	if len(detected) > 0 {
-		var quoted []string
-		for _, h := range detected {
-			quoted = append(quoted, fmt.Sprintf("%q", h))
+	dirs := config.ResolveDirs(d.Getenv, d.GOOS, d.home())
+	target := d.Getenv("AGENTS_CONFIG")
+	if cf.file != "" && cf.file != stdinPath {
+		target = cf.file
+	}
+	if target == "" {
+		target = filepath.Join(dirs.Config, "config.toml")
+	}
+
+	if !*printOnly && !*force {
+		if _, err := os.Stat(target); err == nil {
+			fmt.Fprintf(d.Stdout, "%s already exists; use -force to overwrite it\n", target)
+			return exitOK
 		}
-		harnessList = fmt.Sprintf("[%s]", strings.Join(quoted, ", "))
 	}
 
-	targetPath := "agents.toml"
-	if *dirFlag != "" {
-		targetPath = filepath.Clean(filepath.Join(*dirFlag, "agents.toml"))
-	} else if *global {
-		home, err := os.UserHomeDir()
-		if err != nil {
-			fmt.Fprintf(d.Stderr, "%scannot find home directory: %v%s\n", st.R, err, o)
-			return 1
-		}
-		dir := filepath.Clean(filepath.Join(home, ".config", "agents"))
-		if err := os.MkdirAll(dir, 0o700); err != nil {
-			fmt.Fprintf(d.Stderr, "%scannot create directory %s: %v%s\n", st.R, dir, err, o)
-			return 1
-		}
-		targetPath = filepath.Join(dir, "agents.toml")
+	hs, err := d.detectHarnesses(dirs.Config, target)
+	if err != nil {
+		fmt.Fprintf(d.Stderr, "%s%v%s\n", st.R, err, st.O)
+		return exitFindings
+	}
+	content := starterContent(hs)
+	if *printOnly {
+		fmt.Fprint(d.Stdout, content)
+		return exitOK
 	}
 
-	if _, err := os.Stat(targetPath); err == nil {
-		fmt.Fprintf(d.Stderr, "%sconfig file already exists at %s%s\n", st.Y, targetPath, o)
-		return 0
+	if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
+		fmt.Fprintf(d.Stderr, "%screate directory: %v%s\n", st.R, err, st.O)
+		return exitFindings
 	}
-
-	content := fmt.Sprintf(initialConfigTemplate, harnessList)
-	if err := os.WriteFile(targetPath, []byte(content), 0o600); err != nil {
-		fmt.Fprintf(d.Stderr, "%sfailed to write %s: %v%s\n", st.R, targetPath, err, o)
-		return 1
+	if err := os.WriteFile(target, []byte(content), 0o600); err != nil {
+		fmt.Fprintf(d.Stderr, "%swrite %s: %v%s\n", st.R, target, err, st.O)
+		return exitFindings
 	}
-
-	fmt.Fprintf(d.Stdout, "%s✓%s Detected harnesses: %s%s%s\n", b, o, m, strings.Join(detected, ", "), o)
-	fmt.Fprintf(d.Stdout, "%s✓%s Initialized configuration: %s%s%s\n", b, o, m, targetPath, o)
-	return 0
+	fmt.Fprintf(d.Stdout, "%s✓%s Detected harnesses: %s%s%s\n", st.B, st.O, st.M, strings.Join(hs, ", "), st.O)
+	fmt.Fprintf(d.Stdout, "%s✓%s Wrote %s%s%s\n", st.B, st.O, st.M, target, st.O)
+	return exitOK
 }
 
-func detectInstalledHarnesses() []string {
-	var detected []string
-	home, err := os.UserHomeDir()
+// detectHarnesses lists the harnesses whose home exists, ignoring any config
+// file at target so that -force and -print detect afresh.
+func (d Deps) detectHarnesses(cwd, target string) ([]string, error) {
+	r, err := config.Load(config.Options{
+		Getenv: func(k string) string {
+			switch k {
+			case "AGENTS_CONFIG", "AGENTS_HARNESSES", "AGENTS_PROFILE":
+				return ""
+			}
+			return d.Getenv(k)
+		},
+		GOOS: d.GOOS,
+		Home: d.home(),
+		Cwd:  cwd,
+		Stat: func(p string) (fs.FileInfo, error) {
+			if p == target {
+				return nil, fs.ErrNotExist
+			}
+			return os.Stat(p)
+		},
+		ReadFile: func(p string) ([]byte, error) {
+			if p == target {
+				return nil, fs.ErrNotExist
+			}
+			return os.ReadFile(p) //nolint:gosec // config paths come from the user
+		},
+	})
 	if err != nil {
-		return detected
-	}
-	checks := []struct {
-		name string
-		path string
-	}{
-		{harnessClaude, filepath.Join(home, ".claude")},
-		{harnessCopilot, filepath.Join(home, ".copilot")},
-		{harnessAntigravity, filepath.Join(home, ".gemini", "antigravity-cli")},
-		{harnessCodex, filepath.Join(home, ".codex")},
-		{harnessOpencode, filepath.Join(home, ".opencode")},
-		{harnessPi, filepath.Join(home, ".pi")},
-	}
-	for _, c := range checks {
-		if _, err := os.Stat(c.path); err == nil {
-			detected = append(detected, c.name)
+		if errors.Is(err, fs.ErrNotExist) {
+			return nil, nil
 		}
+		return nil, fmt.Errorf("detect harnesses: %w", err)
 	}
-	return detected
+	out := make([]string, 0, len(r.Harnesses))
+	for _, h := range r.Harnesses {
+		out = append(out, string(h))
+	}
+	return out, nil
+}
+
+func starterContent(hs []string) string {
+	quoted := make([]string, 0, len(hs))
+	for _, h := range hs {
+		quoted = append(quoted, strconv.Quote(h))
+	}
+	return fmt.Sprintf(starterConfig, config.SchemaID, "["+strings.Join(quoted, ", ")+"]")
 }
