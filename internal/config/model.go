@@ -119,18 +119,45 @@ type Permissions struct {
 	AllowedMCP           []string `json:"allowed_mcp,omitempty"            jsonschema:"description=MCP servers or tools allowed without asking"            toml:"allowed_mcp,omitempty"`
 }
 
-// Models holds the model tiers and catalog preferences.
+// Models holds the model tiers, the agent assignments and the catalog
+// preferences. Tier names and assignment keys are free strings.
 type Models struct {
-	DefaultEffortLevel    string               `json:"default_effort_level,omitempty"    jsonschema:"description=Default reasoning effort"     toml:"default_effort_level,omitempty"`
-	ShowThinkingSummaries bool                 `json:"show_thinking_summaries,omitempty" jsonschema:"description=Show thinking summaries"      toml:"show_thinking_summaries,omitempty"`
-	Tiers                 map[string]ModelTier `json:"tiers,omitempty"                   jsonschema:"description=Named model tiers (any name)" toml:"tiers,omitempty"`
-	Catalog               Catalog              `json:"catalog,omitzero"                  jsonschema:"description=Model catalog preferences"    toml:"catalog,omitzero"`
+	DefaultEffortLevel    string            `json:"default_effort_level,omitempty"    jsonschema:"description=Default reasoning effort"                                                 toml:"default_effort_level,omitempty"`
+	ShowThinkingSummaries bool              `json:"show_thinking_summaries,omitempty" jsonschema:"description=Show thinking summaries"                                                  toml:"show_thinking_summaries,omitempty"`
+	Default               string            `json:"default,omitempty"                 jsonschema:"description=Tier of each harness's main session model"                                toml:"default,omitempty"`
+	Tiers                 map[string]Tier   `json:"tiers,omitempty"                   jsonschema:"description=Named model tiers (any name)"                                             toml:"tiers,omitempty"`
+	Assign                map[string]string `json:"assign,omitempty"                  jsonschema:"description=Tier per agent id (any key; globs allowed; an exact key wins over globs)" toml:"assign,omitempty"`
+	Catalog               Catalog           `json:"catalog,omitzero"                  jsonschema:"description=Model catalog preferences"                                                toml:"catalog,omitzero"`
 }
 
-// ModelTier is one named tier.
-type ModelTier struct {
-	Model  string `json:"model,omitempty"  jsonschema:"description=Model identifier" toml:"model,omitempty"`
-	Effort string `json:"effort,omitempty" jsonschema:"description=Reasoning effort" toml:"effort,omitempty"`
+// Tier is one named tier: a native model id per harness, all optional. A
+// harness without a model keeps its plugin or session default.
+type Tier struct {
+	Claude      string            `json:"claude,omitempty"      jsonschema:"description=Claude Code model id"                            toml:"claude,omitempty"`
+	Copilot     string            `json:"copilot,omitempty"     jsonschema:"description=Copilot CLI model id"                            toml:"copilot,omitempty"`
+	VSCode      string            `json:"vscode,omitempty"      jsonschema:"description=VS Code model id"                                toml:"vscode,omitempty"`
+	Codex       string            `json:"codex,omitempty"       jsonschema:"description=Codex model id"                                  toml:"codex,omitempty"`
+	OpenCode    string            `json:"opencode,omitempty"    jsonschema:"description=opencode model id (provider/id)"                 toml:"opencode,omitempty"`
+	Pi          string            `json:"pi,omitempty"          jsonschema:"description=pi model id"                                     toml:"pi,omitempty"`
+	Antigravity string            `json:"antigravity,omitempty" jsonschema:"description=Antigravity model id"                            toml:"antigravity,omitempty"`
+	Effort      string            `json:"effort,omitempty"      jsonschema:"description=Reasoning effort"                                toml:"effort,omitempty"`
+	Efforts     map[string]string `json:"efforts,omitempty"     jsonschema:"description=Reasoning effort per harness (overrides effort)" toml:"efforts,omitempty"`
+}
+
+// Model returns the tier's model id for h, "" when unset.
+func (t Tier) Model(h Harness) string {
+	return map[Harness]string{
+		Claude: t.Claude, Copilot: t.Copilot, VSCode: t.VSCode, Codex: t.Codex,
+		OpenCode: t.OpenCode, Pi: t.Pi, Antigravity: t.Antigravity,
+	}[h]
+}
+
+// EffortFor returns the tier's effort for h: the per-harness override, else effort.
+func (t Tier) EffortFor(h Harness) string {
+	if e := t.Efforts[string(h)]; e != "" {
+		return e
+	}
+	return t.Effort
 }
 
 // Catalog holds the model catalog preferences.
@@ -300,15 +327,8 @@ type ClaudeSettings struct {
 
 // CopilotSettings are the Copilot CLI settings.
 type CopilotSettings struct {
-	Agents       map[string]CopilotAgent `json:"agents,omitempty"       jsonschema:"description=Per-agent model settings (any agent name)"               toml:"agents,omitempty"`
-	Settings     map[string]any          `json:"settings,omitempty"     jsonschema:"description=Native settings merged as is (any key)"                  toml:"settings,omitempty"`
-	Instructions []string                `json:"instructions,omitempty" jsonschema:"description=Instruction layers composed for this harness (in order)" toml:"instructions,omitempty"`
-}
-
-// CopilotAgent is the model setting of one Copilot agent.
-type CopilotAgent struct {
-	Model       string `json:"model,omitempty"        jsonschema:"description=Model identifier" toml:"model,omitempty"`
-	EffortLevel string `json:"effort_level,omitempty" jsonschema:"description=Reasoning effort" toml:"effort_level,omitempty"`
+	Settings     map[string]any `json:"settings,omitempty"     jsonschema:"description=Native settings merged as is (any key)"                  toml:"settings,omitempty"`
+	Instructions []string       `json:"instructions,omitempty" jsonschema:"description=Instruction layers composed for this harness (in order)" toml:"instructions,omitempty"`
 }
 
 // VSCodeSettings are the VS Code settings.

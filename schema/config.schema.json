@@ -308,29 +308,8 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "CopilotAgent": {
-      "properties": {
-        "model": {
-          "type": "string",
-          "description": "Model identifier"
-        },
-        "effort_level": {
-          "type": "string",
-          "description": "Reasoning effort"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "CopilotSettings": {
       "properties": {
-        "agents": {
-          "additionalProperties": {
-            "$ref": "#/$defs/CopilotAgent"
-          },
-          "type": "object",
-          "description": "Per-agent model settings (any agent name)"
-        },
         "settings": {
           "type": "object",
           "description": "Native settings merged as is (any key)"
@@ -542,20 +521,6 @@
       "additionalProperties": false,
       "type": "object"
     },
-    "ModelTier": {
-      "properties": {
-        "model": {
-          "type": "string",
-          "description": "Model identifier"
-        },
-        "effort": {
-          "type": "string",
-          "description": "Reasoning effort"
-        }
-      },
-      "additionalProperties": false,
-      "type": "object"
-    },
     "Models": {
       "properties": {
         "default_effort_level": {
@@ -566,12 +531,23 @@
           "type": "boolean",
           "description": "Show thinking summaries"
         },
+        "default": {
+          "type": "string",
+          "description": "Tier of each harness's main session model"
+        },
         "tiers": {
           "additionalProperties": {
-            "$ref": "#/$defs/ModelTier"
+            "$ref": "#/$defs/Tier"
           },
           "type": "object",
           "description": "Named model tiers (any name)"
+        },
+        "assign": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Tier per agent id (any key; globs allowed; an exact key wins over globs)"
         },
         "catalog": {
           "$ref": "#/$defs/Catalog",
@@ -988,6 +964,51 @@
           },
           "type": "object",
           "description": "Service name per harness (any name)"
+        }
+      },
+      "additionalProperties": false,
+      "type": "object"
+    },
+    "Tier": {
+      "properties": {
+        "claude": {
+          "type": "string",
+          "description": "Claude Code model id"
+        },
+        "copilot": {
+          "type": "string",
+          "description": "Copilot CLI model id"
+        },
+        "vscode": {
+          "type": "string",
+          "description": "VS Code model id"
+        },
+        "codex": {
+          "type": "string",
+          "description": "Codex model id"
+        },
+        "opencode": {
+          "type": "string",
+          "description": "opencode model id (provider/id)"
+        },
+        "pi": {
+          "type": "string",
+          "description": "pi model id"
+        },
+        "antigravity": {
+          "type": "string",
+          "description": "Antigravity model id"
+        },
+        "effort": {
+          "type": "string",
+          "description": "Reasoning effort"
+        },
+        "efforts": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Reasoning effort per harness (overrides effort)"
         }
       },
       "additionalProperties": false,

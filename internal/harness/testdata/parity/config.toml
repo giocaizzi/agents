@@ -117,21 +117,30 @@ show_thinking_summaries = true
 providers = ["anthropic", "google", "moonshotai", "openai", "xai"]
 since = "2026-01-01"
 
-[models.tiers.scout]
-model = "gpt-6-luna"
+# Free-named tiers; models.assign is the only join between agent ids and tiers.
+[models.tiers.light]
+copilot = "gpt-6-luna"
 effort = "low"
 
-[models.tiers.worker]
-model = "gpt-6-luna"
+[models.tiers.standard]
+copilot = "gpt-6-luna"
 effort = "medium"
 
-[models.tiers.driver]
-model = "gpt-6.1-sol"
+[models.tiers.strong]
+copilot = "gpt-6.1-sol"
 effort = "medium"
 
-[models.tiers.escalate]
-model = "gpt-6-astra"
+[models.tiers.frontier]
+copilot = "gpt-6-astra"
 effort = "medium"
+
+[models.assign]
+"dev-tools:scout" = "light"
+"dev-tools:worker" = "standard"
+"dev-tools:reviewer" = "standard"
+"dev-tools:driver" = "strong"
+"foundations:api-reviewer" = "strong"
+"dev-tools:escalate" = "frontier"
 
 [context]
 auto_compact = true
@@ -295,14 +304,6 @@ notifyAfterSeconds = 0
 soundCacheExpiring = "off"
 soundCacheExpired = "off"
 soundSubagent = "off"
-
-[harness.copilot.agents]
-"dev-tools:scout" = { model = "gpt-6-luna", effort_level = "low" }
-"foundations:api-reviewer" = { model = "gpt-6.1-sol", effort_level = "medium" }
-"dev-tools:escalate" = { model = "gpt-6-astra", effort_level = "medium" }
-"dev-tools:driver" = { model = "gpt-6.1-sol", effort_level = "medium" }
-"dev-tools:reviewer" = { model = "gpt-6-luna", effort_level = "medium" }
-"dev-tools:worker" = { model = "gpt-6-luna", effort_level = "medium" }
 
 [harness.copilot.settings]
 inlineImages = false

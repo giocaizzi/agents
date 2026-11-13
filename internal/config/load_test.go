@@ -388,14 +388,14 @@ func TestLoadProjectFileDiscovery(t *testing.T) {
 func TestLoadMergeRule(t *testing.T) {
 	t.Parallel()
 	fsys := newFS(map[string]string{
-		p("a.toml"):              "[models.tiers.fast]\nmodel = \"m1\"\neffort = \"low\"\n[models.catalog]\nproviders = [\"x\", \"y\"]\n[instructions.vars]\nk = 1\n",
-		p("repo", "agents.toml"): "[models.tiers.fast]\nmodel = \"m2\"\n[models.tiers.deep]\nmodel = \"m3\"\n[models.catalog]\nproviders = [\"z\"]\n[instructions.vars]\nj = \"v\"\n",
+		p("a.toml"):              "[models.tiers.fast]\nclaude = \"m1\"\neffort = \"low\"\n[models.catalog]\nproviders = [\"x\", \"y\"]\n[instructions.vars]\nk = 1\n",
+		p("repo", "agents.toml"): "[models.tiers.fast]\nclaude = \"m2\"\n[models.tiers.deep]\nclaude = \"m3\"\n[models.catalog]\nproviders = [\"z\"]\n[instructions.vars]\nj = \"v\"\n",
 	}, p("repo", ".git"))
 	r, err := load(t, fsys, func(o *config.Options) { o.ConfigPath = p("a.toml"); o.Cwd = p("repo") }, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
-	want := map[string]config.ModelTier{"fast": {Model: "m2", Effort: "low"}, "deep": {Model: "m3"}}
+	want := map[string]config.Tier{"fast": {Claude: "m2", Effort: "low"}, "deep": {Claude: "m3"}}
 	if diff := cmp.Diff(want, r.Config.Models.Tiers); diff != "" {
 		t.Errorf("tables merge (-want +got):\n%s", diff)
 	}
@@ -405,7 +405,7 @@ func TestLoadMergeRule(t *testing.T) {
 	if diff := cmp.Diff(map[string]any{"k": int64(1), "j": "v"}, r.Config.Instructions.Vars); diff != "" {
 		t.Errorf("free maps merge (-want +got):\n%s", diff)
 	}
-	if r.Origin["models.tiers.fast.effort"] != p("a.toml") || r.Origin["models.tiers.fast.model"] != p("repo", "agents.toml") {
+	if r.Origin["models.tiers.fast.effort"] != p("a.toml") || r.Origin["models.tiers.fast.claude"] != p("repo", "agents.toml") {
 		t.Errorf("origin = %v", r.Origin)
 	}
 }

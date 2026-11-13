@@ -3,6 +3,7 @@ package harness
 import (
 	"maps"
 	"slices"
+	"strings"
 
 	"github.com/giocaizzi/agents/internal/apply"
 	"github.com/giocaizzi/agents/internal/config"
@@ -55,11 +56,7 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 	if len(c.Permissions.AllowedURLs) > 0 {
 		out["allowedUrls"] = slices.Clone(c.Permissions.AllowedURLs)
 	}
-	if len(c.Harness.Copilot.Agents) > 0 {
-		agents := map[string]any{}
-		for name, a := range c.Harness.Copilot.Agents {
-			agents[name] = map[string]any{"model": a.Model, "effortLevel": a.EffortLevel}
-		}
+	if agents := copilotAgentModels(c); len(agents) > 0 {
 		out["subagents"] = map[string]any{keyCopilotAgents: agents}
 	}
 	if mkt := MarketplaceName(c); mkt != "" {
@@ -156,4 +153,25 @@ func valueOr(v, def string) string {
 		return def
 	}
 	return v
+}
+
+// copilotAgentModels maps each exactly assigned agent id to its tier's Copilot
+// model and effort; an agent whose tier has no Copilot model keeps the plugin
+// default. Glob assignments are not expanded here.
+func copilotAgentModels(c *config.Config) map[string]any {
+	out := map[string]any{}
+	for id, tierName := range c.Models.Assign {
+		if strings.ContainsAny(id, "*?[") {
+			continue
+		}
+		tier := c.Models.Tiers[tierName]
+		model := tier.Model(config.Copilot)
+		if model == "" {
+			continue
+		}
+		e := map[string]any{"model": model}
+		setIf(e, "effortLevel", tier.EffortFor(config.Copilot))
+		out[id] = e
+	}
+	return out
 }

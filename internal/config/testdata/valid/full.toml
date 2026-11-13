@@ -27,13 +27,22 @@ allowed_mcp = ["acme-docs"]
 default_effort_level = "high"
 show_thinking_summaries = true
 
+default = "deep"
+
 [models.tiers.fast]
-model = "acme-small"
+claude = "acme-small"
+copilot = "acme-small"
 effort = "low"
 
 [models.tiers.deep]
-model = "acme-large"
+claude = "acme-large"
+opencode = "acme/large"
 effort = "high"
+efforts = { copilot = "medium" }
+
+[models.assign]
+"acme:reviewer" = "deep"
+"*:scout" = "fast"
 
 [models.catalog]
 providers = ["acme"]
@@ -166,10 +175,6 @@ includeCoAuthoredBy = false
 
 [harness.copilot]
 instructions = ["core"]
-
-[harness.copilot.agents.reviewer]
-model = "acme-large"
-effort_level = "high"
 
 [harness.copilot.settings]
 banner = "never"

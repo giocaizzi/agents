@@ -35,6 +35,7 @@ func Validate(c Config) []finding.Finding {
 	}
 
 	validateLayerRefs(c, add)
+	validateModels(c.Models, add)
 	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
 		p := c.Profiles[name]
 		base := "profiles." + name
@@ -78,6 +79,28 @@ func validateLayerRefs(c Config, add func(string, string, ...any)) {
 		checkLayers(base+".instructions", p.Instructions)
 		for _, h := range All() {
 			checkLayers(base+".harness."+string(h)+".instructions", p.Harness.InstructionLists()[h])
+		}
+	}
+}
+
+// validateModels checks that the default tier and every assignment name a
+// declared tier, and that per-harness efforts name known harnesses.
+func validateModels(m Models, add func(string, string, ...any)) {
+	if m.Default != "" {
+		if _, ok := m.Tiers[m.Default]; !ok {
+			add("models.default", "tier %q is not declared under models.tiers", m.Default)
+		}
+	}
+	for _, key := range slices.Sorted(maps.Keys(m.Assign)) {
+		if _, ok := m.Tiers[m.Assign[key]]; !ok {
+			add("models.assign."+key, "tier %q is not declared under models.tiers", m.Assign[key])
+		}
+	}
+	for _, name := range slices.Sorted(maps.Keys(m.Tiers)) {
+		for _, h := range slices.Sorted(maps.Keys(m.Tiers[name].Efforts)) {
+			if !Harness(h).Valid() {
+				add("models.tiers."+name+".efforts."+h, "unknown harness %q (want one of %s)", h, harnessList())
+			}
 		}
 	}
 }
