@@ -47,9 +47,6 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	if d.GOOS == "" {
 		d.GOOS = runtime.GOOS
 	}
-	if d.Getenv == nil {
-		d.Getenv = os.Getenv
-	}
 	if d.Stdin == nil {
 		d.Stdin = os.Stdin
 	}
@@ -58,6 +55,10 @@ func (d Deps) Run(ctx context.Context, args []string) int {
 	}
 	if d.Stderr == nil {
 		d.Stderr = os.Stderr
+	}
+	if d.Getenv == nil {
+		fmt.Fprintln(d.Stderr, "agents: internal error: Deps.Getenv is nil")
+		return 2
 	}
 
 	if len(args) == 0 {

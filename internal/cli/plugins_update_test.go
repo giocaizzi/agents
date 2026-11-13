@@ -57,7 +57,7 @@ func (e pluginEnv) setStamp(t *testing.T, age time.Duration) {
 
 func (e pluginEnv) sync(dir string, dryRun, force bool, f *fakeRunner) (string, error) {
 	var out bytes.Buffer
-	d := Deps{Stdout: &out, Stderr: &out}
+	d := Deps{Stdout: &out, Stderr: &out, Getenv: func(string) string { return "" }}
 	err := d.syncCheckout(context.Background(), term.Style{}, checkoutSync{
 		run: f.run, now: func() time.Time { return clock },
 		registry: "acme/harness", dir: dir, stamp: e.stamp(), dryRun: dryRun, force: force,
