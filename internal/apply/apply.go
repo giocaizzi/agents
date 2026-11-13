@@ -25,12 +25,18 @@ const (
 
 // Target is one native file and the keys agents manages in it.
 type Target struct {
-	Owner     string      // harness name, for messages only
-	Path      string      // absolute
-	Format    Format      // syntax of the file
-	Managed   any         // JSON/JSONC/TOML: map[string]any or *Object (ordered); Text: string (whole file content)
-	Union     [][]string  // key paths whose arrays merge as a union (live elements kept, managed ones appended when new)
-	Remove    [][]string  // key paths always deleted from the live document before merging
+	Owner   string     // harness name, for messages only
+	Path    string     // absolute
+	Format  Format     // syntax of the file
+	Managed any        // JSON/JSONC/TOML: map[string]any or *Object (ordered); Text: string (whole file content)
+	Union   [][]string // key paths whose arrays merge as a union (live elements kept, managed ones appended when new)
+	// Legacy lists key paths of a known earlier manager, deleted only on the
+	// first apply of this path (no manifest entry yet): a one-time migration.
+	// Every later deletion comes from the manifest, never from this list.
+	Legacy [][]string
+	// Sensitive holds expanded secret values this target carries; output
+	// meant for a terminal (diffs, render) prints them redacted.
+	Sensitive []string
 	Mode      fs.FileMode // mode for a new file; 0 means 0o600
 	CheckOnly bool        // never written: compared only (drift)
 }
@@ -200,7 +206,7 @@ func merge(t Target, prev fileEntry, liveText string) (string, *fileEntry, bool,
 	}
 
 	merged, _ := clone(live).(*Object)
-	for _, p := range t.Remove {
+	for _, p := range t.Legacy {
 		deletePath(merged, p, false)
 	}
 	dropStale(merged, prev, entry)

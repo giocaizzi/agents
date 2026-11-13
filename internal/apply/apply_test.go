@@ -158,7 +158,7 @@ func TestRunJSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			checkRunJSON(t, tt.live, tt.want, tt.wantStatus, Target{
-				Format: JSON, Managed: tt.managed, Union: tt.union, Remove: tt.remove,
+				Format: JSON, Managed: tt.managed, Union: tt.union, Legacy: tt.remove,
 			})
 		})
 	}

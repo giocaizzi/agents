@@ -84,7 +84,7 @@ func renderClaude(c *config.Config, b *builder) error {
 	}
 	b.add(apply.Target{
 		Owner: claudeOwner, Path: b.home(".claude", "settings.json"), Format: apply.JSON,
-		Managed: settings, Remove: remove, Mode: 0o600,
+		Managed: settings, Legacy: remove, Mode: 0o600,
 	})
 
 	if len(servers) > 0 {

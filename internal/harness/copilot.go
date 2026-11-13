@@ -23,13 +23,13 @@ func renderCopilotFiles(c *config.Config, b *builder, owner string) {
 	b.add(apply.Target{
 		Owner: owner, Path: b.home(".copilot", "settings.json"), Format: apply.JSON,
 		Managed: copilotSettings(c, b), Union: [][]string{{"allowedUrls"}},
-		Remove: [][]string{{"statusLine"}}, Mode: 0o600,
+		Legacy: [][]string{{"statusLine"}}, Mode: 0o600,
 	})
 	if servers := b.lspServers(); len(servers) > 0 || len(c.LSP.Servers) > 0 {
 		b.add(apply.Target{
 			Owner: owner, Path: b.home(".copilot", "lsp-config.json"), Format: apply.JSON,
 			Managed: map[string]any{"lspServers": copilotLSP(servers)},
-			Remove:  copilotLSPRemove(c, servers), Mode: 0o600,
+			Legacy:  copilotLSPRemove(c, servers), Mode: 0o600,
 		})
 	}
 	if servers := b.mcpServers(); len(servers) > 0 {
