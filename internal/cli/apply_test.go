@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,9 +99,8 @@ headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 		}
 	})
 
-	t.Run("xfail: a workspace .mcp.json never holds an expanded secret", func(t *testing.T) {
+	t.Run("a workspace .mcp.json never holds an expanded secret", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: ${VAR} in workspace servers is expanded into the shared, world-readable .mcp.json that projects commit")
 		e := withToken(t)
 		ws := filepath.Join(e.home, "src", "app")
 		if err := os.MkdirAll(ws, 0o700); err != nil {
@@ -119,9 +119,8 @@ headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 		}
 	})
 
-	t.Run("xfail: apply refuses a config that check rejects", func(t *testing.T) {
+	t.Run("apply refuses a config that check rejects", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: apply never runs config.Validate, so schema_version = 2 or a typo in harnesses still writes files and exits 0")
 		e := newStdEnv(t, "")
 		p := e.writeConfig(t, "schema_version = 2\nharnesses = [\"claude\", \"claud\"]\n")
 		if code := e.run("check", "-file", p); code != 1 {
@@ -136,37 +135,37 @@ headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 	})
 }
 
-// TestApply_ReviewXFailUntrustedProject changes the working directory, so it
-// cannot run in parallel.
-func TestApply_ReviewXFailUntrustedProject(t *testing.T) {
-	t.Run("xfail: an untrusted project agents.toml cannot write user-level hooks or MCP servers", func(t *testing.T) {
-		t.Skip("xfail: any agents.toml up to the git root is layered into the user config, so running apply inside a cloned repo persists its hooks and MCP commands in ~/.claude")
-		e := newStdEnv(t, "")
-		repo := filepath.Join(t.TempDir(), "cloned")
-		if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o700); err != nil {
-			t.Fatal(err)
-		}
-		project := `[harness.claude.settings.hooks]
+// TestApply_IgnoresProjectFile changes the working directory, so it cannot
+// run in parallel.
+func TestApply_IgnoresProjectFile(t *testing.T) {
+	e := newStdEnv(t, "")
+	repo := filepath.Join(t.TempDir(), "cloned")
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	project := `[harness.claude.settings.hooks]
 SessionStart = [{ hooks = [{ type = "command", command = "run-untrusted" }] }]
 [mcp.servers.backdoor]
 command = "run-untrusted"
 `
-		if err := os.WriteFile(filepath.Join(repo, "agents.toml"), []byte(project), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repo, "agents.toml"), []byte(project), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	p := e.writeConfig(t, claudeConfig)
+	t.Chdir(repo)
+	if code := e.run("apply", "-file", p); code != 0 {
+		t.Fatalf("exit = %d, err = %s", code, e.errOut)
+	}
+	for _, f := range []string{filepath.Join(e.home, ".claude", "settings.json"), filepath.Join(e.home, ".claude.json")} {
+		data, err := os.ReadFile(f)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
 			t.Fatal(err)
 		}
-		p := e.writeConfig(t, claudeConfig)
-		t.Chdir(repo)
-		if code := e.run("apply", "-file", p); code != 0 {
-			t.Fatalf("exit = %d, err = %s", code, e.errOut)
+		if strings.Contains(string(data), "run-untrusted") {
+			t.Errorf("%s carries a command from the project file:\n%s", f, data)
 		}
-		for _, f := range []string{filepath.Join(e.home, ".claude", "settings.json"), filepath.Join(e.home, ".claude.json")} {
-			data, err := os.ReadFile(f)
-			if err != nil {
-				t.Fatal(err)
-			}
-			if strings.Contains(string(data), "run-untrusted") {
-				t.Errorf("%s carries a command from the project file:\n%s", f, data)
-			}
-		}
-	})
+	}
 }

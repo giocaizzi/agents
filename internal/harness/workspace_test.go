@@ -66,16 +66,16 @@ func TestRenderWorkspaces(t *testing.T) {
 		got[rel] = tg.Owner + " " + tg.Mode.String()
 	}
 	want := map[string]string{
-		".mcp.json":          "claude -rw-r--r--",
+		".mcp.json":          "claude -rw-------",
 		".codex/config.toml": "codex -rw-------",
-		"opencode.json":      "opencode -rw-r--r--",
+		"opencode.json":      "opencode -rw-------",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("targets (-want +got):\n%s", diff)
 	}
 	wantWarnings := []string{
-		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
 		`mcp.workspaces.ops: server "crm": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
+		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
 	}
 	if diff := cmp.Diff(wantWarnings, b.warnings); diff != "" {
 		t.Errorf("warnings (-want +got):\n%s", diff)

@@ -96,6 +96,7 @@ type builder struct {
 	warnings []string
 	errs     []error
 	seen     map[string]bool // target paths already added
+	expanded map[string]bool // values substituted for ${VAR} so far
 
 	lspDone bool
 	lsp     []LSPServer
@@ -113,7 +114,34 @@ func (b *builder) add(t apply.Target) {
 		return
 	}
 	b.seen[t.Path] = true
+	t.Sensitive = b.sensitiveIn(t.Managed)
 	b.targets = append(b.targets, t)
+}
+
+// getenv reads a variable for ${VAR} expansion and remembers its value, so a
+// target that ends up holding it can be redacted in terminal output.
+func (b *builder) getenv(name string) string {
+	v := b.env.Getenv(name)
+	if v != "" {
+		if b.expanded == nil {
+			b.expanded = map[string]bool{}
+		}
+		b.expanded[v] = true
+	}
+	return v
+}
+
+// sensitiveIn lists, sorted, the expanded values that managed content holds.
+func (b *builder) sensitiveIn(managed any) []string {
+	var out []string
+	text := fmt.Sprint(managed)
+	for v := range b.expanded {
+		if strings.Contains(text, v) {
+			out = append(out, v)
+		}
+	}
+	slices.Sort(out)
+	return out
 }
 
 // warnf records a warning, once per distinct text.
@@ -132,7 +160,7 @@ func (b *builder) home(elem ...string) string {
 // expand expands ${VAR} references in s. When one is unset it warns, naming
 // where, and reports false: the caller skips the entry.
 func (b *builder) expand(where, s string) (string, bool) {
-	out, unset := config.Expand(s, b.env.Getenv)
+	out, unset := config.Expand(s, b.getenv)
 	if len(unset) > 0 {
 		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
@@ -142,7 +170,7 @@ func (b *builder) expand(where, s string) (string, bool) {
 
 // expandPath is expand with a leading ~ replaced by the home directory.
 func (b *builder) expandPath(where, p string) (string, bool) {
-	out, unset := config.ExpandPath(p, b.env.Home, b.env.Getenv)
+	out, unset := config.ExpandPath(p, b.env.Home, b.getenv)
 	if len(unset) > 0 {
 		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
@@ -169,12 +197,12 @@ func MarketplaceName(c *config.Config) string {
 }
 
 // RegistryDir is the local checkout of the plugin registry:
-// <data>/registries/<repo>, "" without a registry.
+// <data>/registries/<owner>/<repo>, "" without a registry.
 func RegistryDir(c *config.Config, dirs config.Dirs) string {
 	if c.Plugins.Registry == "" {
 		return ""
 	}
-	return filepath.Join(dirs.Data, "registries", filepath.Base(c.Plugins.Registry))
+	return filepath.Join(dirs.Data, "registries", filepath.FromSlash(c.Plugins.Registry))
 }
 
 // Telemetry is the resolved OpenTelemetry export for one harness.
@@ -267,7 +295,10 @@ func (b *builder) mcpServers() map[string]config.MCPServer {
 	return b.mcp
 }
 
-// Workspace is one MCP workspace with its path and servers expanded.
+// Workspace is one MCP workspace with its path expanded. Its servers keep
+// their ${VAR} references, which land in committed project files: the
+// renderer rewrites or refuses them per harness. Only the OAuth client id, a
+// public value, is expanded.
 type Workspace struct {
 	Name    string
 	Path    string
@@ -288,7 +319,7 @@ func (b *builder) workspaces() []Workspace {
 		if !ok {
 			continue
 		}
-		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.expandServers(where+".servers", w.Servers)})
+		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.workspaceServers(where+".servers", w.Servers)})
 	}
 	return b.ws
 }
@@ -304,34 +335,31 @@ func (b *builder) expandServers(where string, in map[string]config.MCPServer) ma
 	return out
 }
 
+// workspaceServers keeps the ${VAR} references of the servers and expands
+// only the OAuth client id; a server whose client id has an unset variable is
+// skipped (warned).
+func (b *builder) workspaceServers(where string, in map[string]config.MCPServer) map[string]config.MCPServer {
+	out := map[string]config.MCPServer{}
+	for _, name := range slices.Sorted(maps.Keys(in)) {
+		s := in[name]
+		id, ok := b.expand(where+"."+name, s.OAuth.ClientID)
+		if !ok {
+			continue
+		}
+		s.OAuth.ClientID = id
+		out[name] = s
+	}
+	return out
+}
+
 func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServer, bool) {
 	var missing []string
 	ex := func(v string) string {
-		out, unset := config.Expand(v, b.env.Getenv)
+		out, unset := config.Expand(v, b.getenv)
 		missing = append(missing, unset...)
 		return out
 	}
-	exMap := func(m map[string]string) map[string]string {
-		if m == nil {
-			return nil
-		}
-		out := make(map[string]string, len(m))
-		for k, v := range m {
-			out[k] = ex(v)
-		}
-		return out
-	}
-	s.URL = ex(s.URL)
-	s.Command = ex(s.Command)
-	s.Headers = exMap(s.Headers)
-	s.Env = exMap(s.Env)
-	if s.Args != nil {
-		args := make([]string, len(s.Args))
-		for i, a := range s.Args {
-			args[i] = ex(a)
-		}
-		s.Args = args
-	}
+	s = mapServer(s, ex)
 	s.OAuth.ClientID = ex(s.OAuth.ClientID)
 	if len(missing) > 0 {
 		slices.Sort(missing)
@@ -339,6 +367,32 @@ func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServ
 		return config.MCPServer{}, false
 	}
 	return s, true
+}
+
+// mapServer applies f to every string of s except the OAuth client id.
+func mapServer(s config.MCPServer, f func(string) string) config.MCPServer {
+	mapStrings := func(m map[string]string) map[string]string {
+		if m == nil {
+			return nil
+		}
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			out[k] = f(v)
+		}
+		return out
+	}
+	s.URL = f(s.URL)
+	s.Command = f(s.Command)
+	s.Headers = mapStrings(s.Headers)
+	s.Env = mapStrings(s.Env)
+	if s.Args != nil {
+		args := make([]string, len(s.Args))
+		for i, a := range s.Args {
+			args[i] = f(a)
+		}
+		s.Args = args
+	}
+	return s
 }
 
 // InstructionSpec builds the instruction composition of c. dir is the
@@ -390,5 +444,5 @@ func (b *builder) instructions(h config.Harness, path string) {
 	if text == "" {
 		return
 	}
-	b.add(apply.Target{Owner: string(h), Path: path, Format: apply.Text, Managed: text, Mode: 0o644})
+	b.add(apply.Target{Owner: string(h), Path: path, Format: apply.Text, Managed: text, Mode: 0o600})
 }

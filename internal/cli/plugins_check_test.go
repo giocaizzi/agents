@@ -70,7 +70,7 @@ func TestPluginFindings(t *testing.T) {
 			r := &config.Resolved{Config: config.Config{Plugins: tt.plugins}, Dirs: dirs}
 			if !tt.noTree {
 				for _, name := range tt.checkout {
-					if err := os.MkdirAll(filepath.Join(dirs.Data, "registries", "harness", "plugins", name), 0o700); err != nil {
+					if err := os.MkdirAll(filepath.Join(dirs.Data, "registries", "acme", "harness", "plugins", name), 0o700); err != nil {
 						t.Fatal(err)
 					}
 				}

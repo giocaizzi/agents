@@ -22,21 +22,15 @@ const (
 	otlp      = "otlp"
 )
 
-// claudeTelemetryEnv are the env keys agents sets when telemetry is on; with
-// telemetry off they are removed from the live file.
+// claudeLegacy are the key paths the earlier dotfiles manager wrote into
+// ~/.claude/settings.json and agents no longer writes: its local plugin and
+// marketplace. Deleted once, on the first apply of the file; every later
+// removal comes from the manifest.
 //
 //nolint:gochecknoglobals // immutable list
-var claudeTelemetryEnv = []string{
-	"CLAUDE_CODE_ENABLE_TELEMETRY",
-	"OTEL_EXPORTER_OTLP_ENDPOINT",
-	"OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE",
-	"OTEL_EXPORTER_OTLP_PROTOCOL",
-	"OTEL_LOGS_EXPORTER",
-	"OTEL_LOG_TOOL_CONTENT",
-	"OTEL_LOG_TOOL_DETAILS",
-	"OTEL_METRICS_EXPORTER",
-	"OTEL_RESOURCE_ATTRIBUTES",
-	"OTEL_TRACES_EXPORTER",
+var claudeLegacy = [][]string{
+	{"enabledPlugins", "lsp@dotfiles"},
+	{"extraKnownMarketplaces", "dotfiles"},
 }
 
 // renderClaude adds the Claude Code targets: settings, user MCP servers, the
@@ -72,29 +66,23 @@ func renderClaude(c *config.Config, b *builder) error {
 	setIfAny(settings, "enabledPlugins", enabled)
 	setIfAny(settings, "extraKnownMarketplaces", markets)
 
-	// One-time cleanup of the old local marketplace.
-	remove := [][]string{
-		{"enabledPlugins", "lsp@dotfiles"},
-		{"extraKnownMarketplaces", "dotfiles"},
-	}
-	if _, on := b.telemetry(config.Claude); !on {
-		for _, k := range claudeTelemetryEnv {
-			remove = append(remove, []string{"env", k})
-		}
-	}
 	b.add(apply.Target{
 		Owner: claudeOwner, Path: b.home(".claude", "settings.json"), Format: apply.JSON,
-		Managed: settings, Legacy: remove, Mode: 0o600,
+		Managed: settings, Legacy: claudeLegacy, Mode: 0o600,
 	})
 
 	if len(servers) > 0 {
 		claudeLSPPluginTargets(b, pluginDir, servers)
 	}
 
-	b.add(apply.Target{
-		Owner: claudeOwner, Path: b.home(".claude.json"), Format: apply.JSON,
-		Managed: map[string]any{keyMCPServers: claudeMCPServers(b.mcpServers())}, Mode: 0o600,
-	})
+	// Without servers the target is left out: an empty mcpServers object must
+	// never be managed content, and the manifest removes what agents wrote.
+	if mcp := b.mcpServers(); len(mcp) > 0 {
+		b.add(apply.Target{
+			Owner: claudeOwner, Path: b.home(".claude.json"), Format: apply.JSON,
+			Managed: map[string]any{keyMCPServers: claudeMCPServers(mcp)}, Mode: 0o600,
+		})
+	}
 
 	b.instructions(config.Claude, b.home(".claude", "CLAUDE.md"))
 	return nil

@@ -15,9 +15,6 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-// ProjectFile is the name of the per-project configuration file.
-const ProjectFile = "agents.toml"
-
 // Options are the inputs of Load. Everything the loader touches is injected.
 type Options struct {
 	// Getenv reads the environment. Required.
@@ -26,7 +23,7 @@ type Options struct {
 	GOOS string
 	// Home is the user home (default os.UserHomeDir).
 	Home string
-	// Cwd is where the project file search starts (default os.Getwd).
+	// Cwd is unused: there is no project-level configuration file.
 	Cwd string
 	// ConfigPath is an explicit user config file; it must exist.
 	ConfigPath string
@@ -61,7 +58,7 @@ type loader struct {
 }
 
 // Load resolves the configuration. Precedence, lowest first: defaults, user
-// config, project agents.toml, os overlay, selected profile overlay, env, flags.
+// config, os overlay, selected profile overlay, env, flags.
 // Tables merge recursively; scalars and arrays replace.
 func Load(opts Options) (*Resolved, error) {
 	if opts.Getenv == nil {
@@ -77,13 +74,6 @@ func Load(opts Options) (*Resolved, error) {
 		}
 		opts.Home = home
 	}
-	if opts.Cwd == "" {
-		cwd, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("find working directory: %w", err)
-		}
-		opts.Cwd = cwd
-	}
 	if opts.Stat == nil {
 		opts.Stat = os.Stat
 	}
@@ -98,9 +88,6 @@ func Load(opts Options) (*Resolved, error) {
 		"instructions":   map[string]any{"dir": filepath.Join(dirs.Config, "instructions")},
 	})
 	if err := l.loadUser(dirs); err != nil {
-		return nil, err
-	}
-	if err := l.loadProject(); err != nil {
 		return nil, err
 	}
 	l.applyOS()
@@ -134,39 +121,6 @@ func (l *loader) loadUser(dirs Dirs) error {
 		path, explicit = filepath.Join(dirs.Config, "config.toml"), false
 	}
 	return l.loadFile(path, explicit)
-}
-
-func (l *loader) loadProject() error {
-	dirs := projectDirs(l.opts)
-	for _, d := range dirs {
-		p := filepath.Join(d, ProjectFile)
-		fi, err := l.opts.Stat(p)
-		if errors.Is(err, fs.ErrNotExist) || (err == nil && fi.IsDir()) {
-			continue
-		}
-		if err != nil {
-			return fmt.Errorf("stat %s: %w", p, err)
-		}
-		return l.loadFile(p, true)
-	}
-	return nil
-}
-
-// projectDirs lists the directories to search for a project file, nearest
-// first: Cwd up to and including the git root, or only Cwd outside a repo.
-func projectDirs(opts Options) []string {
-	var dirs []string
-	for d := opts.Cwd; ; {
-		dirs = append(dirs, d)
-		if _, err := opts.Stat(filepath.Join(d, ".git")); err == nil {
-			return dirs
-		}
-		parent := filepath.Dir(d)
-		if parent == d {
-			return dirs[:1]
-		}
-		d = parent
-	}
 }
 
 func (l *loader) loadFile(path string, explicit bool) error {

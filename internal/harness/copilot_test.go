@@ -109,19 +109,22 @@ func TestCopilotSettings(t *testing.T) {
 	}
 }
 
-func TestCopilotLSPRemovesUnrenderedServers(t *testing.T) {
+// TestCopilotNoLegacyKeys: only the manifest removes keys; no Copilot target
+// carries a Legacy list, and a server that is not rendered emits no LSP target.
+func TestCopilotNoLegacyKeys(t *testing.T) {
 	t.Parallel()
 	var c config.Config
 	c.LSP.Servers = map[string]config.LSPServer{
 		"gopls": {Command: []string{"gopls"}, Extensions: map[string]string{".go": "go"}},
 	}
 	plan := renderFor(t, c, "linux", config.Copilot)
-	tg := findTarget(t, plan, filepath.Join("/h", ".copilot", "lsp-config.json"))
-	wantRemove := [][]string{
-		{"lspServers", "gopls", "command"}, {"lspServers", "gopls", "args"}, {"lspServers", "gopls", "fileExtensions"},
-	}
-	if diff := cmp.Diff(wantRemove, tg.Legacy); diff != "" {
-		t.Errorf("Remove (-want +got):\n%s", diff)
+	for _, tg := range plan.Targets {
+		if len(tg.Legacy) > 0 {
+			t.Errorf("%s has Legacy %v", tg.Path, tg.Legacy)
+		}
+		if filepath.Base(tg.Path) == "lsp-config.json" {
+			t.Errorf("lsp target emitted while lsp is off: %v", tg.Managed)
+		}
 	}
 }
 
@@ -155,6 +158,19 @@ func applyIn(t *testing.T, home string, c config.Config, layers map[string]strin
 	}
 }
 
+// TestCopilotNoServersNoMCPTarget: under the engine contract a target that is
+// no longer emitted loses the keys agents wrote through the manifest, so the
+// harness side only has to stop emitting (never an empty mcpServers object).
+func TestCopilotNoServersNoMCPTarget(t *testing.T) {
+	t.Parallel()
+	plan := renderFor(t, config.Config{}, "linux", config.Copilot)
+	for _, tg := range plan.Targets {
+		if filepath.Base(tg.Path) == "mcp-config.json" {
+			t.Errorf("mcp-config.json emitted without servers: %v", tg.Managed)
+		}
+	}
+}
+
 // TestCopilotReviewXFail holds reproductions of bugs found in review; drop
 // the t.Skip to verify a fix.
 func TestCopilotReviewXFail(t *testing.T) {
@@ -162,7 +178,7 @@ func TestCopilotReviewXFail(t *testing.T) {
 
 	t.Run("xfail: removing the last MCP server removes it from mcp-config.json", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: the mcp-config.json target is only emitted while servers exist, so the manifest never drops the last server")
+		t.Skip("xfail: end to end, needs the engine to remove the keys of a target that is no longer emitted")
 		home := t.TempDir()
 		var c config.Config
 		c.MCP.Servers = map[string]config.MCPServer{"a": {Command: "a-mcp"}}
@@ -179,7 +195,6 @@ func TestCopilotReviewXFail(t *testing.T) {
 
 	t.Run("xfail: apply keeps the user's own statusLine in settings.json", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: the Copilot settings target always removes statusLine, a key agents never manages")
 		home := t.TempDir()
 		path := filepath.Join(home, ".copilot", "settings.json")
 		if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
@@ -200,7 +215,6 @@ func TestCopilotReviewXFail(t *testing.T) {
 
 	t.Run("xfail: a new instruction file is private (0600)", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: instruction targets are created 0644, but layers may hold private content")
 		home := t.TempDir()
 		var c config.Config
 		c.Instructions.Dir = filepath.Join(home, "layers")
