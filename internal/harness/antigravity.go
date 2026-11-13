@@ -104,22 +104,9 @@ func antigravityAllow(c *config.Config, b *builder) []string {
 		{"permissions.allow_command_patterns", p.AllowCommandPatterns},
 	} {
 		for _, pat := range src.patterns {
-			prefix := strings.TrimSuffix(pat, " *")
-			if strings.Contains(prefix, "*") {
-				continue
+			if prefix, ok := antigravityCommandAllow(b, src.field, pat, unexpressible); ok {
+				allow = appendUnique(allow, "command("+prefix+")")
 			}
-			// command() matches word prefixes only: skip an allow that an
-			// inexpressible deny or ask would have overridden (see overlap.go).
-			// An allow with no command words ("" or " *") covers every command,
-			// so any inexpressible rule overlaps it.
-			words, ok := prefixWords(pat)
-			if !ok && len(strings.Fields(prefix)) == 0 {
-				words, ok = nil, true
-			}
-			if ok && b.allowOverlaps("Antigravity", src.field, pat, words, unexpressible) {
-				continue
-			}
-			allow = appendUnique(allow, "command("+prefix+")")
 		}
 	}
 	for _, u := range p.AllowedURLs {
@@ -134,6 +121,26 @@ func antigravityAllow(c *config.Config, b *builder) []string {
 		allow = appendUnique(allow, "mcp("+m+")")
 	}
 	return allow
+}
+
+// antigravityCommandAllow is the command() prefix of an allowed command, and
+// false when it cannot be written: an inner * (command() takes none) or an
+// overlap with a deny or ask rule command() cannot express (see overlap.go).
+// An allow with no command words ("" or " *") covers every command, so any
+// inexpressible rule overlaps it.
+func antigravityCommandAllow(b *builder, field, pat string, unexpressible []unexpressible) (string, bool) {
+	prefix := strings.TrimSuffix(pat, " *")
+	if strings.Contains(prefix, "*") {
+		return "", false
+	}
+	words, ok := prefixWords(pat)
+	if !ok && len(strings.Fields(prefix)) == 0 {
+		words, ok = nil, true
+	}
+	if ok && b.allowOverlaps("Antigravity", field, pat, words, unexpressible) {
+		return "", false
+	}
+	return prefix, true
 }
 
 // antigravityHost is the read_url target of an allowed URL. read_url matches a
