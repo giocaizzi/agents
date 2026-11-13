@@ -313,19 +313,19 @@ func plainString(v any) string {
 // encodeJSON renders a normalized document with two-space indent and a trailing newline.
 func encodeJSON(v any) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := writeJSON(&buf, v, 0); err != nil {
+	if err := writeJSON(&buf, v, 0, "  "); err != nil {
 		return nil, err
 	}
 	buf.WriteByte('\n')
 	return buf.Bytes(), nil
 }
 
-func writeJSON(buf *bytes.Buffer, v any, depth int) error {
+func writeJSON(buf *bytes.Buffer, v any, depth int, unit string) error {
 	switch t := v.(type) {
 	case *Object:
-		return writeObject(buf, t, depth)
+		return writeObject(buf, t, depth, unit)
 	case []any:
-		return writeArray(buf, t, depth)
+		return writeArray(buf, t, depth, unit)
 	default:
 		raw, err := marshalPlain(v)
 		if err != nil {
@@ -336,39 +336,39 @@ func writeJSON(buf *bytes.Buffer, v any, depth int) error {
 	}
 }
 
-func writeObject(buf *bytes.Buffer, o *Object, depth int) error {
+func writeObject(buf *bytes.Buffer, o *Object, depth int, unit string) error {
 	if len(o.Keys) == 0 {
 		buf.WriteString("{}")
 		return nil
 	}
-	pad := strings.Repeat("  ", depth+1)
+	pad := strings.Repeat(unit, depth+1)
 	buf.WriteString("{\n")
 	for i, k := range o.Keys {
 		buf.WriteString(pad + plainString(k) + ": ")
-		if err := writeJSON(buf, o.Values[k], depth+1); err != nil {
+		if err := writeJSON(buf, o.Values[k], depth+1, unit); err != nil {
 			return err
 		}
 		writeSeparator(buf, i, len(o.Keys))
 	}
-	buf.WriteString(strings.Repeat("  ", depth) + "}")
+	buf.WriteString(strings.Repeat(unit, depth) + "}")
 	return nil
 }
 
-func writeArray(buf *bytes.Buffer, a []any, depth int) error {
+func writeArray(buf *bytes.Buffer, a []any, depth int, unit string) error {
 	if len(a) == 0 {
 		buf.WriteString("[]")
 		return nil
 	}
-	pad := strings.Repeat("  ", depth+1)
+	pad := strings.Repeat(unit, depth+1)
 	buf.WriteString("[\n")
 	for i, e := range a {
 		buf.WriteString(pad)
-		if err := writeJSON(buf, e, depth+1); err != nil {
+		if err := writeJSON(buf, e, depth+1, unit); err != nil {
 			return err
 		}
 		writeSeparator(buf, i, len(a))
 	}
-	buf.WriteString(strings.Repeat("  ", depth) + "]")
+	buf.WriteString(strings.Repeat(unit, depth) + "]")
 	return nil
 }
 
