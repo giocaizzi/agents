@@ -174,7 +174,7 @@ const (
 	LevelWarn Level = "warn"
 )
 
-// Advisory is one capacity fact for the warning surface (chezmoi agents doctor).
+// Advisory is one capacity fact for the warning surface (agents doctor).
 type Advisory struct {
 	Provider string `json:"provider"`
 	Level    Level  `json:"level"`

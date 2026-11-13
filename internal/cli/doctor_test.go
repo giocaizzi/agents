@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -15,38 +14,34 @@ import (
 	"github.com/giocaizzi/agents/internal/doctor"
 )
 
-// doctorEnv is a Deps whose source dir holds the doctor testdata catalog
-// (testdata/doctor/<catalog>.json) and policy, and whose cache dir is empty.
+// doctorEnv is a hermetic Deps whose config is testdata/doctor/config.toml
+// and whose cache dir holds the doctor testdata catalog
+// (testdata/doctor/<catalog>.json) and no usage cache. It returns the path
+// of the usage cache.
 func doctorEnv(t *testing.T, catalog string) (Deps, *bytes.Buffer, *bytes.Buffer, string) {
 	t.Helper()
-	src, cacheHome := t.TempDir(), t.TempDir()
-	data := filepath.Join(src, ".chezmoidata")
-	if err := os.MkdirAll(data, 0o700); err != nil {
+	cfg, err := os.ReadFile(filepath.Join("testdata", "doctor", "config.toml"))
+	if err != nil {
 		t.Fatal(err)
 	}
-	for from, to := range map[string]string{catalog + ".json": "models.json", "harness-policy.toml": "harness-policy.toml"} {
-		b, err := os.ReadFile(filepath.Join("testdata", "doctor", from))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if err := os.WriteFile(filepath.Join(data, to), b, 0o600); err != nil {
-			t.Fatal(err)
-		}
+	return doctorEnvConfig(t, catalog, string(cfg))
+}
+
+// doctorEnvConfig is doctorEnv with the given config file content.
+func doctorEnvConfig(t *testing.T, catalog, cfg string) (Deps, *bytes.Buffer, *bytes.Buffer, string) {
+	t.Helper()
+	d, out, errb, dirs := hermeticEnv(t, cfg)
+	b, err := os.ReadFile(filepath.Join("testdata", "doctor", catalog+".json"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	var out, errb bytes.Buffer
-	d := Deps{
-		Stdout: &out, Stderr: &errb, GOOS: runtime.GOOS,
-		Getenv: func(k string) string {
-			switch k {
-			case "CHEZMOI_SOURCE_DIR":
-				return src
-			case "XDG_CACHE_HOME":
-				return cacheHome
-			}
-			return ""
-		},
+	if err := os.MkdirAll(dirs.Cache, 0o700); err != nil {
+		t.Fatal(err)
 	}
-	return d, &out, &errb, filepath.Join(cacheHome, "agents", usageCacheFile)
+	if err := os.WriteFile(filepath.Join(dirs.Cache, modelsFile), b, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return d, out, errb, filepath.Join(dirs.Cache, usageCacheFile)
 }
 
 // runDoctorFixed runs doctor with the fixed test clock and the default budget.
@@ -90,20 +85,47 @@ func TestRunDoctorStaleCatalog(t *testing.T) {
 
 func TestRunDoctorLoadError(t *testing.T) {
 	t.Parallel()
-	d, out, errb, _ := doctorEnv(t, "models-fresh")
-	empty := t.TempDir()
-	base := d.Getenv
-	d.Getenv = func(k string) string {
-		if k == "CHEZMOI_SOURCE_DIR" {
-			return empty
-		}
-		return base(k)
-	}
+	d, out, errb, _ := doctorEnvConfig(t, "models-fresh", "not = [valid")
 	if code := runDoctorFixed(t, d); code != 1 {
 		t.Errorf("exit = %d, want 1", code)
 	}
 	if !strings.HasPrefix(errb.String(), "doctor: ") || out.Len() != 0 {
 		t.Errorf("stderr = %q, stdout = %q", errb, out)
+	}
+}
+
+// The configured tiers are what doctor checks: a model the catalog lacks is
+// reported under its tier name and the config key that sets it.
+func TestRunDoctorTiersFromConfig(t *testing.T) {
+	t.Parallel()
+	d, out, errb, _ := doctorEnvConfig(t, "models-fresh", `
+harnesses = ["claude", "codex"]
+[models]
+default = "everyday"
+[models.tiers.everyday]
+claude = "claude-ghost"
+[models.tiers.heavy]
+codex = "gpt-ghost"
+`)
+	if code := runDoctorFixed(t, d, "-json"); code != 0 {
+		t.Fatalf("exit = %d, stderr %q", code, errb)
+	}
+	var got jsonOut
+	if err := json.Unmarshal(out.Bytes(), &got); err != nil {
+		t.Fatalf("not JSON: %v\n%s", err, out)
+	}
+	var unknown []string
+	for _, f := range got.Findings {
+		if f.Kind == doctor.KindUnknownModel {
+			unknown = append(unknown, f.Tier+" "+f.Text)
+		}
+	}
+	want := []string{
+		"everyday claude-ghost (models.tiers.everyday.claude) is not in the model catalog: retired, renamed or not tracked",
+		"heavy gpt-ghost (models.tiers.heavy.codex) is not in the model catalog: retired, renamed or not tracked",
+	}
+	if diff := cmp.Diff(want, unknown); diff != "" {
+		t.Errorf("unknown-model findings (-want +got):\n%s", diff)
 	}
 }
 
@@ -250,17 +272,6 @@ func checkNoEmail(t *testing.T, got string) {
 	t.Helper()
 	if got == "" || strings.Contains(got, "me@example.com") {
 		t.Errorf("output empty or holding the account email:\n%s", got)
-	}
-}
-
-func TestSplitHarnesses(t *testing.T) {
-	t.Parallel()
-	got := splitHarnesses(" pi,claude ,, codex\tpi\n")
-	if diff := cmp.Diff([]string{"pi", "claude", "codex"}, got); diff != "" {
-		t.Errorf("splitHarnesses (-want +got):\n%s", diff)
-	}
-	if got := splitHarnesses(""); len(got) != 0 {
-		t.Errorf("splitHarnesses(\"\") = %v, want none", got)
 	}
 }
 

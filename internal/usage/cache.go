@@ -8,7 +8,7 @@ import (
 
 const cacheSchema = 1
 
-// Cache is the content of usage.json in the chezmoi-agents cache dir. It never
+// Cache is the content of usage.json in the agents cache dir. It never
 // holds a credential.
 type Cache struct {
 	Schema    int        `json:"schema"`

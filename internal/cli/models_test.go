@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strconv"
 	"strings"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"github.com/giocaizzi/agents/internal/catalog"
+	"github.com/giocaizzi/agents/internal/config"
 )
 
 // arenaTotals is the row count per board of the fake dataset: text needs two pages.
@@ -182,16 +184,50 @@ func testDeps() (Deps, *bytes.Buffer, *bytes.Buffer) {
 		Stdout: &stdout,
 		Stderr: &stderr,
 		Getenv: func(k string) string {
-			if k == "NO_COLOR" {
+			switch k {
+			case "NO_COLOR":
 				return "1"
+			case "HOME", "USERPROFILE": // no user config, nothing written
+				return filepath.Join(string(filepath.Separator), "nonexistent", "agents-test-home")
 			}
 			return ""
 		},
 	}, &stdout, &stderr
 }
 
-// repoDir lays out <tmp>/home/.chezmoidata/models.json and returns the repo
-// root, the models.json path and the default doc path.
+// hermeticEnv is a Deps whose home, config and XDG directories live in a temp
+// dir; cfgTOML, when set, is the config file ($AGENTS_CONFIG). It returns the
+// resolved directories.
+func hermeticEnv(t *testing.T, cfgTOML string) (Deps, *bytes.Buffer, *bytes.Buffer, config.Dirs) {
+	t.Helper()
+	home := t.TempDir()
+	env := map[string]string{
+		"HOME": home, "USERPROFILE": home, "NO_COLOR": "1",
+		"XDG_CONFIG_HOME": filepath.Join(home, "config"),
+		"XDG_CACHE_HOME":  filepath.Join(home, "cache"),
+		"XDG_STATE_HOME":  filepath.Join(home, "state"),
+		"XDG_DATA_HOME":   filepath.Join(home, "data"),
+	}
+	if cfgTOML != "" {
+		path := filepath.Join(home, "agents.toml")
+		if err := os.WriteFile(path, []byte(cfgTOML), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		env["AGENTS_CONFIG"] = path
+	}
+	var stdout, stderr bytes.Buffer
+	d := Deps{Stdout: &stdout, Stderr: &stderr, GOOS: runtime.GOOS, Getenv: func(k string) string { return env[k] }}
+	return d, &stdout, &stderr, config.ResolveDirs(d.Getenv, d.GOOS, home)
+}
+
+// plainOpts are modelsOpts for file with an empty resolved config.
+func plainOpts(t *testing.T, file string) modelsOpts {
+	t.Helper()
+	return modelsOpts{file: file, cfg: &config.Resolved{Dirs: config.Dirs{Cache: t.TempDir()}}}
+}
+
+// repoDir copies a models.json fixture into a temp dir and returns the dir,
+// the file and a doc path that must stay absent.
 func repoDir(t *testing.T, fixture string) (root, file, doc string) {
 	t.Helper()
 	data, err := os.ReadFile(filepath.Join("testdata", "models", fixture))
@@ -199,7 +235,7 @@ func repoDir(t *testing.T, fixture string) (root, file, doc string) {
 		t.Fatal(err)
 	}
 	root = t.TempDir()
-	file = filepath.Join(root, "home", ".chezmoidata", "models.json")
+	file = filepath.Join(root, "cache", modelsFile)
 	if err := os.MkdirAll(filepath.Dir(file), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -255,76 +291,92 @@ func TestModelsRouting(t *testing.T) {
 	})
 }
 
-func TestModelsShow(t *testing.T) {
-	t.Parallel()
-	ctx := context.Background()
-
-	t.Run("valid file prints the tiers", func(t *testing.T) {
-		t.Parallel()
-		_, file, _ := repoDir(t, "models.json")
-		d, stdout, stderr := testDeps()
-		if code := d.Run(ctx, []string{"models", "-file", file}); code != 0 {
-			t.Fatalf("exit %d, stderr %q", code, stderr.String())
-		}
-		// Needs catalog.WriteTerminal (unit 2).
-		if !strings.Contains(stdout.String(), "Claude Opus 5.5") {
-			t.Errorf("stdout lacks the tiered model: %q", stdout.String())
-		}
-	})
-
-	t.Run("invalid file exits 1 and lists the errors", func(t *testing.T) {
-		t.Parallel()
-		_, file, _ := repoDir(t, "models-invalid.json")
-		d, stdout, stderr := testDeps()
-		if code := d.Run(ctx, []string{"models", "-file", file}); code != 1 {
-			t.Fatalf("exit %d, want 1", code)
-		}
-		if !strings.HasPrefix(stderr.String(), "error:") || !strings.Contains(stderr.String(), "anthropic/does-not-exist") {
-			t.Errorf("stderr: %q", stderr.String())
-		}
-		if stdout.Len() != 0 {
-			t.Errorf("stdout not empty: %q", stdout.String())
-		}
-	})
-
-	t.Run("missing file exits 1", func(t *testing.T) {
-		t.Parallel()
-		d, _, stderr := testDeps()
-		code := d.Run(ctx, []string{"models", "-file", filepath.Join(t.TempDir(), "none.json")})
-		if code != 1 || !strings.HasPrefix(stderr.String(), "error:") {
-			t.Errorf("exit %d, stderr %q", code, stderr.String())
-		}
-	})
-}
-
-func TestModelsLoadCatalogFromPolicy(t *testing.T) {
-	t.Parallel()
-	root := t.TempDir()
-	policyDir := filepath.Join(root, "home", ".chezmoidata")
-	if err := os.MkdirAll(policyDir, 0o755); err != nil {
+// placeCache puts a models fixture in the cache dir; "" puts nothing.
+func placeCache(t *testing.T, dirs config.Dirs, fixture string) {
+	t.Helper()
+	if fixture == "" {
+		return
+	}
+	if err := os.MkdirAll(dirs.Cache, 0o750); err != nil {
 		t.Fatal(err)
 	}
-	agentsTOML := `
+	data := mustRead(t, filepath.Join("testdata", "models", fixture))
+	if err := os.WriteFile(filepath.Join(dirs.Cache, modelsFile), data, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// fileArgs is the -file flag for a fixture: none for "", a missing file for "none".
+func fileArgs(t *testing.T, fixture string) []string {
+	t.Helper()
+	switch fixture {
+	case "":
+		return nil
+	case "none":
+		return []string{"-file", filepath.Join(t.TempDir(), "none.json")}
+	}
+	_, file, _ := repoDir(t, fixture)
+	return []string{"-file", file}
+}
+
+func TestModelsShow(t *testing.T) {
+	t.Parallel()
+	const opus = "Claude Opus 5.5"
+	tests := []struct {
+		name       string
+		config     string
+		cacheFile  string // fixture placed in the cache dir
+		fileFlag   string // fixture passed with -file; "none" is a missing file
+		wantCode   int
+		wantStdout string
+		wantStderr string
+	}{
+		{name: "-file prints the tiers", fileFlag: "models.json", wantStdout: opus},
+		{
+			name: "cache dir models.json is the default", config: "[models.tiers.fast]\nclaude = \"claude-haiku-5\"\n",
+			cacheFile: "models.json", wantStdout: opus,
+		},
+		{name: "-file wins over the cache dir", cacheFile: "models-invalid.json", fileFlag: "models.json", wantStdout: opus},
+		{name: "invalid file lists the errors", fileFlag: "models-invalid.json", wantCode: 1, wantStderr: "anthropic/does-not-exist"},
+		{name: "missing -file", fileFlag: "none", wantCode: 1, wantStderr: "error:"},
+		{name: "no cache file and no providers", wantCode: 1, wantStderr: "models.catalog.providers"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			d, stdout, stderr, dirs := hermeticEnv(t, tt.config)
+			placeCache(t, dirs, tt.cacheFile)
+			args := append([]string{"models"}, fileArgs(t, tt.fileFlag)...)
+			if code := d.Run(t.Context(), args); code != tt.wantCode {
+				t.Fatalf("exit %d, want %d; stderr %q", code, tt.wantCode, stderr)
+			}
+			if !strings.Contains(stdout.String(), tt.wantStdout) {
+				t.Errorf("stdout lacks %q: %q", tt.wantStdout, stdout)
+			}
+			if !strings.Contains(stderr.String(), tt.wantStderr) {
+				t.Errorf("stderr lacks %q: %q", tt.wantStderr, stderr)
+			}
+			if tt.wantCode != 0 && stdout.Len() != 0 {
+				t.Errorf("stdout not empty on failure: %q", stdout)
+			}
+		})
+	}
+}
+
+func TestModelsLoadCatalogFromConfig(t *testing.T) {
+	t.Parallel()
+	d, _, _, dirs := hermeticEnv(t, `
 [models.catalog]
 providers = ["anthropic", "openai"]
 since = "2026-02-01"
 [models.catalog.pins]
-"chat/fast" = "anthropic/claude-3-5-haiku"
-`
-	if err := os.WriteFile(filepath.Join(policyDir, "agents.toml"), []byte(agentsTOML), 0o644); err != nil {
+"anthropic/claude-3-5-haiku" = "lightweight"
+`)
+	r, err := d.loadConfig(&configFlags{})
+	if err != nil {
 		t.Fatal(err)
 	}
-	d, _, _ := testDeps()
-	d.Getenv = func(k string) string {
-		if k == "CHEZMOI_SOURCE_DIR" {
-			return root
-		}
-		if k == "XDG_CACHE_HOME" {
-			return root
-		}
-		return ""
-	}
-	cat, path, err := d.loadCatalog("", false)
+	cat, path, err := d.loadCatalog(r, "", false)
 	if err != nil {
 		t.Fatalf("loadCatalog failed: %v", err)
 	}
@@ -334,12 +386,27 @@ since = "2026-02-01"
 	if cat.Since != "2026-02-01" {
 		t.Errorf("got since %q", cat.Since)
 	}
-	if cat.Pin["chat/fast"] != "anthropic/claude-3-5-haiku" {
+	if cat.Pin["anthropic/claude-3-5-haiku"] != "lightweight" {
 		t.Errorf("got pins %v", cat.Pin)
 	}
-	wantPath := filepath.Join(root, "agents", "models.json")
-	if path != wantPath {
-		t.Errorf("got path %q, want %q", path, wantPath)
+	if want := filepath.Join(dirs.Cache, modelsFile); path != want {
+		t.Errorf("got path %q, want %q", path, want)
+	}
+}
+
+func TestModelsSyncCreatesTheCacheFileFromConfig(t *testing.T) {
+	t.Parallel()
+	srv := newFakeServer(t)
+	d, _, stderr, dirs := hermeticEnv(t, "[models.catalog]\nproviders = [\"anthropic\"]\n")
+	r, err := d.loadConfig(&configFlags{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := d.syncModels(t.Context(), modelsOpts{cfg: r}, srv.endpoints(), fixedNow); code != 0 {
+		t.Fatalf("exit %d, stderr %q", code, stderr.String())
+	}
+	if _, err := os.Stat(filepath.Join(dirs.Cache, modelsFile)); err != nil {
+		t.Errorf("no models.json in the cache dir: %v", err)
 	}
 }
 
@@ -350,7 +417,7 @@ func TestModelsSyncFetchesEverySourceAndWritesJSON(t *testing.T) {
 	_, file, doc := repoDir(t, "models.json")
 	d, stdout, stderr := testDeps()
 
-	code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow)
+	code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow)
 	if code != 0 {
 		t.Fatalf("exit %d, stderr %q", code, stderr.String())
 	}
@@ -395,7 +462,7 @@ func TestModelsSyncRebuildsExternalAndTiers(t *testing.T) {
 	_, file, _ := repoDir(t, "models.json")
 	d, _, stderr := testDeps()
 
-	code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow)
+	code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow)
 	if code != 0 {
 		t.Fatalf("exit %d, stderr %q", code, stderr.String())
 	}
@@ -427,7 +494,7 @@ func TestModelsSyncPersistent500Exits1AndWritesNothing(t *testing.T) {
 			before := mustRead(t, file)
 			d, _, stderr := testDeps()
 
-			code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow)
+			code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow)
 			if code != 1 {
 				t.Fatalf("exit %d, want 1", code)
 			}
@@ -451,7 +518,7 @@ func TestModelsSyncGivesUpAfterThreeAttempts(t *testing.T) {
 	_, file, _ := repoDir(t, "models.json")
 	d, _, _ := testDeps()
 
-	if code := d.syncModels(t.Context(), modelsOpts{file: file}, srv.endpoints(), fixedNow); code != 1 {
+	if code := d.syncModels(t.Context(), plainOpts(t, file), srv.endpoints(), fixedNow); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}
 	if got := srv.count("/api.json"); got != 3 {
@@ -467,7 +534,7 @@ func TestModelsSyncTwoFailuresThenSuccessRetriesAndSucceeds(t *testing.T) {
 	_, file, doc := repoDir(t, "models.json")
 	d, _, stderr := testDeps()
 
-	code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow)
+	code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow)
 	if code != 0 {
 		t.Fatalf("exit %d, stderr %q", code, stderr.String())
 	}
@@ -489,7 +556,7 @@ func TestModelsSyncCancelledContextExits1AndWritesNothing(t *testing.T) {
 	cctx, cancel := context.WithCancel(ctx)
 	cancel()
 
-	if code := d.syncModels(cctx, modelsOpts{file: file}, srv.endpoints(), fixedNow); code != 1 {
+	if code := d.syncModels(cctx, plainOpts(t, file), srv.endpoints(), fixedNow); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}
 	if !bytes.Equal(mustRead(t, file), before) {
@@ -507,7 +574,7 @@ func TestModelsSyncTierWithNoDataExits1AndWritesNothing(t *testing.T) {
 	_, file, doc := repoDir(t, "models-invalid.json")
 	before := mustRead(t, file)
 	d, _, stderr := testDeps()
-	if code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow); code != 1 {
+	if code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}
 	if !strings.Contains(stderr.String(), "anthropic/does-not-exist") {
@@ -531,7 +598,7 @@ func TestModelsSyncFillsASeedCatalog(t *testing.T) { // regression: sync must no
 		t.Fatal(err)
 	}
 	d, _, stderr := testDeps()
-	if code := d.syncModels(ctx, modelsOpts{file: file}, srv.endpoints(), fixedNow); code != 0 {
+	if code := d.syncModels(ctx, plainOpts(t, file), srv.endpoints(), fixedNow); code != 0 {
 		t.Fatalf("exit %d, want 0; stderr %q", code, stderr.String())
 	}
 	if !strings.Contains(string(mustRead(t, file)), `"name": "Claude Opus 5.5"`) {
@@ -545,35 +612,6 @@ func TestArenaURL(t *testing.T) {
 	want := "https://example.test/rows?config=webdev&dataset=lmarena-ai%2Fleaderboard-dataset&length=100&offset=200&split=latest"
 	if got != want {
 		t.Errorf("arenaURL = %s, want %s", got, want)
-	}
-}
-
-func TestFindModelsJSON(t *testing.T) { // serial: t.Setenv
-	root, file, _ := repoDir(t, "models.json")
-	src := filepath.Join(root, "home")
-	d := Deps{Getenv: func(k string) string {
-		if k == "CHEZMOI_SOURCE_DIR" {
-			return src
-		}
-		return ""
-	}}
-	t.Setenv("CHEZMOI_SOURCE_DIR", src)
-
-	got, err := d.findModelsJSON("")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if got != file {
-		t.Errorf("found %s, want %s", got, file)
-	}
-
-	d.Getenv = func(string) string { return "" }
-	t.Chdir(t.TempDir())
-	if _, err := d.findModelsJSON(""); err == nil {
-		t.Errorf("found a models.json in an empty directory")
-	}
-	if _, err := d.findModelsJSON(filepath.Join(root, "nope.json")); err == nil {
-		t.Errorf("explicit missing path accepted")
 	}
 }
 
@@ -611,7 +649,7 @@ func TestModelsSyncOtherSchemaExits1WithoutFetching(t *testing.T) {
 		t.Fatal(err)
 	}
 	d, _, _ := testDeps()
-	if code := d.syncModels(t.Context(), modelsOpts{file: file}, srv.endpoints(), fixedNow); code != 1 {
+	if code := d.syncModels(t.Context(), plainOpts(t, file), srv.endpoints(), fixedNow); code != 1 {
 		t.Fatalf("exit %d, want 1", code)
 	}
 	if n := len(srv.log()); n != 0 {

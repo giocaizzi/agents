@@ -19,21 +19,15 @@ func CopilotProviders() []string {
 	return []string{"anthropic", "google", "openai", "xai"}
 }
 
-// resolve maps a model as written in the policy to its canonical catalog id:
+// resolve maps a model as written in the config to its canonical catalog id:
 // an exact key, then "<provider>/<id>" compared by catalog.Key, then a bare id
-// compared by catalog.Key (preferring the hint provider). The sorted-first id
-// wins among several matches.
-func resolve(c catalog.Catalog, model, hint string) (string, bool) {
+// compared by catalog.Key. The sorted-first id wins among several matches.
+func resolve(c catalog.Catalog, model string) (string, bool) {
 	if _, ok := c.Models[model]; ok {
 		return model, true
 	}
 	if p, rest, ok := strings.Cut(model, "/"); ok {
 		if id, found := firstMatch(c, catalog.Key(rest), func(m catalog.Model) bool { return m.Provider == p }); found {
-			return id, true
-		}
-	}
-	if hint != "" {
-		if id, found := firstMatch(c, catalog.Key(model), func(m catalog.Model) bool { return m.Provider == hint }); found {
 			return id, true
 		}
 	}

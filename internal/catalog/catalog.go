@@ -43,8 +43,8 @@ func Categories() []string {
 	}
 }
 
-// File is the top level of models.json: one key, so the chezmoi template data
-// namespace stays clean.
+// File is the top level of models.json: one key, so a consumer merging it keeps its
+// own namespace clean.
 type File struct {
 	Catalog Catalog `json:"modelCatalog"`
 }
