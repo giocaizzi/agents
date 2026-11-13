@@ -132,10 +132,10 @@ func TestPlanUpdates(t *testing.T) {
 			wantSkip: "no installer in the checkout",
 		},
 		{
-			name: "pi installs the checkout", mgr: mgr, list: []pluginmgmt.PluginInfo{planInfo("dev-tools", "1.56.0", map[string]string{"pi": ""})},
+			name: "pi missing is linked by apply, not by a command", mgr: mgr, list: []pluginmgmt.PluginInfo{planInfo("dev-tools", "1.56.0", map[string]string{"pi": ""})},
 			harness: "pi", lookPath: fakeLookPath(),
-			wantChg:   []string{"dev-tools missing → 1.56.0"},
-			wantSteps: []string{"pi install " + dir},
+			wantChg:  []string{"dev-tools missing → 1.56.0"},
+			wantNote: "linked by agents apply",
 		},
 		{
 			name: "pi without checkout", mgr: pluginmgmt.Manager{Namespace: "ns"}, list: []pluginmgmt.PluginInfo{planInfo("dev-tools", "1.56.0", map[string]string{"pi": ""})},
@@ -154,14 +154,14 @@ func TestPlanUpdates(t *testing.T) {
 			wantNote: "by the checkout pull",
 		},
 		{
-			name: "pi missing and stale installs the checkout", mgr: mgr,
+			name: "pi missing and stale needs no command", mgr: mgr,
 			list: []pluginmgmt.PluginInfo{
 				planInfo("dev-tools", "1.56.0", map[string]string{"pi": "1.55.0"}),
 				planInfo("guard", "1.4.0", map[string]string{"pi": ""}),
 			},
 			harness: "pi", lookPath: fakeLookPath(),
-			wantChg:   []string{"dev-tools 1.55.0 → 1.56.0", "guard missing → 1.4.0"},
-			wantSteps: []string{"pi install " + dir},
+			wantChg:  []string{"dev-tools 1.55.0 → 1.56.0", "guard missing → 1.4.0"},
+			wantNote: "linked by agents apply",
 		},
 		{
 			name: "opencode outdated runs installer", mgr: mgr,
