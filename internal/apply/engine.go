@@ -232,6 +232,15 @@ func writeFile(t Target, data []byte, liveText string, existed bool) error {
 	}
 	if info, err := os.Stat(t.Path); err == nil {
 		mode = info.Mode().Perm()
+		if len(t.Sensitive) > 0 && mode != 0o600 {
+			// Tighten before writing so secrets never land in a wider file.
+			mode = 0o600
+			if err := os.Chmod(t.Path, mode); err != nil {
+				return fmt.Errorf("chmod %s: %w", t.Path, err)
+			}
+		}
+	} else if len(t.Sensitive) > 0 {
+		mode = 0o600
 	}
 	if err := os.MkdirAll(filepath.Dir(t.Path), 0o700); err != nil {
 		return fmt.Errorf("create dir for %s: %w", t.Path, err)

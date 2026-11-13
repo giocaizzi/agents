@@ -95,7 +95,6 @@ func TestExpandEnv_ExistingFileMode(t *testing.T) {
 	t.Parallel()
 	t.Run("xfail: an existing 0644 workspace file keeps its mode", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: apply keeps an existing file's mode, so expanded secrets are written world-readable")
 		if runtime.GOOS == "windows" {
 			t.Skip("POSIX permission bits")
 		}
