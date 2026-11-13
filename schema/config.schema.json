@@ -959,6 +959,13 @@
           },
           "type": "object",
           "description": "Service name per harness (any name). Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "harnesses": {
+          "items": {
+            "$ref": "#/$defs/Harness"
+          },
+          "type": "array",
+          "description": "Harnesses that export telemetry (unset means every selected harness). Written to claude, vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,

@@ -162,3 +162,30 @@ func TestClaudeMCPServers(t *testing.T) {
 		t.Errorf("mcp servers (-want +got):\n%s", diff)
 	}
 }
+
+func TestTelemetryHarnessesGate(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name      string
+		harnesses []config.Harness
+		claude    bool
+		vscode    bool
+	}{
+		{"unset means all", nil, true, true},
+		{"listed", []config.Harness{config.Codex, config.Claude}, true, false},
+		{"not listed", []config.Harness{config.Codex}, false, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			c := &config.Config{Telemetry: config.Telemetry{Enabled: true, Endpoint: "https://otel.example.com", Harnesses: tt.harnesses}}
+			b := claudeBuilder(c, nil)
+			if _, got := b.telemetry(config.Claude); got != tt.claude {
+				t.Errorf("claude telemetry = %v, want %v", got, tt.claude)
+			}
+			if got := c.Telemetry.Exports(config.VSCode); got != tt.vscode {
+				t.Errorf("vscode exports = %v, want %v", got, tt.vscode)
+			}
+		})
+	}
+}

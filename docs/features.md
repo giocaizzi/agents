@@ -56,6 +56,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `voice.auto_submit` | ✓ | — | — | — | — | — | — |
 | `voice.language` | ✓ | — | ✓ | — | — | — | — |
 | `telemetry.enabled` | ✓ | — | ✓ | ✓ | — | — | — |
+| `telemetry.harnesses` | ✓ | — | ✓ | ✓ | — | — | — |
 | `telemetry.endpoint` | ✓ | — | ✓ | ✓ | — | — | — |
 | `telemetry.protocol` | ✓ | — | planned | ✓ | — | — | — |
 | `telemetry.temporality` | ✓ | — | — | — | — | — | — |
@@ -164,6 +165,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `voice.auto_submit`: `~/.claude/settings.json: voice`
 - `voice.language`: `~/.claude/settings.json: voice`
 - `telemetry.enabled`: `~/.claude/settings.json: env`
+- `telemetry.harnesses`: `~/.claude/settings.json: env`
 - `telemetry.endpoint`: `~/.claude/settings.json: env`
 - `telemetry.protocol`: `~/.claude/settings.json: env`
 - `telemetry.temporality`: `~/.claude/settings.json: env`
@@ -240,7 +242,7 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 
 - language server entries have no such field: `lsp.servers.*.filetypes`, `lsp.servers.*.format`
 - no documented MCP approval setting: `permissions.allowed_mcp`
-- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
+- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented automatic compaction setting: `context.auto_compact`
 - no documented command allow or deny list: `permissions.allow_commands`, `permissions.allow_command_patterns`, `permissions.deny_command_patterns`, `permissions.deny_command_exact`, `permissions.deny_command_prefixes`, `permissions.ask_command_prefixes`
 - no documented compaction trigger size: `context.auto_compact_window`
@@ -287,6 +289,7 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `voice.enabled`: `<Code user dir>/settings.json: dictation.enabled`, `~/.copilot/settings.json: voice`
 - `voice.language`: `<Code user dir>/settings.json: agents.voice.language`
 - `telemetry.enabled`: `<Code user dir>/settings.json: github.copilot.chat.otel.enabled`
+- `telemetry.harnesses`: `<Code user dir>/settings.json: github.copilot.chat.otel.enabled`
 - `telemetry.endpoint`: `<Code user dir>/settings.json: github.copilot.chat.otel.otlpEndpoint`
 - `lsp.enabled`: `~/.copilot/lsp-config.json: lspServers`
 - `lsp.servers`: `~/.copilot/lsp-config.json: lspServers`
@@ -346,6 +349,7 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `permissions.reasons`: `~/.codex/rules/agents.rules`
 - `notifications.terminal_bell`: `~/.codex/config.toml: tui`
 - `telemetry.enabled`: `~/.codex/config.toml: otel`
+- `telemetry.harnesses`: `~/.codex/config.toml: otel`
 - `telemetry.endpoint`: `~/.codex/config.toml: otel`
 - `telemetry.protocol`: `~/.codex/config.toml: otel`
 - `telemetry.attributes`: `~/.codex/config.toml: otel`
@@ -435,7 +439,7 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 **Not supported**
 
 - language server entries have no such field: `lsp.servers.*.filetypes`
-- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
+- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented compaction trigger size: `context.auto_compact_window`
 - no documented per-rule message: `permissions.reasons`
 - no documented per-turn token limit: `context.max_turn_tokens`
@@ -492,7 +496,7 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 
 - language server entries have no such field: `lsp.servers.*.filetypes`, `lsp.servers.*.format`
 - no documented MCP approval setting: `permissions.allowed_mcp`
-- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
+- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented URL allow list: `permissions.allowed_urls`
 - no documented command allow or deny list: `permissions.allow_commands`, `permissions.allow_command_patterns`, `permissions.deny_command_patterns`, `permissions.deny_command_exact`, `permissions.deny_command_prefixes`, `permissions.ask_command_prefixes`
 - no documented language server setting: `lsp.enabled`, `lsp.servers`
@@ -556,7 +560,7 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 
 - language server entries have no such field: `lsp.servers.*.filetypes`, `lsp.servers.*.format`
 - no callback port field for an OAuth client: `mcp.servers.*.oauth.callback_port`
-- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
+- no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.harnesses`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented automatic compaction setting: `context.auto_compact`
 - no documented compaction trigger size: `context.auto_compact_window`
 - no documented language server setting: `lsp.enabled`, `lsp.servers`

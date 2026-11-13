@@ -76,7 +76,7 @@ func vscodeSettings(c *config.Config, b *builder) map[string]any {
 	if c.Context.AutoCompact {
 		out["github.copilot.chat.summarizeAgentConversationHistory.enabled"] = true
 	}
-	if t := c.Telemetry; t.Enabled {
+	if t := c.Telemetry; t.Exports(config.VSCode) {
 		out["github.copilot.chat.otel.enabled"] = true
 		if t.Endpoint != "" {
 			out["github.copilot.chat.otel.otlpEndpoint"] = t.Endpoint

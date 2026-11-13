@@ -264,6 +264,7 @@ func telemetryFeatures() []Feature {
 	vsNone := un(vscode, "the Copilot settings reference lists no such OpenTelemetry setting (checked 2026-11-13)")
 	specs := []spec{
 		{"enabled", "Export telemetry.", otel, vsOTel("enabled")},
+		{"harnesses", "Harnesses that export telemetry.", otel, vsOTel("enabled")},
 		{"endpoint", "Collector endpoint.", otel, vsOTel("otlpEndpoint")},
 		{"protocol", "Export protocol.", otel, pl(vscode, "github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)")},
 		{"temporality", "Metric temporality.", un(codex, codexNoKey), vsNone},

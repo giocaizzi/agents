@@ -205,15 +205,22 @@ type Voice struct {
 
 // Telemetry is the OpenTelemetry export settings.
 type Telemetry struct {
-	Enabled          bool              `json:"enabled,omitempty"           jsonschema:"description=Export telemetry"                     toml:"enabled,omitempty"`
-	Endpoint         string            `json:"endpoint,omitempty"          jsonschema:"description=Collector endpoint"                   toml:"endpoint,omitempty"`
-	Protocol         string            `json:"protocol,omitempty"          jsonschema:"description=Export protocol"                      toml:"protocol,omitempty"`
-	Temporality      string            `json:"temporality,omitempty"       jsonschema:"description=Metric temporality"                   toml:"temporality,omitempty"`
-	LogToolDetails   bool              `json:"log_tool_details,omitempty"  jsonschema:"description=Log tool call details"                toml:"log_tool_details,omitempty"`
-	LogToolContent   bool              `json:"log_tool_content,omitempty"  jsonschema:"description=Log tool call content"                toml:"log_tool_content,omitempty"`
-	ServiceNamespace string            `json:"service_namespace,omitempty" jsonschema:"description=Service namespace resource attribute" toml:"service_namespace,omitempty"`
-	Attributes       map[string]string `json:"attributes,omitempty"        jsonschema:"description=Extra resource attributes (any name)" toml:"attributes,omitempty"`
-	Services         map[string]string `json:"services,omitempty"          jsonschema:"description=Service name per harness (any name)"  toml:"services,omitempty"`
+	Enabled          bool              `json:"enabled,omitempty"           jsonschema:"description=Export telemetry"                                                     toml:"enabled,omitempty"`
+	Endpoint         string            `json:"endpoint,omitempty"          jsonschema:"description=Collector endpoint"                                                   toml:"endpoint,omitempty"`
+	Protocol         string            `json:"protocol,omitempty"          jsonschema:"description=Export protocol"                                                      toml:"protocol,omitempty"`
+	Temporality      string            `json:"temporality,omitempty"       jsonschema:"description=Metric temporality"                                                   toml:"temporality,omitempty"`
+	LogToolDetails   bool              `json:"log_tool_details,omitempty"  jsonschema:"description=Log tool call details"                                                toml:"log_tool_details,omitempty"`
+	LogToolContent   bool              `json:"log_tool_content,omitempty"  jsonschema:"description=Log tool call content"                                                toml:"log_tool_content,omitempty"`
+	ServiceNamespace string            `json:"service_namespace,omitempty" jsonschema:"description=Service namespace resource attribute"                                 toml:"service_namespace,omitempty"`
+	Attributes       map[string]string `json:"attributes,omitempty"        jsonschema:"description=Extra resource attributes (any name)"                                 toml:"attributes,omitempty"`
+	Services         map[string]string `json:"services,omitempty"          jsonschema:"description=Service name per harness (any name)"                                  toml:"services,omitempty"`
+	Harnesses        []Harness         `json:"harnesses,omitempty"         jsonschema:"description=Harnesses that export telemetry (unset means every selected harness)" toml:"harnesses,omitempty"`
+}
+
+// Exports reports whether telemetry is on for h: enabled, and h is listed
+// when Harnesses is not empty.
+func (t Telemetry) Exports(h Harness) bool {
+	return t.Enabled && (len(t.Harnesses) == 0 || slices.Contains(t.Harnesses, h))
 }
 
 // LSP is the language server list.

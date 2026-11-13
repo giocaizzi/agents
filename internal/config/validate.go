@@ -27,6 +27,11 @@ func Validate(c Config) []finding.Finding {
 			add(fmt.Sprintf("harnesses[%d]", i), "unknown harness %q (want one of %s)", h, harnessList())
 		}
 	}
+	for i, h := range c.Telemetry.Harnesses {
+		if !h.Valid() {
+			add(fmt.Sprintf("telemetry.harnesses[%d]", i), "unknown harness %q (want one of %s)", h, harnessList())
+		}
+	}
 	validatePlugins("plugins", c.Plugins, add)
 	if c.Profile != "" {
 		if _, ok := c.Profiles[c.Profile]; !ok {

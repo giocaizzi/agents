@@ -620,6 +620,7 @@ func TestValidate(t *testing.T) {
 		{"schema_version 2", func(c *config.Config) { c.SchemaVersion = 2 }, "schema_version"},
 		{"schema_version unset", func(c *config.Config) { c.SchemaVersion = 0 }, "schema_version"},
 		{"bad harness", func(c *config.Config) { c.Harnesses = []config.Harness{"emacs"} }, `unknown harness "emacs"`},
+		{"bad telemetry harness", func(c *config.Config) { c.Telemetry.Harnesses = []config.Harness{"emacs"} }, `unknown harness "emacs"`},
 		{"bad plugin harness", func(c *config.Config) { c.Plugins.Enabled = map[string][]config.Harness{"p": {"emacs"}} }, "plugins.enabled.p"},
 		{"profile missing", func(c *config.Config) { c.Profile = "ghost" }, "ghost"},
 		{"profile declared", func(c *config.Config) {

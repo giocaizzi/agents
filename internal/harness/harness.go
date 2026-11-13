@@ -223,7 +223,7 @@ type Telemetry struct {
 // endpoint has an unset variable (warned).
 func (b *builder) telemetry(h config.Harness) (Telemetry, bool) {
 	t := b.cfg.Telemetry
-	if !t.Enabled || t.Endpoint == "" {
+	if !t.Exports(h) || t.Endpoint == "" {
 		return Telemetry{}, false
 	}
 	endpoint, ok := b.expand("telemetry.endpoint", t.Endpoint)

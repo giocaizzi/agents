@@ -151,6 +151,7 @@ Which harnesses honour which voice fields is in [voice.md](voice.md) and the [fe
 | Key | Type | Meaning |
 |---|---|---|
 | `enabled` | bool | Export telemetry |
+| `harnesses` | list | Harnesses that export telemetry (unset: every selected harness) |
 | `endpoint` | string | Collector endpoint (`${VAR}` expands) |
 | `protocol`, `temporality` | string | Export protocol and metric temporality |
 | `log_tool_details`, `log_tool_content` | bool | Log tool call details and content |
