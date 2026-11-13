@@ -17,7 +17,7 @@ Go CLI that writes the native files of every AI coding harness from one config f
 
 ## Rules
 
-- **No dotfiles-manager coupling.** `agents` knows nothing about any dotfiles manager: no package, test fixture, path or comment may name one or read its files. An architecture test enforces it; do not weaken it. The dotfiles side renders only machine facts into the config and calls plain `agents apply`. Rationale: [docs/design.md](docs/design.md).
+- **No dotfiles-manager coupling.** `agents` knows nothing about any dotfiles manager: no package, test fixture, path or comment may name one or read its files. The architecture test in `internal/arch` enforces it; do not weaken it. The dotfiles side renders only machine facts into the config and calls plain `agents apply`. Rationale: [docs/design.md](docs/design.md).
 - **Public repo.** No personal usernames, private hostnames, internal paths or proprietary repository names in code, tests, docs or templates. Use `acme/app`, `example/harness`, `octocat`.
 - **Registries stay abstract.** Plugin sources are configuration (`[plugins]`), never hardcoded.
 - **Change a command, flag or key, change its doc in the same commit**: [docs/cli.md](docs/cli.md), [docs/config.md](docs/config.md), [docs/parity.md](docs/parity.md). `internal/config/model.go` changes need `go test ./internal/config -run TestSchemaDrift -update`.

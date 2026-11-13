@@ -13,7 +13,7 @@ Status: accepted.
 | Component | Owns | Does not know |
 |---|---|---|
 | A dotfiles repository | Machine identity, secrets, encryption and deployment. It renders only machine facts (profile, harness selection, host-specific values) into `config.toml` and deploys the private instruction layer | What any harness's native file looks like |
-| `agents` | Everything agent-related: the config model, the instruction layers, models and tiers, plugins, MCP, and the native files of every harness, which it writes itself | Any dotfiles manager. An architecture test enforces it: no package imports, shells out to, or reads the paths of one |
+| `agents` | Everything agent-related: the config model, the instruction layers, models and tiers, plugins, MCP, and the native files of every harness, which it writes itself | Any dotfiles manager. An architecture test (`internal/arch`) enforces it: no tracked file names one and no code reads its environment |
 | A generic edit registry tool | Editing and checking components from a registry of names. For the agents config its check pipes the rendered config to `agents check -file -` and runs `agents prompt check` | What the components mean |
 
 The dotfiles call plain `agents apply` after package installs. Nothing else couples them: the config file and the instruction directory are the whole interface.
