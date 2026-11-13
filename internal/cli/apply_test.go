@@ -175,7 +175,6 @@ func TestApply_ReviewRound2XFailSyncedDir(t *testing.T) {
 	t.Parallel()
 	t.Run("xfail: apply keeps the files mcp sync wrote for a directory", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: mcp sync <dir> records its files in the shared manifest, and the next full apply retires them")
 		e := newStdEnv(t, "")
 		p := e.writeConfig(t, "schema_version = 1\nharnesses = [\"codex\"]\n")
 		dir := filepath.Join(e.home, "proj")
@@ -192,6 +191,9 @@ func TestApply_ReviewRound2XFailSyncedDir(t *testing.T) {
 		codex := filepath.Join(dir, ".codex", "config.toml")
 		if _, err := os.Stat(codex); err != nil {
 			t.Fatalf("mcp sync did not write %s: %v", codex, err)
+		}
+		if code := e.run("mcp", "sync", "-file", p, dir); code != 0 {
+			t.Fatalf("second mcp sync exit = %d, err = %s", code, e.errOut)
 		}
 		if code := e.run("apply", "-file", p); code != 0 {
 			t.Fatalf("apply exit = %d, err = %s", code, e.errOut)

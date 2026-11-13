@@ -2,6 +2,8 @@ package cli
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -79,7 +81,7 @@ func (d Deps) runMCPSync(_ context.Context, args []string) int {
 	if err != nil {
 		return d.mcpFailure(err)
 	}
-	return d.applyMCP(r, plan.Targets, plan.Warnings, *dryRun)
+	return d.applyMCP(filepath.Join(r.Dirs.State, "apply.json"), plan.Targets, plan.Warnings, *dryRun)
 }
 
 // syncMCPDir writes the native MCP files of the harnesses selected in r from
@@ -111,14 +113,21 @@ func (d Deps) syncMCPDir(r *config.Resolved, dir, account string, dryRun bool) i
 	for i, w := range warnings {
 		warnings[i] = root + ": " + w
 	}
-	return d.applyMCP(r, targets, warnings, dryRun)
+	return d.applyMCP(syncManifestPath(r.Dirs.State, root), targets, warnings, dryRun)
+}
+
+// syncManifestPath is the manifest of one synced directory. It is separate
+// from the apply manifest, so a full apply never retires what sync wrote.
+func syncManifestPath(state, root string) string {
+	sum := sha256.Sum256([]byte(root))
+	return filepath.Join(state, "mcp-sync", hex.EncodeToString(sum[:])[:16]+".json")
 }
 
 // applyMCP applies targets through the apply engine and prints one line per
 // result, with the diff on a dry run.
-func (d Deps) applyMCP(r *config.Resolved, targets []apply.Target, warnings []string, dryRun bool) int {
+func (d Deps) applyMCP(statePath string, targets []apply.Target, warnings []string, dryRun bool) int {
 	d.printMCPWarnings(warnings)
-	engine := apply.Engine{StatePath: filepath.Join(r.Dirs.State, "apply.json"), DryRun: dryRun, Partial: true}
+	engine := apply.Engine{StatePath: statePath, DryRun: dryRun, Partial: true}
 	results, err := engine.Run(targets)
 	code := exitOK
 	if err != nil {
