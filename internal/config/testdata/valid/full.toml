@@ -9,7 +9,6 @@ allow_non_workspace_access = false
 subagent_depth = 2
 allow_subagent_invocations = true
 ask_timeout = "30s"
-mode = "default"
 
 [permissions]
 allow_commands = ["ls", "cat"]
@@ -197,8 +196,6 @@ instructions = ["core"]
 tui = { notifications = true }
 
 [harness.opencode]
-default_model = "acme/acme-large"
-sandbox = true
 instructions = ["core"]
 
 [harness.opencode.settings]

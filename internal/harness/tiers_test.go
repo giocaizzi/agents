@@ -156,7 +156,6 @@ func TestTierNoWrite(t *testing.T) {
 	// A typed field wins over the default tier.
 	c.Harness.Codex.Model = "typed"
 	c.Harness.Pi.DefaultModel = "typed-pi"
-	c.Harness.OpenCode.DefaultModel = "acme/typed"
 	// No default tier: no session model anywhere.
 	none := tierConfig()
 	none.Models.Default = ""
@@ -174,7 +173,6 @@ func TestTierNoWrite(t *testing.T) {
 	}{
 		{"typed codex", c, config.Codex, []string{".codex", "config.toml"}, "model", "typed"},
 		{"typed pi", c, config.Pi, []string{".pi", "agent", "settings.json"}, "defaultModel", "typed-pi"},
-		{"typed opencode", c, config.OpenCode, []string{".config", "opencode", "opencode.jsonc"}, "model", nil},
 		{"no default claude", none, config.Claude, []string{".claude", "settings.json"}, "model", nil},
 		{"no default copilot", none, config.Copilot, []string{".copilot", "settings.json"}, "model", nil},
 		{"tier without codex model", bare, config.Codex, []string{".codex", "config.toml"}, "model", nil},

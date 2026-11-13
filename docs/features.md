@@ -22,13 +22,12 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `models.show_thinking_summaries` | ✓ | planned | planned | planned | — | planned | — |
 | `autonomy.execution_mode` | planned | planned | planned | planned | — | — | ✓ |
 | `autonomy.sandbox_mode` | planned | planned | planned | planned | — | — | planned |
-| `autonomy.allow_non_workspace_access` | planned | — | planned | — | planned | — | ✓ |
+| `autonomy.allow_non_workspace_access` | planned | — | planned | — | ✓ | — | ✓ |
 | `autonomy.subagent_depth` | — | planned | — | — | ✓ | — | — |
 | `autonomy.allow_subagent_invocations` | — | — | planned | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
-| `autonomy.mode` | planned | planned | planned | planned | planned | planned | planned |
-| `permissions.allow_commands` | planned | — | ✓ | planned | planned | — | planned |
-| `permissions.allowed_urls` | planned | ✓ | ✓ | — | planned | — | planned |
+| `permissions.allow_commands` | planned | — | ✓ | planned | ✓ | — | planned |
+| `permissions.allowed_urls` | planned | ✓ | ✓ | — | ✓ | — | planned |
 | `permissions.allow_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_read` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_write` | ✓ | — | — | — | ✓ | — | ✓ |
@@ -38,7 +37,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `permissions.ask_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
 | `permissions.allowed_mcp` | planned | — | — | — | planned | — | planned |
 | `permissions.reasons` | — | — | — | planned | — | — | — |
-| `context.auto_compact` | planned | — | planned | — | planned | planned | — |
+| `context.auto_compact` | planned | — | planned | — | ✓ | planned | — |
 | `context.auto_compact_window` | ✓ | — | — | — | — | planned | — |
 | `context.prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
 | `context.subagent_prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
@@ -68,12 +67,12 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `lsp.enabled` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers.*.filetypes` | — | — | — | — | — | — | — |
-| `lsp.servers.*.format` | — | — | — | — | planned | — | — |
-| `plugins.registry` | ✓ | ✓ | ✓ | planned | planned | ✓ | — |
-| `plugins.enabled` | ✓ | ✓ | ✓ | planned | planned | ✓ | — |
-| `plugins.disabled` | ✓ | ✓ | ✓ | planned | planned | ✓ | — |
+| `lsp.servers.*.format` | — | — | — | — | — | — | — |
+| `plugins.registry` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
+| `plugins.enabled` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
+| `plugins.disabled` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
 | `mcp.servers` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `mcp.servers.*.oauth.callback_port` | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| `mcp.servers.*.oauth.callback_port` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `mcp.servers.*.oauth.public_client` | — | ✓ | ✓ | — | — | — | — |
 | `mcp.workspaces` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `harness.claude.settings` | ✓ |  |  |  |  |  |  |
@@ -92,8 +91,6 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `harness.codex.model_reasoning_effort` |  |  |  | ✓ |  |  |  |
 | `harness.codex.approval_policy` |  |  |  | ✓ |  |  |  |
 | `harness.codex.sandbox_mode` |  |  |  | ✓ |  |  |  |
-| `harness.opencode.default_model` |  |  |  |  | planned |  |  |
-| `harness.opencode.sandbox` |  |  |  |  | — |  |  |
 | `harness.pi.default_provider` |  |  |  |  |  | ✓ |  |
 | `harness.pi.default_model` |  |  |  |  |  | ✓ |  |
 | `harness.pi.default_thinking_level` |  |  |  |  |  | ✓ |  |
@@ -190,7 +187,6 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `autonomy.execution_mode`: permissions.defaultMode (agents writes it from harness.claude.default_mode; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode`: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.allow_non_workspace_access`: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `permissions.allow_commands`: permissions.allow Bash(...) rules
 - `permissions.allowed_urls`: permissions.allow WebFetch(domain:...) rules
 - `permissions.allowed_mcp`: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
@@ -238,7 +234,6 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `autonomy.execution_mode`: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode`: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.subagent_depth`: subagents.maxDepth
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `ui.theme`: theme
 - `voice.mode`: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
 - `voice.auto_submit`: ambiguous: the Copilot CLI documents no voice key; agents writes voice.enabled only
@@ -305,7 +300,6 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `autonomy.sandbox_mode`: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.allow_non_workspace_access`: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
 - `autonomy.allow_subagent_invocations`: chat.subagents.allowInvocationsFromSubagents
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `permissions.deny_command_prefixes`: chat.tools.terminal.autoApprove entries set to false
 - `context.auto_compact`: github.copilot.chat.summarizeAgentConversationHistory.enabled
 - `telemetry.enabled`: github.copilot.chat.otel.*
@@ -370,7 +364,6 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `models.show_thinking_summaries`: model_reasoning_summary and hide_agent_reasoning
 - `autonomy.execution_mode`: approval_policy (agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode`: sandbox_mode (agents writes it from harness.codex.sandbox_mode)
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `permissions.allow_commands`: prefix_rule with decision allow
 - `permissions.deny_command_exact`: prefix_rule with decision forbidden
 - `permissions.deny_command_prefixes`: prefix_rule with decision forbidden
@@ -422,7 +415,10 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - `models.default`: `~/.config/opencode/opencode.jsonc: model`
 - `models.tiers`: `~/.config/opencode/opencode.jsonc: model`
 - `models.assign`: `~/.config/opencode/opencode.jsonc: agents`
+- `autonomy.allow_non_workspace_access`: `~/.config/opencode/opencode.jsonc: permissions`
 - `autonomy.subagent_depth`: `~/.config/opencode/opencode.jsonc: experimental`
+- `permissions.allow_commands`: `~/.config/opencode/opencode.jsonc: permissions`
+- `permissions.allowed_urls`: `~/.config/opencode/opencode.jsonc: permissions`
 - `permissions.allow_command_patterns`: `~/.config/opencode/opencode.jsonc: permissions`
 - `permissions.deny_read`: `~/.config/opencode/opencode.jsonc: policies`
 - `permissions.deny_write`: `~/.config/opencode/opencode.jsonc: policies`
@@ -430,31 +426,22 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - `permissions.deny_command_exact`: `~/.config/opencode/opencode.jsonc: policies`
 - `permissions.deny_command_prefixes`: `~/.config/opencode/opencode.jsonc: policies`
 - `permissions.ask_command_prefixes`: `~/.config/opencode/opencode.jsonc: permissions`
+- `context.auto_compact`: `~/.config/opencode/opencode.jsonc: compaction`
 - `lsp.enabled`: `~/.config/opencode/opencode.jsonc: lsp`
 - `lsp.servers`: `~/.config/opencode/opencode.jsonc: lsp`
 - `mcp.servers`: `~/.config/opencode/opencode.jsonc: mcp`
+- `mcp.servers.*.oauth.callback_port`: `~/.config/opencode/opencode.jsonc: mcp`
 - `mcp.workspaces`: `<workspace>/opencode.json: mcp`
 - `harness.opencode.settings`: `~/.config/opencode/opencode.jsonc: (any key)`
 
 **Planned**
 
-- `autonomy.allow_non_workspace_access`: permission external_directory
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `permissions.allow_commands`: permission bash allow
-- `permissions.allowed_urls`: permission webfetch
-- `permissions.allowed_mcp`: permission actions for MCP tools
-- `context.auto_compact`: compaction.auto
-- `ui.theme`: ambiguous: theme is not among the researched opencode keys; verify against its config docs
-- `lsp.servers.*.format`: formatter key (separate from lsp)
-- `plugins.registry`: plugin array (agents plugins installs them instead)
-- `plugins.enabled`: plugin array (agents plugins installs them instead)
-- `plugins.disabled`: plugin array (agents plugins installs them instead)
-- `harness.opencode.default_model`: model (ambiguous: the key is accepted and suppresses the tier model, but no renderer writes it)
+- `permissions.allowed_mcp`: ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)
+- `ui.theme`: ambiguous: opencode 2 keeps the theme in cli.json as theme.name (a theme such as catppuccin) plus theme.mode (system, dark or light); the shared value is a free string that is a mode for Claude Code and a theme name for VS Code, and agents writes no cli.json; options: write it as theme.name, write dark or light as theme.mode and anything else as theme.name (https://opencode.ai/docs/themes)
 
 **Not supported**
 
 - language server entries have no such field: `lsp.servers.*.filetypes`
-- no callback port field for an OAuth client: `mcp.servers.*.oauth.callback_port`
 - no documented OpenTelemetry export setting: `telemetry.enabled`, `telemetry.endpoint`, `telemetry.protocol`, `telemetry.temporality`, `telemetry.log_tool_details`, `telemetry.log_tool_content`, `telemetry.service_namespace`, `telemetry.attributes`, `telemetry.services`
 - no documented compaction trigger size: `context.auto_compact_window`
 - no documented per-rule message: `permissions.reasons`
@@ -475,7 +462,8 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - no documented timeout for questions: `autonomy.ask_timeout`
 - no documented voice input setting: `voice.enabled`, `voice.mode`, `voice.auto_submit`, `voice.language`
 - no public client flag in the documented MCP server fields: `mcp.servers.*.oauth.public_client`
-- no sandbox setting: `harness.opencode.sandbox`
+- plugins entries are npm, git or directory plugins by their own id, with no registry of harness plugins and no enabled map to fill; agents plugins installs harness plugins instead (https://opencode.ai/docs/plugins): `plugins.registry`, `plugins.enabled`, `plugins.disabled`
+- the formatter section runs a command with $FILE over file extensions and is separate from lsp, so a language server cannot be asked to format (https://opencode.ai/docs/formatters): `lsp.servers.*.format`
 - the harness has no sandbox: `autonomy.sandbox_mode`
 
 ### pi
@@ -503,7 +491,6 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 
 - `models.default_effort_level`: defaultThinkingLevel (agents writes it only from a tier today)
 - `models.show_thinking_summaries`: hideThinkingBlock
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `context.auto_compact`: compaction.enabled
 - `context.auto_compact_window`: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `ui.theme`: theme
@@ -566,7 +553,6 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 **Planned**
 
 - `autonomy.sandbox_mode`: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.mode`: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `permissions.allow_commands`: permissions.allow command(...)
 - `permissions.allowed_urls`: permissions.allow read_url(...)
 - `permissions.allowed_mcp`: permissions.allow mcp(...)
@@ -624,40 +610,29 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.allow_non_workspace_access` on Claude Code: additionalDirectories (ambiguous: it takes a directory list, not a boolean)
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
-- `autonomy.allow_non_workspace_access` on opencode: permission external_directory
 - `autonomy.subagent_depth` on Copilot CLI: subagents.maxDepth
 - `autonomy.allow_subagent_invocations` on VS Code: chat.subagents.allowInvocationsFromSubagents
-- `autonomy.mode` on Claude Code: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on Copilot CLI: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on VS Code: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on Codex: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on opencode: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on pi: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
-- `autonomy.mode` on Antigravity: ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode
 - `permissions.allow_commands` on Claude Code: permissions.allow Bash(...) rules
 - `permissions.allow_commands` on Codex: prefix_rule with decision allow
-- `permissions.allow_commands` on opencode: permission bash allow
 - `permissions.allow_commands` on Antigravity: permissions.allow command(...)
 - `permissions.allowed_urls` on Claude Code: permissions.allow WebFetch(domain:...) rules
-- `permissions.allowed_urls` on opencode: permission webfetch
 - `permissions.allowed_urls` on Antigravity: permissions.allow read_url(...)
 - `permissions.deny_command_exact` on Codex: prefix_rule with decision forbidden
 - `permissions.deny_command_prefixes` on VS Code: chat.tools.terminal.autoApprove entries set to false
 - `permissions.deny_command_prefixes` on Codex: prefix_rule with decision forbidden
 - `permissions.ask_command_prefixes` on Codex: prefix_rule with decision prompt
 - `permissions.allowed_mcp` on Claude Code: permissions.allow mcp__<server> entries (allowedMcpServers is not an approval list)
-- `permissions.allowed_mcp` on opencode: permission actions for MCP tools
+- `permissions.allowed_mcp` on opencode: ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)
 - `permissions.allowed_mcp` on Antigravity: permissions.allow mcp(...)
 - `permissions.reasons` on Codex: prefix_rule justification
 - `context.auto_compact` on Claude Code: autoCompactEnabled
 - `context.auto_compact` on VS Code: github.copilot.chat.summarizeAgentConversationHistory.enabled
-- `context.auto_compact` on opencode: compaction.auto
 - `context.auto_compact` on pi: compaction.enabled
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `context.max_tokens` on Claude Code: env CLAUDE_CODE_MAX_OUTPUT_TOKENS
 - `ui.theme` on Copilot CLI: theme
 - `ui.theme` on Codex: tui.theme
-- `ui.theme` on opencode: ambiguous: theme is not among the researched opencode keys; verify against its config docs
+- `ui.theme` on opencode: ambiguous: opencode 2 keeps the theme in cli.json as theme.name (a theme such as catppuccin) plus theme.mode (system, dark or light); the shared value is a free string that is a mode for Claude Code and a theme name for VS Code, and agents writes no cli.json; options: write it as theme.name, write dark or light as theme.mode and anything else as theme.name (https://opencode.ai/docs/themes)
 - `ui.theme` on pi: theme
 - `ui.theme` on Antigravity: colorScheme
 - `notifications.terminal_bell` on Antigravity: notifications
@@ -678,11 +653,6 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `telemetry.attributes` on VS Code: github.copilot.chat.otel.*
 - `telemetry.services` on VS Code: github.copilot.chat.otel.*
 - `telemetry.services` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `lsp.servers.*.format` on opencode: formatter key (separate from lsp)
 - `plugins.registry` on Codex: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.registry` on opencode: plugin array (agents plugins installs them instead)
 - `plugins.enabled` on Codex: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.enabled` on opencode: plugin array (agents plugins installs them instead)
 - `plugins.disabled` on Codex: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.disabled` on opencode: plugin array (agents plugins installs them instead)
-- `harness.opencode.default_model` on opencode: model (ambiguous: the key is accepted and suppresses the tier model, but no renderer writes it)

@@ -102,7 +102,6 @@ type Autonomy struct {
 	SubagentDepth            int    `json:"subagent_depth,omitempty"             jsonschema:"description=Maximum subagent nesting depth"               toml:"subagent_depth,omitempty"`
 	AllowSubagentInvocations bool   `json:"allow_subagent_invocations,omitempty" jsonschema:"description=Allow agents to invoke subagents"             toml:"allow_subagent_invocations,omitempty"`
 	AskTimeout               string `json:"ask_timeout,omitempty"                jsonschema:"description=How long to wait for an answer to a question" toml:"ask_timeout,omitempty"`
-	Mode                     string `json:"mode,omitempty"                       jsonschema:"description=Default agent mode"                           toml:"mode,omitempty"`
 }
 
 // Permissions are the command and path rules shared by all harnesses.
@@ -350,10 +349,8 @@ type CodexSettings struct {
 
 // OpenCodeSettings are the opencode settings.
 type OpenCodeSettings struct {
-	DefaultModel string         `json:"default_model,omitempty" jsonschema:"description=Default model"                                           toml:"default_model,omitempty"`
-	Sandbox      bool           `json:"sandbox,omitempty"       jsonschema:"description=Run sandboxed"                                           toml:"sandbox,omitempty"`
-	Settings     map[string]any `json:"settings,omitempty"      jsonschema:"description=Native settings merged as is (any key)"                  toml:"settings,omitempty"`
-	Instructions []string       `json:"instructions,omitempty"  jsonschema:"description=Instruction layers composed for this harness (in order)" toml:"instructions,omitempty"`
+	Settings     map[string]any `json:"settings,omitempty"     jsonschema:"description=Native settings merged as is (any key)"                  toml:"settings,omitempty"`
+	Instructions []string       `json:"instructions,omitempty" jsonschema:"description=Instruction layers composed for this harness (in order)" toml:"instructions,omitempty"`
 }
 
 // PiSettings are the pi settings.

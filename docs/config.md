@@ -44,7 +44,7 @@ Harnesses: when `harnesses` is unset in every layer, agents selects those whose 
 
 `${VAR}` (only that form) is expanded at `apply` time in: MCP server `url`, `command`, `args`, `env`, `headers` and `oauth.client_id`; workspace paths; `instructions.dir`; every string inside `harness.<h>.settings`; `telemetry.endpoint`. An unset or empty variable skips that entry and prints a warning (`mcp.servers.docs: skipped, ${DOCS_TOKEN} is unset`); the rest of the apply proceeds. Paths also expand a leading `~`. OAuth client secrets have no config key: they live only in the harness's own keyring.
 
-Some keys are accepted and validated but no harness renders them yet: `autonomy.sandbox_mode`, `autonomy.allow_subagent_invocations`, `autonomy.mode`, `context.auto_compact`, `context.max_turn_tokens`, `context.max_tokens`, `permissions.allowed_mcp`, `harness.opencode.sandbox`, `lsp.servers.<name>.filetypes` and `.format`. They stay readable through `agents config show -json` for other tools. [parity.md](parity.md) lists what each harness receives for the rest.
+Some keys are accepted and validated but no harness renders them yet: `autonomy.sandbox_mode`, `autonomy.allow_subagent_invocations`, `context.max_turn_tokens`, `context.max_tokens`, `permissions.allowed_mcp`, `lsp.servers.<name>.filetypes` and `.format`. They stay readable through `agents config show -json` for other tools. [parity.md](parity.md) lists what each harness receives for the rest.
 
 ## Top level
 
@@ -60,11 +60,10 @@ Some keys are accepted and validated but no harness renders them yet: `autonomy.
 |---|---|---|
 | `execution_mode` | string | Execution mode name; Antigravity uses it as `agentMode` unless `harness.antigravity.agent_mode` is set |
 | `sandbox_mode` | string | Sandbox mode name |
-| `allow_non_workspace_access` | bool | Allow access outside the workspace (Antigravity) |
+| `allow_non_workspace_access` | bool | Allow access outside the workspace (Antigravity, opencode) |
 | `subagent_depth` | int | Maximum subagent nesting (opencode) |
 | `allow_subagent_invocations` | bool | Allow agents to invoke subagents |
 | `ask_timeout` | string | How long to wait for an answer (Claude `askUserQuestionTimeout`) |
-| `mode` | string | Default agent mode |
 
 ## `[permissions]`
 
@@ -213,7 +212,6 @@ One table per harness. `instructions` (array of layer names) exists on all; `set
 | `harness.claude` | `default_mode` (permission mode, default `auto`), `skip_auto_permission_prompt`, `cleanup_period_days`, `disable_claude_ai_connectors`, `allow` (extra native allow rules) |
 | `harness.copilot`, `harness.vscode` | none besides `settings` and `instructions` |
 | `harness.codex` | `model`, `model_reasoning_effort`, `approval_policy`, `sandbox_mode` |
-| `harness.opencode` | `default_model`, `sandbox` |
 | `harness.pi` | `default_provider`, `default_model`, `default_thinking_level`, `packages` (extra pi packages) |
 | `harness.antigravity` | `agent_mode`, `tool_permission`, `enable_terminal_sandbox`, `allow_non_workspace_access`, `allow` |
 

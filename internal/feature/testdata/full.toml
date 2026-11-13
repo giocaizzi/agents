@@ -14,7 +14,6 @@ allow_non_workspace_access = true
 subagent_depth = 2
 allow_subagent_invocations = true
 ask_timeout = "60s"
-mode = "default"
 
 [permissions]
 allow_commands = ["git *"]
@@ -136,10 +135,6 @@ allow = ["WebSearch"]
 model_reasoning_effort = "high"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
-
-[harness.opencode]
-default_model = "acme/model"
-sandbox = true
 
 [harness.pi]
 default_provider = "acme"

@@ -55,7 +55,7 @@
         },
         "allow_non_workspace_access": {
           "type": "boolean",
-          "description": "Allow access outside the workspace. Written to antigravity. Planned for claude, vscode, opencode. Not supported by copilot, codex, pi."
+          "description": "Allow access outside the workspace. Written to opencode, antigravity. Planned for claude, vscode. Not supported by copilot, codex, pi."
         },
         "subagent_depth": {
           "type": "integer",
@@ -68,10 +68,6 @@
         "ask_timeout": {
           "type": "string",
           "description": "How long to wait for an answer to a question. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
-        },
-        "mode": {
-          "type": "string",
-          "description": "Default agent mode. Planned for claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -282,7 +278,7 @@
       "properties": {
         "auto_compact": {
           "type": "boolean",
-          "description": "Compact the context automatically. Planned for claude, vscode, opencode, pi. Not supported by copilot, codex, antigravity."
+          "description": "Compact the context automatically. Written to opencode. Planned for claude, vscode, pi. Not supported by copilot, codex, antigravity."
         },
         "auto_compact_window": {
           "type": "integer",
@@ -452,7 +448,7 @@
         },
         "format": {
           "type": "boolean",
-          "description": "Use the server to format. Planned for opencode. Not supported by claude, copilot, vscode, codex, pi, antigravity."
+          "description": "Use the server to format. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -575,7 +571,7 @@
         },
         "callback_port": {
           "type": "integer",
-          "description": "Local callback port (1 to 65535). Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
+          "description": "Local callback port (1 to 65535). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "public_client": {
           "type": "boolean",
@@ -605,14 +601,6 @@
     },
     "OpenCodeSettings": {
       "properties": {
-        "default_model": {
-          "type": "string",
-          "description": "Default model. Planned for opencode."
-        },
-        "sandbox": {
-          "type": "boolean",
-          "description": "Run sandboxed. Not supported by opencode."
-        },
         "settings": {
           "type": "object",
           "description": "Native settings merged as is (any key). Written to opencode."
@@ -689,14 +677,14 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Commands allowed without asking. Written to vscode. Planned for claude, codex, opencode, antigravity. Not supported by copilot, pi."
+          "description": "Commands allowed without asking. Written to vscode, opencode. Planned for claude, codex, antigravity. Not supported by copilot, pi."
         },
         "allowed_urls": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "URLs agents may fetch. Written to copilot, vscode. Planned for claude, opencode, antigravity. Not supported by codex, pi."
+          "description": "URLs agents may fetch. Written to copilot, vscode, opencode. Planned for claude, antigravity. Not supported by codex, pi."
         },
         "allow_command_patterns": {
           "items": {
@@ -805,7 +793,7 @@
       "properties": {
         "registry": {
           "type": "string",
-          "description": "Plugin registry repository. Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
+          "description": "Plugin registry repository. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
         },
         "enabled": {
           "additionalProperties": {
@@ -815,14 +803,14 @@
             "type": "array"
           },
           "type": "object",
-          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
+          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
         },
         "disabled": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Plugins that stay off. Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
+          "description": "Plugins that stay off. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
         },
         "standalone": {
           "additionalProperties": {

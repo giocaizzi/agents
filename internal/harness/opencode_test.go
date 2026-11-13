@@ -13,16 +13,19 @@ import (
 func TestOpenCodeConfig(t *testing.T) {
 	t.Parallel()
 	cfg := config.Config{
-		Autonomy: config.Autonomy{SubagentDepth: 2},
+		Autonomy: config.Autonomy{SubagentDepth: 2, AllowNonWorkspaceAccess: true},
+		Context:  config.Context{AutoCompact: true},
 		LSP: config.LSP{Enabled: true, Servers: map[string]config.LSPServer{
 			"ruff": {Command: []string{"ruff", "server"}, Extensions: map[string]string{".pyi": "python", ".py": "python"}, Format: true},
 		}},
 		MCP: config.MCP{Servers: map[string]config.MCPServer{
-			"remote": {URL: "https://a.example/mcp", Headers: map[string]string{"X-K": "v"}},
+			"remote": {URL: "https://a.example/mcp", Headers: map[string]string{"X-K": "v"}, OAuth: config.OAuth{ClientID: "id", CallbackPort: 8123}},
 			"local":  {Command: "srv", Args: []string{"-v"}, Env: map[string]string{"K": "v"}},
 		}},
 		Permissions: config.Permissions{
+			AllowCommands:        []string{"ls *"},
 			AllowCommandPatterns: []string{"git push *"},
+			AllowedURLs:          []string{"https://example.com/**"},
 			AskCommandPrefixes:   []string{"bw"},
 			DenyRead:             []string{"**/.env"},
 			DenyWrite:            []string{"**/.ssh/**"},
@@ -47,12 +50,19 @@ func TestOpenCodeConfig(t *testing.T) {
 		"lsp": map[string]any{
 			"ruff": map[string]any{"command": []any{"ruff", "server"}, "extensions": []any{".py", ".pyi"}},
 		},
-		"mcp": map[string]any{
-			"remote": map[string]any{"enabled": true, "type": "remote", "url": "https://a.example/mcp", "headers": map[string]any{"X-K": "v"}},
-			"local":  map[string]any{"enabled": true, "type": "local", "command": []any{"srv", "-v"}, "environment": map[string]any{"K": "v"}},
-		},
+		"compaction": map[string]any{"auto": true},
+		"mcp": map[string]any{"servers": map[string]any{
+			"remote": map[string]any{
+				"type": "remote", "url": "https://a.example/mcp", "headers": map[string]any{"X-K": "v"},
+				"oauth": map[string]any{"client_id": "id", "callback_port": int64(8123)},
+			},
+			"local": map[string]any{"type": "local", "command": []any{"srv", "-v"}, "environment": map[string]any{"K": "v"}},
+		}},
 		"permissions": []any{
+			rule("external_directory", "allow", "*"),
+			rule("shell", "allow", "ls *"),
 			rule("shell", "allow", "git push *"),
+			rule("webfetch", "allow", "https://example.com/**"),
 			rule("shell", "ask", "bw"),
 			rule("shell", "ask", "bw *"),
 		},
@@ -69,6 +79,9 @@ func TestOpenCodeConfig(t *testing.T) {
 	}
 	if diff := cmp.Diff([][]string{{"permissions"}, {"policies"}}, got.Union); diff != "" {
 		t.Errorf("union (-want +got):\n%s", diff)
+	}
+	if diff := cmp.Diff([][]string{{"mcp", "local"}, {"mcp", "remote"}}, got.Legacy); diff != "" {
+		t.Errorf("legacy (-want +got):\n%s", diff)
 	}
 }
 

@@ -30,16 +30,16 @@ JSON targets keep the live key order and append new keys; an unchanged target is
 
 | Config | Claude Code | Copilot CLI | VS Code | Codex | opencode | pi | Antigravity |
 |---|---|---|---|---|---|---|---|
-| `permissions` | `permissions` allow, deny and ask rules in Claude syntax; `defaultMode` from `harness.claude.default_mode` (default `auto`); `PowerShell(...)` deny rules on Windows | `allowedUrls` (union with the live list) | `chat.tools.terminal.autoApprove`, `chat.tools.urls.autoApprove` (check-only) | `rules/agents.rules`: `prefix_rule` for allow and deny patterns that are literal prefixes; others are skipped with a warning | `permissions` (allow, ask) and `policies` (deny) arrays, merged with the live ones | — (GAP: pi has no permission file) | `permissions` allow, ask and deny in Antigravity syntax; patterns with an inner `*` are skipped |
-| `autonomy` | `askUserQuestionTimeout` from `ask_timeout` | — | — | `harness.codex.approval_policy`, `sandbox_mode` | `experimental.subagent_depth` | — | `agentMode` (from `execution_mode` unless set), `allowNonWorkspaceAccess` |
+| `permissions` | `permissions` allow, deny and ask rules in Claude syntax; `defaultMode` from `harness.claude.default_mode` (default `auto`); `PowerShell(...)` deny rules on Windows | `allowedUrls` (union with the live list) | `chat.tools.terminal.autoApprove`, `chat.tools.urls.autoApprove` (check-only) | `rules/agents.rules`: `prefix_rule` for allow and deny patterns that are literal prefixes; others are skipped with a warning | `permissions` (allow and ask rules, including `shell` from `allow_commands`, `webfetch` from `allowed_urls` and `external_directory` from `allow_non_workspace_access`) and `policies` (deny) arrays, merged with the live ones | — (GAP: pi has no permission file) | `permissions` allow, ask and deny in Antigravity syntax; patterns with an inner `*` are skipped |
+| `autonomy` | `askUserQuestionTimeout` from `ask_timeout` | — | — | `harness.codex.approval_policy`, `sandbox_mode` | `experimental.subagent_depth`, `permissions` `external_directory` | — | `agentMode` (from `execution_mode` unless set), `allowNonWorkspaceAccess` |
 | `models.default` (session) | `model`, `effortLevel` | `model` | n/a: no session setting | `model`, `model_reasoning_effort` | `model` | `defaultModel`, `defaultThinkingLevel` | n/a: no session setting |
 | `ui` | `theme`, `tui`, `viewMode`, `outputStyle`, `showTurnDuration`, `terminalProgressBarEnabled`, `timeFormat` | — | `workbench.colorTheme` (check-only) | — | — | — | — |
-| `context` | `autoCompactWindow`, `promptCacheTtl`, `subagentPromptCacheTtl` | — | — | — | — | — | — |
+| `context` | `autoCompactWindow`, `promptCacheTtl`, `subagentPromptCacheTtl` | — | — | — | `compaction.auto` | — | — |
 | `notifications` | `preferredNotifChannel` | `beep` | — | `tui.notifications` with `bel` | — | — | — |
 | `voice` | `voice` object ([voice.md](voice.md)) | `voice.enabled` | `dictation.enabled`, `agents.voice.language` (check-only) | n/a | n/a | n/a | — (no documented key) |
 | `telemetry` | `env` OpenTelemetry keys; removed when off | — | — | `otel` exporters (OTLP over HTTP) | — | — | — |
 | `lsp` | local `lsp@agents` plugin | `lsp-config.json` | — | — | `lsp` | — | — |
-| `mcp.servers` | `~/.claude.json` `mcpServers` | `mcp-config.json` | via the Copilot files | `mcp_servers` | `mcp` | `mcp.json` | `mcp_config.json` |
+| `mcp.servers` | `~/.claude.json` `mcpServers` | `mcp-config.json` | via the Copilot files | `mcp_servers` | `mcp.servers` | `mcp.json` | `mcp_config.json` |
 | `plugins` | `enabledPlugins`, `extraKnownMarketplaces` | `enabledPlugins`, `extraKnownMarketplaces` | via the Copilot files | — (plugins are installed by `agents plugins`) | — (installer from the registry checkout) | `packages` (registry checkout plus `harness.pi.packages`) | — |
 
 A harness's own keys (`harness.<name>.*`) are written where the harness has a matching setting; see the typed keys in [config.md](config.md#harnessname).
@@ -53,7 +53,7 @@ A harness's own keys (`harness.<name>.*`) are written where the harness has a ma
 | Codex | `oauth.client_id`, `oauth.callback_port` |
 | pi | `oauth.clientId`, `oauth.callbackPort` |
 | Antigravity | `oauth.clientId`; no port setting, a configured port is left out with a warning |
-| opencode | `oauth.clientId` |
+| opencode | `oauth.client_id`, `oauth.callback_port` |
 
 The redirect host each harness sends is in [cli.md](cli.md#oauth-redirect-hosts).
 
@@ -74,4 +74,4 @@ The redirect host each harness sends is in [cli.md](cli.md#oauth-redirect-hosts)
 | pi | n/a: same | `defaultModel`, `defaultThinkingLevel` |
 | VS Code, Antigravity | n/a | n/a |
 
-A tier names one native model id per harness. A harness without an id for a tier keeps its plugin or session default; there is no translation between model namespaces. Typed harness keys (`harness.codex.model`, `harness.pi.default_model`, `harness.opencode.default_model`) win over the default tier. `agents models tiers` prints the effective result; `agents check` reports an unknown tier as an error, an assignment matching no installed agent as a warning, and an assignment a harness cannot honour as info.
+A tier names one native model id per harness. A harness without an id for a tier keeps its plugin or session default; there is no translation between model namespaces. Typed harness keys (`harness.codex.model`, `harness.pi.default_model`) win over the default tier. `agents models tiers` prints the effective result; `agents check` reports an unknown tier as an error, an assignment matching no installed agent as a warning, and an assignment a harness cannot honour as info.
