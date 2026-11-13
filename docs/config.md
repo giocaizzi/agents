@@ -209,6 +209,13 @@ The registry is checked out under `<data>/registries/<owner>/<repo>`; `agents pl
 
 `expand_env = true` writes the expanded values of that workspace's servers into its files for every harness, so Codex, pi and Antigravity get the servers back and the skip warning no longer fires. The values, secrets included, land in plaintext in files written `0600`; `apply -n` and `render` still redact them. Use it for a workspace outside any repository, such as a scratch ops folder. `check`, `apply` and `mcp sync` refuse it (error at `mcp.workspaces.<name>.expand_env`) when the expanded workspace path is inside a git work tree (a `.git` entry in the path or any ancestor), since the files could be committed. Without it, workspace files keep references as described above.
 
+Limits of that check:
+
+- Symlinks are resolved on the nearest existing ancestor of the path, and both the path as written and the resolved one are checked.
+- Only a `.git` entry in the path or an ancestor is detected. A bare repository whose work tree is elsewhere (`core.worktree`, or `GIT_DIR` / `--work-tree` setups that track a home directory) is not.
+- The check runs before the write, so there is a small window between the two.
+- Command deny patterns with a `*` (such as `git push * HEAD:main`) match by position on the command line, on every harness: an argument shift such as `git -C x push origin HEAD:main` is not matched by `git push * HEAD:main`, and matching is case-sensitive and word-based, so case and quoting differences are not caught either.
+
 A server (user or workspace) has exactly one of `url` or `command`:
 
 | Key | Type | Meaning |

@@ -212,10 +212,40 @@ func ValidateWorkspaces(c Config, home string, getenv func(string) string, stat 
 	return out
 }
 
-// gitWorkTree walks up from the nearest existing ancestor of path and returns
-// the first directory that holds a .git entry (a directory, or a file in a
-// linked work tree).
+// gitWorkTree returns the first work tree root that holds path, checking the
+// path as written and with symlinks resolved on its nearest existing
+// ancestor: a link into a repository is inside that work tree.
 func gitWorkTree(path string, stat func(string) (fs.FileInfo, error)) (string, bool) {
+	if root, ok := workTreeAbove(path, stat); ok {
+		return root, true
+	}
+	existing, tail := path, ""
+	for {
+		if _, err := stat(existing); err == nil {
+			break
+		}
+		parent := filepath.Dir(existing)
+		if parent == existing {
+			return "", false
+		}
+		tail = filepath.Join(filepath.Base(existing), tail)
+		existing = parent
+	}
+	resolved, err := filepath.EvalSymlinks(existing)
+	if err != nil {
+		return "", false
+	}
+	resolved = filepath.Join(resolved, tail)
+	if resolved == path {
+		return "", false
+	}
+	return workTreeAbove(resolved, stat)
+}
+
+// workTreeAbove walks up from the nearest existing ancestor of path and
+// returns the first directory that holds a .git entry (a directory, or a
+// file in a linked work tree).
+func workTreeAbove(path string, stat func(string) (fs.FileInfo, error)) (string, bool) {
 	dir := path
 	for {
 		if _, err := stat(dir); err == nil {

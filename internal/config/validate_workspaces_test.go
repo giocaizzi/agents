@@ -68,9 +68,8 @@ func TestValidateWorkspacesExpandEnv(t *testing.T) {
 // files apply writes through it land there.
 func TestValidateWorkspacesSymlinkIntoRepo(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: symlink to a subdirectory of a work tree", func(t *testing.T) {
+	t.Run("symlink to a subdirectory of a work tree", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: gitWorkTree walks the lexical path; it does not resolve symlinks, so a link into repo/sub is accepted")
 		repo := filepath.Join(t.TempDir(), "repo")
 		if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o700); err != nil {
 			t.Fatal(err)
