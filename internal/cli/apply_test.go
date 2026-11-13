@@ -119,9 +119,8 @@ headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 		}
 	})
 
-	t.Run("xfail: apply refuses a config that check rejects", func(t *testing.T) {
+	t.Run("apply refuses a config that check rejects", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: apply never runs config.Validate, so schema_version = 2 or a typo in harnesses still writes files and exits 0")
 		e := newStdEnv(t, "")
 		p := e.writeConfig(t, "schema_version = 2\nharnesses = [\"claude\", \"claud\"]\n")
 		if code := e.run("check", "-file", p); code != 1 {
