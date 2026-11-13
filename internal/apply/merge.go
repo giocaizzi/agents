@@ -58,6 +58,7 @@ func merge(t Target, prev fileEntry, had bool, liveText string, exists bool) (pl
 	}
 	entry := &fileEntry{Owner: t.Owner, Format: formatName(t.Format), Keys: [][]string{}, Union: map[string][]string{}}
 	collect(mo, nil, unions, entry)
+	keepAdded(entry, prev, live)
 	if len(entry.Union) == 0 {
 		entry.Union = nil
 	}
@@ -235,7 +236,8 @@ func pathOf(id string) []string {
 	return p
 }
 
-// collect records the managed leaf paths and union elements of o.
+// collect records the managed leaf paths and union elements of o (all of them
+// until keepAdded narrows the union ones).
 func collect(o *Object, path []string, unions map[string]bool, entry *fileEntry) {
 	for _, k := range o.Keys {
 		p := append(append([]string(nil), path...), k)
@@ -258,6 +260,32 @@ func collect(o *Object, path []string, unions map[string]bool, entry *fileEntry)
 		default:
 			entry.Keys = append(entry.Keys, p)
 		}
+	}
+}
+
+// keepAdded narrows the managed union elements to those agents added: absent
+// from the live array, or already recorded as added by an earlier run (a
+// manifest that lists a plain element list counts them all as added). An
+// element the user already had stays theirs and is never retired.
+func keepAdded(entry *fileEntry, prev fileEntry, live *Object) {
+	for id, elems := range entry.Union {
+		was := map[string]bool{}
+		for _, c := range prev.Union[id] {
+			was[c] = true
+		}
+		present := map[string]bool{}
+		if arr, ok := getPath(live, pathOf(id)).([]any); ok {
+			for _, e := range arr {
+				present[canon(e)] = true
+			}
+		}
+		added := make([]string, 0, len(elems))
+		for _, c := range elems {
+			if was[c] || !present[c] {
+				added = append(added, c)
+			}
+		}
+		entry.Union[id] = added
 	}
 }
 
