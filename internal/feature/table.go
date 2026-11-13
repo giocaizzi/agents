@@ -73,14 +73,14 @@ func modelFeatures() []Feature {
 			rd(claude, at(claudeSettings, "effortLevel")),
 			rd(copilot, at(copilotSettings, "effortLevel")),
 			rd(vscode, at(copilotSettings, "effortLevel")),
-			pl(codex, "model_reasoning_effort (agents writes it only from a tier today)"),
+			rd(codex, at(codexConfig, "model_reasoning_effort")),
 			rd(pi, at(piSettings, "defaultThinkingLevel"))),
 		shared("models.show_thinking_summaries", "Show the model's thinking summaries.",
 			"no documented thinking display setting",
 			rd(claude, at(claudeSettings, "showThinkingSummaries")),
 			rd(copilot, at(copilotSettings, "showReasoning")),
 			rd(vscode, at(copilotSettings, "showReasoning")),
-			pl(codex, "model_reasoning_summary and hide_agent_reasoning"),
+			pl(codex, "ambiguous: a boolean maps to model_reasoning_summary (auto, concise, detailed, none) or hide_agent_reasoning (boolean); true cannot pick between auto and detailed, and false is the default"),
 			rd(pi, at(piSettings, "hideThinkingBlock"))),
 	}
 }
@@ -94,13 +94,13 @@ func autonomyFeatures() []Feature {
 			pl(claude, "ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)"),
 			pl(copilot, "defaultPermissionMode ("+modeAmb+")"),
 			pl(vscode, "chat.permissions.default ("+modeAmb+")"),
-			pl(codex, "approval_policy (agents writes it from harness.codex.approval_policy; "+modeAmb+")")),
+			pl(codex, "approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; "+modeAmb+"; a shared name such as auto would be an invalid Codex value")),
 		shared("autonomy.sandbox_mode", "Sandbox mode name.",
 			"the harness has no sandbox",
 			pl(claude, "ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on"),
 			pl(copilot, "sandbox.enabled (a boolean; "+modeAmb+")"),
 			pl(vscode, "chat.agent.sandbox.enabled (a boolean; "+modeAmb+")"),
-			pl(codex, "sandbox_mode (agents writes it from harness.codex.sandbox_mode)"),
+			pl(codex, "ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value"),
 			pl(antigravity, "enableTerminalSandbox (a boolean; "+modeAmb+"; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)")),
 		shared("autonomy.allow_non_workspace_access", "Allow access outside the workspace.",
 			"no documented setting for access outside the workspace",
@@ -140,7 +140,7 @@ func permissionFeatures() []Feature {
 		shared("permissions.allow_commands", "Commands allowed without asking.", noCmd,
 			vscodeCommands,
 			rd(claude, at(claudeSettings, "permissions.allow")),
-			pl(codex, "prefix_rule with decision allow"),
+			rd(codex, at(codexRules)),
 			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allowed_urls", "URLs agents may fetch.", "no documented URL allow list",
@@ -158,15 +158,13 @@ func permissionFeatures() []Feature {
 		shared("permissions.deny_command_patterns", "Command patterns that are denied.", noCmd,
 			claudeDeny, vscodeCommands, codexRule, ocDeny, agyDeny),
 		shared("permissions.deny_command_exact", "Exact command lines that are denied.", noCmd,
-			claudeDeny, vscodeCommands, ocDeny, agyDeny,
-			pl(codex, "prefix_rule with decision forbidden")),
+			claudeDeny, vscodeCommands, ocDeny, agyDeny, codexRule),
 		shared("permissions.deny_command_prefixes", "Command prefixes that are denied.", noCmd,
 			claudeDeny, ocDeny, agyDeny,
 			vscodeCommands,
-			pl(codex, "prefix_rule with decision forbidden")),
+			codexRule),
 		shared("permissions.ask_command_prefixes", "Command prefixes that always ask.", noCmd,
-			claudeAsk, vscodeCommands, ocAllow, agyAsk,
-			pl(codex, "prefix_rule with decision prompt")),
+			claudeAsk, vscodeCommands, ocAllow, agyAsk, codexRule),
 		shared("permissions.allowed_mcp", "MCP servers or tools allowed without asking.",
 			"no documented MCP approval setting",
 			rd(claude, at(claudeSettings, "permissions.allow")),
@@ -174,7 +172,7 @@ func permissionFeatures() []Feature {
 			agyAllow),
 		shared("permissions.reasons", "Message shown when a permission rule matches, keyed by the rule pattern.",
 			"no documented per-rule message",
-			pl(codex, "prefix_rule justification")),
+			rd(codex, at(codexRules))),
 	}
 }
 
@@ -211,7 +209,7 @@ func uiFeatures() []Feature {
 			rd(claude, at(claudeSettings, "theme")),
 			rd(vscode, at(vscodeSettings, "workbench.colorTheme")),
 			pl(copilot, "theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)"),
-			pl(codex, "tui.theme"),
+			pl(codex, "ambiguous: tui.theme is a syntax-highlighting theme in kebab-case, not a colour theme, so a shared name such as dark would be an invalid Codex value"),
 			rd(pi, at(piSettings, "theme")),
 			rd(antigravity, at(antigravitySettings, "colorScheme")),
 			pl(opencode, "ambiguous: opencode 2 keeps the theme in cli.json as theme.name (a theme such as catppuccin) plus theme.mode (system, dark or light); the shared value is a free string that is a mode for Claude Code and a theme name for VS Code, and agents writes no cli.json; options: write it as theme.name, write dark or light as theme.mode and anything else as theme.name (https://opencode.ai/docs/themes)")),
@@ -254,7 +252,7 @@ func voiceFeatures() []Feature {
 
 func telemetryFeatures() []Feature {
 	const noOTel = "no documented OpenTelemetry export setting"
-	const codexAmb = "ambiguous: the [otel] sub-keys for this setting were not verified"
+	const codexNoKey = "[otel] has no such key (https://developers.openai.com/codex/config-reference, checked 2026-11-13)"
 	type spec struct {
 		key, summary  string
 		codex, vscode pair
@@ -268,12 +266,12 @@ func telemetryFeatures() []Feature {
 		{"enabled", "Export telemetry.", otel, vsOTel("enabled")},
 		{"endpoint", "Collector endpoint.", otel, vsOTel("otlpEndpoint")},
 		{"protocol", "Export protocol.", otel, pl(vscode, "github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)")},
-		{"temporality", "Metric temporality.", pl(codex, codexAmb), vsNone},
-		{"log_tool_details", "Log tool call details.", pl(codex, codexAmb), vsNone},
-		{"log_tool_content", "Log tool call content.", pl(codex, codexAmb), pl(vscode, "github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)")},
-		{"service_namespace", "Service namespace resource attribute.", pl(codex, codexAmb), vsNone},
+		{"temporality", "Metric temporality.", un(codex, codexNoKey), vsNone},
+		{"log_tool_details", "Log tool call details.", un(codex, codexNoKey), vsNone},
+		{"log_tool_content", "Log tool call content.", pl(codex, "ambiguous: otel.tool_result.max_bytes limits the logged tool result in bytes and there is no boolean; the options are to map true to the default limit or to leave it unsupported"), pl(vscode, "github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)")},
+		{"service_namespace", "Service namespace resource attribute.", un(codex, "[otel] has no resource attribute keys, only otel.span_attributes for spans and otel.environment (https://developers.openai.com/codex/config-reference, checked 2026-11-13)"), vsNone},
 		{"attributes", "Extra resource attributes.", otel, vsNone},
-		{"services", "Service name per harness.", pl(codex, codexAmb), vsNone},
+		{"services", "Service name per harness.", un(codex, "[otel] has no service name key (https://developers.openai.com/codex/config-reference, checked 2026-11-13)"), vsNone},
 	}
 	out := make([]Feature, len(specs))
 	for i, s := range specs {
@@ -313,13 +311,14 @@ func pluginFeatures() []Feature {
 		rd(copilot, at(copilotSettings, "enabledPlugins", "extraKnownMarketplaces")),
 		rd(vscode, at(copilotSettings, "enabledPlugins", "extraKnownMarketplaces")),
 		rd(pi, at(piSettings, "packages")),
-		pl(codex, "plugins.<name> enabled (agents plugins installs them instead)"),
 		un(opencode, noOpenCode),
 	}
+	codexPlugins := rd(codex, at(codexConfig, "plugins"))
 	return []Feature{
-		shared("plugins.registry", "Plugin registry repository.", noPlugins, plugins...),
-		shared("plugins.enabled", "Harnesses each plugin is enabled for.", noPlugins, plugins...),
-		shared("plugins.disabled", "Plugins that stay off.", noPlugins, plugins...),
+		shared("plugins.registry", "Plugin registry repository.", noPlugins,
+			append(slices.Clone(plugins), pl(codex, "ambiguous: marketplaces.<name>.source takes a git location and agents plugins registers the marketplace through the installer; the config.toml value format for the owner/repo registry is not documented (https://developers.openai.com/codex/config-reference, checked 2026-11-13)"))...),
+		shared("plugins.enabled", "Harnesses each plugin is enabled for.", noPlugins, append(slices.Clone(plugins), codexPlugins)...),
+		shared("plugins.disabled", "Plugins that stay off.", noPlugins, append(slices.Clone(plugins), codexPlugins)...),
 	}
 }
 

@@ -18,7 +18,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `models.default` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.tiers` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `models.assign` | — | ✓ | ✓ | — | ✓ | — | — |
-| `models.default_effort_level` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
+| `models.default_effort_level` | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | `models.show_thinking_summaries` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
 | `autonomy.execution_mode` | planned | planned | planned | planned | — | — | ✓ |
 | `autonomy.sandbox_mode` | planned | planned | planned | planned | — | — | planned |
@@ -26,17 +26,17 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `autonomy.subagent_depth` | — | ✓ | ✓ | — | ✓ | — | — |
 | `autonomy.allow_subagent_invocations` | — | — | ✓ | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
-| `permissions.allow_commands` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
+| `permissions.allow_commands` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.allowed_urls` | planned | ✓ | ✓ | — | ✓ | — | ✓ |
 | `permissions.allow_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_read` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_write` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
-| `permissions.deny_command_exact` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
-| `permissions.deny_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
-| `permissions.ask_command_prefixes` | ✓ | — | ✓ | planned | ✓ | — | ✓ |
+| `permissions.deny_command_exact` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
+| `permissions.deny_command_prefixes` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
+| `permissions.ask_command_prefixes` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.allowed_mcp` | ✓ | — | — | — | planned | — | ✓ |
-| `permissions.reasons` | — | — | — | planned | — | — | — |
+| `permissions.reasons` | — | — | — | ✓ | — | — | — |
 | `context.auto_compact` | ✓ | — | ✓ | — | ✓ | ✓ | — |
 | `context.auto_compact_window` | ✓ | — | — | — | — | planned | — |
 | `context.prompt_cache_ttl` | ✓ | — | — | — | — | — | — |
@@ -58,19 +58,19 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `telemetry.enabled` | ✓ | — | ✓ | ✓ | — | — | — |
 | `telemetry.endpoint` | ✓ | — | ✓ | ✓ | — | — | — |
 | `telemetry.protocol` | ✓ | — | planned | ✓ | — | — | — |
-| `telemetry.temporality` | ✓ | — | — | planned | — | — | — |
-| `telemetry.log_tool_details` | ✓ | — | — | planned | — | — | — |
+| `telemetry.temporality` | ✓ | — | — | — | — | — | — |
+| `telemetry.log_tool_details` | ✓ | — | — | — | — | — | — |
 | `telemetry.log_tool_content` | ✓ | — | planned | planned | — | — | — |
-| `telemetry.service_namespace` | ✓ | — | — | planned | — | — | — |
+| `telemetry.service_namespace` | ✓ | — | — | — | — | — | — |
 | `telemetry.attributes` | ✓ | — | — | ✓ | — | — | — |
-| `telemetry.services` | ✓ | — | — | planned | — | — | — |
+| `telemetry.services` | ✓ | — | — | — | — | — | — |
 | `lsp.enabled` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers` | ✓ | ✓ | ✓ | — | ✓ | — | — |
 | `lsp.servers.*.filetypes` | — | — | — | — | — | — | — |
 | `lsp.servers.*.format` | — | — | — | — | — | — | — |
 | `plugins.registry` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
-| `plugins.enabled` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
-| `plugins.disabled` | ✓ | ✓ | ✓ | planned | — | ✓ | — |
+| `plugins.enabled` | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
+| `plugins.disabled` | ✓ | ✓ | ✓ | ✓ | — | ✓ | — |
 | `mcp.servers` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `mcp.servers.*.oauth.callback_port` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `mcp.servers.*.oauth.public_client` | — | ✓ | ✓ | — | — | — | — |
@@ -336,13 +336,21 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `instructions`: `~/.codex/AGENTS.md`
 - `models.default`: `~/.codex/config.toml: model`, `~/.codex/config.toml: model_reasoning_effort`
 - `models.tiers`: `~/.codex/config.toml: model`, `~/.codex/config.toml: model_reasoning_effort`
+- `models.default_effort_level`: `~/.codex/config.toml: model_reasoning_effort`
+- `permissions.allow_commands`: `~/.codex/rules/agents.rules`
 - `permissions.allow_command_patterns`: `~/.codex/rules/agents.rules`
 - `permissions.deny_command_patterns`: `~/.codex/rules/agents.rules`
+- `permissions.deny_command_exact`: `~/.codex/rules/agents.rules`
+- `permissions.deny_command_prefixes`: `~/.codex/rules/agents.rules`
+- `permissions.ask_command_prefixes`: `~/.codex/rules/agents.rules`
+- `permissions.reasons`: `~/.codex/rules/agents.rules`
 - `notifications.terminal_bell`: `~/.codex/config.toml: tui`
 - `telemetry.enabled`: `~/.codex/config.toml: otel`
 - `telemetry.endpoint`: `~/.codex/config.toml: otel`
 - `telemetry.protocol`: `~/.codex/config.toml: otel`
 - `telemetry.attributes`: `~/.codex/config.toml: otel`
+- `plugins.enabled`: `~/.codex/config.toml: plugins`
+- `plugins.disabled`: `~/.codex/config.toml: plugins`
 - `mcp.servers`: `~/.codex/config.toml: mcp_servers`
 - `mcp.servers.*.oauth.callback_port`: `~/.codex/config.toml: mcp_servers`
 - `mcp.workspaces`: `<workspace>/.codex/config.toml: mcp_servers`, `~/.codex/config.toml: projects`
@@ -354,27 +362,18 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 
 **Planned**
 
-- `models.default_effort_level`: model_reasoning_effort (agents writes it only from a tier today)
-- `models.show_thinking_summaries`: model_reasoning_summary and hide_agent_reasoning
-- `autonomy.execution_mode`: approval_policy (agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode`: sandbox_mode (agents writes it from harness.codex.sandbox_mode)
-- `permissions.allow_commands`: prefix_rule with decision allow
-- `permissions.deny_command_exact`: prefix_rule with decision forbidden
-- `permissions.deny_command_prefixes`: prefix_rule with decision forbidden
-- `permissions.ask_command_prefixes`: prefix_rule with decision prompt
-- `permissions.reasons`: prefix_rule justification
-- `ui.theme`: tui.theme
-- `telemetry.temporality`: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.log_tool_details`: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.log_tool_content`: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.service_namespace`: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.services`: ambiguous: the [otel] sub-keys for this setting were not verified
-- `plugins.registry`: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.enabled`: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.disabled`: plugins.<name> enabled (agents plugins installs them instead)
+- `models.show_thinking_summaries`: ambiguous: a boolean maps to model_reasoning_summary (auto, concise, detailed, none) or hide_agent_reasoning (boolean); true cannot pick between auto and detailed, and false is the default
+- `autonomy.execution_mode`: approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name; a shared name such as auto would be an invalid Codex value
+- `autonomy.sandbox_mode`: ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value
+- `ui.theme`: ambiguous: tui.theme is a syntax-highlighting theme in kebab-case, not a colour theme, so a shared name such as dark would be an invalid Codex value
+- `telemetry.log_tool_content`: ambiguous: otel.tool_result.max_bytes limits the logged tool result in bytes and there is no boolean; the options are to map true to the default limit or to leave it unsupported
+- `plugins.registry`: ambiguous: marketplaces.<name>.source takes a git location and agents plugins registers the marketplace through the installer; the config.toml value format for the owner/repo registry is not documented (https://developers.openai.com/codex/config-reference, checked 2026-11-13)
 
 **Not supported**
 
+- [otel] has no resource attribute keys, only otel.span_attributes for spans and otel.environment (https://developers.openai.com/codex/config-reference, checked 2026-11-13): `telemetry.service_namespace`
+- [otel] has no service name key (https://developers.openai.com/codex/config-reference, checked 2026-11-13): `telemetry.services`
+- [otel] has no such key (https://developers.openai.com/codex/config-reference, checked 2026-11-13): `telemetry.temporality`, `telemetry.log_tool_details`
 - agents.max_threads limits concurrent threads, not nesting depth: `autonomy.subagent_depth`
 - language server entries have no such field: `lsp.servers.*.filetypes`, `lsp.servers.*.format`
 - no documented MCP approval setting: `permissions.allowed_mcp`
@@ -586,37 +585,25 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 
 The harness supports the setting natively and agents does not write it yet. `agents check` warns when such a key is set.
 
-- `models.default_effort_level` on Codex: model_reasoning_effort (agents writes it only from a tier today)
-- `models.show_thinking_summaries` on Codex: model_reasoning_summary and hide_agent_reasoning
+- `models.show_thinking_summaries` on Codex: ambiguous: a boolean maps to model_reasoning_summary (auto, concise, detailed, none) or hide_agent_reasoning (boolean); true cannot pick between auto and detailed, and false is the default
 - `autonomy.execution_mode` on Claude Code: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
 - `autonomy.execution_mode` on Copilot CLI: defaultPermissionMode (ambiguous: native mode names differ and the value is a free name)
 - `autonomy.execution_mode` on VS Code: chat.permissions.default (ambiguous: native mode names differ and the value is a free name)
-- `autonomy.execution_mode` on Codex: approval_policy (agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name)
+- `autonomy.execution_mode` on Codex: approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; ambiguous: native mode names differ and the value is a free name; a shared name such as auto would be an invalid Codex value
 - `autonomy.sandbox_mode` on Claude Code: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
 - `autonomy.sandbox_mode` on Copilot CLI: sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
 - `autonomy.sandbox_mode` on VS Code: chat.agent.sandbox.enabled (a boolean; ambiguous: native mode names differ and the value is a free name)
-- `autonomy.sandbox_mode` on Codex: sandbox_mode (agents writes it from harness.codex.sandbox_mode)
+- `autonomy.sandbox_mode` on Codex: ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value
 - `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 - `autonomy.allow_non_workspace_access` on Claude Code: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
-- `permissions.allow_commands` on Codex: prefix_rule with decision allow
 - `permissions.allowed_urls` on Claude Code: ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path
-- `permissions.deny_command_exact` on Codex: prefix_rule with decision forbidden
-- `permissions.deny_command_prefixes` on Codex: prefix_rule with decision forbidden
-- `permissions.ask_command_prefixes` on Codex: prefix_rule with decision prompt
 - `permissions.allowed_mcp` on opencode: ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)
-- `permissions.reasons` on Codex: prefix_rule justification
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `ui.theme` on Copilot CLI: theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)
-- `ui.theme` on Codex: tui.theme
+- `ui.theme` on Codex: ambiguous: tui.theme is a syntax-highlighting theme in kebab-case, not a colour theme, so a shared name such as dark would be an invalid Codex value
 - `ui.theme` on opencode: ambiguous: opencode 2 keeps the theme in cli.json as theme.name (a theme such as catppuccin) plus theme.mode (system, dark or light); the shared value is a free string that is a mode for Claude Code and a theme name for VS Code, and agents writes no cli.json; options: write it as theme.name, write dark or light as theme.mode and anything else as theme.name (https://opencode.ai/docs/themes)
 - `telemetry.protocol` on VS Code: github.copilot.chat.otel.exporterType (ambiguous: it takes otlp-http, otlp-grpc, console or file, while telemetry.protocol is a free name)
-- `telemetry.temporality` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.log_tool_details` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
 - `telemetry.log_tool_content` on VS Code: github.copilot.chat.otel.captureContent (ambiguous: it captures full prompt and response content, not only tool call content)
-- `telemetry.log_tool_content` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.service_namespace` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `telemetry.services` on Codex: ambiguous: the [otel] sub-keys for this setting were not verified
-- `plugins.registry` on Codex: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.enabled` on Codex: plugins.<name> enabled (agents plugins installs them instead)
-- `plugins.disabled` on Codex: plugins.<name> enabled (agents plugins installs them instead)
+- `telemetry.log_tool_content` on Codex: ambiguous: otel.tool_result.max_bytes limits the logged tool result in bytes and there is no boolean; the options are to map true to the default limit or to leave it unsupported
+- `plugins.registry` on Codex: ambiguous: marketplaces.<name>.source takes a git location and agents plugins registers the marketplace through the installer; the config.toml value format for the owner/repo registry is not documented (https://developers.openai.com/codex/config-reference, checked 2026-11-13)

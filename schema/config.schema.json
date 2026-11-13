@@ -521,7 +521,7 @@
       "properties": {
         "default_effort_level": {
           "type": "string",
-          "description": "Default reasoning effort. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
+          "description": "Default reasoning effort. Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
         },
         "show_thinking_summaries": {
           "type": "boolean",
@@ -677,7 +677,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Commands allowed without asking. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
+          "description": "Commands allowed without asking. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "allowed_urls": {
           "items": {
@@ -719,21 +719,21 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Exact command lines that are denied. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
+          "description": "Exact command lines that are denied. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "deny_command_prefixes": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Command prefixes that are denied. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
+          "description": "Command prefixes that are denied. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "ask_command_prefixes": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Command prefixes that always ask. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
+          "description": "Command prefixes that always ask. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "allowed_mcp": {
           "items": {
@@ -747,7 +747,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Message shown when a permission rule matches (keyed by the rule pattern). Planned for codex. Not supported by claude, copilot, vscode, opencode, pi, antigravity."
+          "description": "Message shown when a permission rule matches (keyed by the rule pattern). Written to codex. Not supported by claude, copilot, vscode, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -803,14 +803,14 @@
             "type": "array"
           },
           "type": "object",
-          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
+          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
         },
         "disabled": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Plugins that stay off. Written to claude, copilot, vscode, pi. Planned for codex. Not supported by opencode, antigravity."
+          "description": "Plugins that stay off. Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
         },
         "standalone": {
           "additionalProperties": {
@@ -932,11 +932,11 @@
         },
         "temporality": {
           "type": "string",
-          "description": "Metric temporality. Written to claude. Planned for codex. Not supported by copilot, vscode, opencode, pi, antigravity."
+          "description": "Metric temporality. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "log_tool_details": {
           "type": "boolean",
-          "description": "Log tool call details. Written to claude. Planned for codex. Not supported by copilot, vscode, opencode, pi, antigravity."
+          "description": "Log tool call details. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "log_tool_content": {
           "type": "boolean",
@@ -944,7 +944,7 @@
         },
         "service_namespace": {
           "type": "string",
-          "description": "Service namespace resource attribute. Written to claude. Planned for codex. Not supported by copilot, vscode, opencode, pi, antigravity."
+          "description": "Service namespace resource attribute. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "attributes": {
           "additionalProperties": {
@@ -958,7 +958,7 @@
             "type": "string"
           },
           "type": "object",
-          "description": "Service name per harness (any name). Written to claude. Planned for codex. Not supported by copilot, vscode, opencode, pi, antigravity."
+          "description": "Service name per harness (any name). Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
