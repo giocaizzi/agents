@@ -25,13 +25,14 @@ func TestOverlappingDeny(t *testing.T) {
 		{"allow contradicts a literal word before the wildcard", "git pull", "git push * HEAD:main", false},
 		{"unrelated command", "make", "git push * HEAD:main", false},
 		{"word-internal wildcard", "gh pr merge 12", "gh pr merge * --admin*", true},
+		{"leading wildcard overlaps everything", "make", "* --force", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			words, _ := prefixWords(tt.allow)
-			if _, got := overlappingDeny(words, []string{tt.deny}); got != tt.want {
-				t.Errorf("overlappingDeny(%q, %q) = %v, want %v", tt.allow, tt.deny, got, tt.want)
+			if _, got := overlapping(words, []unexpressible{{tt.deny, "deny pattern"}}); got != tt.want {
+				t.Errorf("overlapping(%q, %q) = %v, want %v", tt.allow, tt.deny, got, tt.want)
 			}
 		})
 	}
@@ -39,7 +40,7 @@ func TestOverlappingDeny(t *testing.T) {
 	// A deny * spans several words, so an allow that reaches past it overlaps
 	// whatever literal words follow the *: the allow prefix leaves the rest of
 	// the command free, where the deny's tail can sit.
-	xfails := []struct {
+	spans := []struct {
 		name, allow, deny, command string
 	}{
 		{"* spans two allow words", "git push --force-with-lease origin", "git push * HEAD:main", "git push --force-with-lease origin HEAD:main"},
@@ -47,13 +48,13 @@ func TestOverlappingDeny(t *testing.T) {
 		{"leading *", "git push", "* --force", "git push --force"},
 		{"word-internal * spans words", "git status", "gi* push", "git status push"},
 	}
-	for _, tt := range xfails {
-		t.Run("xfail: "+tt.name, func(t *testing.T) {
+	for _, tt := range spans {
+		t.Run("spans: "+tt.name, func(t *testing.T) {
 			t.Parallel()
 			t.Skip("xfail: overlappingDeny compares words position by position, but a deny * spans spaces (the deny matches " + tt.command + ")")
 			words, _ := prefixWords(tt.allow)
-			if _, got := overlappingDeny(words, []string{tt.deny}); !got {
-				t.Errorf("overlappingDeny(%q, %q) = false, want true: %q matches both", tt.allow, tt.deny, tt.command)
+			if _, got := overlapping(words, []unexpressible{{tt.deny, "deny pattern"}}); !got {
+				t.Errorf("overlapping(%q, %q) = false, want true: %q matches both", tt.allow, tt.deny, tt.command)
 			}
 		})
 	}
@@ -64,9 +65,8 @@ func TestOverlappingDeny(t *testing.T) {
 // HEAD:main", which deny "git push * HEAD:main" forbids on Claude.
 func TestCodexAllowEscalatesPastMultiWordWildcard(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: allow prefix past a deny * is emitted", func(t *testing.T) {
+	t.Run("allow prefix past a deny * is not emitted", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: the lease allow is emitted although the unexpressible deny covers git push --force-with-lease origin HEAD:main")
 		cfg := config.Config{Permissions: config.Permissions{
 			AllowCommandPatterns: []string{"git push --force-with-lease origin *"},
 			DenyCommandPatterns:  []string{"git push * HEAD:main"},

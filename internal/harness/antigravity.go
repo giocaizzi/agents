@@ -94,19 +94,27 @@ func antigravityPermissions(c *config.Config, b *builder) map[string]any {
 // and MCP servers as command(), read_url() and mcp() rules.
 func antigravityAllow(c *config.Config, b *builder) []string {
 	p := c.Permissions
-	unexpressible := unexpressibleDenies(&p)
+	unexpressible := unexpressibleRules(&p)
 	allow := append([]string(nil), c.Harness.Antigravity.Allow...)
-	for _, pat := range slices.Concat(p.AllowCommands, p.AllowCommandPatterns) {
-		prefix := strings.TrimSuffix(pat, " *")
-		if strings.Contains(prefix, "*") {
-			continue
+	for _, src := range []struct {
+		field    string
+		patterns []string
+	}{
+		{"permissions.allow_commands", p.AllowCommands},
+		{"permissions.allow_command_patterns", p.AllowCommandPatterns},
+	} {
+		for _, pat := range src.patterns {
+			prefix := strings.TrimSuffix(pat, " *")
+			if strings.Contains(prefix, "*") {
+				continue
+			}
+			// command() matches word prefixes only: skip an allow that an
+			// inexpressible deny or ask would have overridden (see overlap.go).
+			if words, ok := prefixWords(pat); ok && b.allowOverlaps("Antigravity", src.field, pat, words, unexpressible) {
+				continue
+			}
+			allow = appendUnique(allow, "command("+prefix+")")
 		}
-		// command() matches word prefixes only: skip an allow that an
-		// inexpressible deny would have overridden (see overlap.go).
-		if words, ok := prefixWords(pat); ok && b.allowOverlapsDeny("Antigravity", "permissions.allow_commands", pat, words, unexpressible) {
-			continue
-		}
-		allow = appendUnique(allow, "command("+prefix+")")
 	}
 	for _, u := range p.AllowedURLs {
 		if host, ok := antigravityHost(u); ok {

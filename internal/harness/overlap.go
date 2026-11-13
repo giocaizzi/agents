@@ -27,51 +27,63 @@ func prefixWords(pat string) ([]string, bool) {
 	return words, true
 }
 
-// allowOverlapsDeny reports whether the allow rule overlaps an unexpressible
-// deny, and warns once for it, naming both.
-func (b *builder) allowOverlapsDeny(harness, where, pat string, words, deny []string) bool {
-	d, hit := overlappingDeny(words, deny)
+// unexpressible is a deny or ask pattern a prefix-rule harness cannot write.
+type unexpressible struct {
+	pattern string
+	kind    string // "deny pattern" or "ask pattern", for the warning
+}
+
+// allowOverlaps reports whether the allow rule overlaps an unexpressible
+// pattern, and warns once for it, naming both.
+func (b *builder) allowOverlaps(harness, where, pat string, words []string, un []unexpressible) bool {
+	u, hit := overlapping(words, un)
 	if hit {
-		b.warnf("%s: skipped, allow %q could cover commands that deny pattern %q forbids and %s cannot express it", where, pat, d, harness)
+		b.warnf("%s: skipped, allow %q could cover commands that %s %q applies to and %s cannot express it", where, pat, u.kind, u.pattern, harness)
 	}
 	return hit
 }
 
-// unexpressibleDenies are the deny patterns a prefix-rule harness (Codex rules,
-// Antigravity command()) cannot match: a wildcard before the last word.
-func unexpressibleDenies(p *config.Permissions) []string {
-	var out []string
-	for _, list := range [][]string{p.DenyCommandPatterns, p.DenyCommandExact, p.DenyCommandPrefixes} {
-		for _, pat := range list {
-			if _, ok := prefixWords(pat); !ok {
-				out = append(out, pat)
+// unexpressibleRules are the deny and ask patterns a prefix-rule harness
+// (Codex rules, Antigravity command()) cannot match: a wildcard before the
+// last word. Skipped, an ask would be auto-approved by an allow prefix
+// covering it, as a deny would be.
+func unexpressibleRules(p *config.Permissions) []unexpressible {
+	var out []unexpressible
+	add := func(kind string, lists ...[]string) {
+		for _, list := range lists {
+			for _, pat := range list {
+				if _, ok := prefixWords(pat); !ok {
+					out = append(out, unexpressible{pat, kind})
+				}
 			}
 		}
 	}
+	add("deny pattern", p.DenyCommandPatterns, p.DenyCommandExact, p.DenyCommandPrefixes)
+	add("ask pattern", p.AskCommandPrefixes)
 	return out
 }
 
-// overlappingDeny returns the first of the deny patterns that the allow
-// prefix could overlap: some command that both match. Words compare position
-// by position over the shorter of the two; a deny word with a * is a
-// wildcard, any other pair must be equal. An allow that is a prefix of the
-// deny's leading words (git against "git push * HEAD:main") overlaps it, and
-// so does a more specific one that agrees with every deny word it reaches;
-// one that contradicts a literal deny word does not
+// overlapping returns the first of the patterns that the allow prefix could
+// overlap: some command that both match. A * is a glob that spans spaces, so
+// it can swallow any number of the allow's words. Let L be the pattern's
+// literal words before its first word containing a * (a partial glob such as
+// "gi*" counts as a wildcard from there). The allow overlaps when it agrees
+// with L over their common length: it is a prefix of L, or L is a prefix of
+// it, because once the allow reaches the wildcard it may continue to match
 // ("git push --force-with-lease origin" against "git push * HEAD:main").
-func overlappingDeny(allow, deny []string) (string, bool) {
-	for _, d := range deny {
-		dw := strings.Fields(d)
-		overlap := true
-		for i := range min(len(allow), len(dw)) {
-			if allow[i] != dw[i] && !strings.Contains(dw[i], "*") {
-				overlap = false
+func overlapping(allow []string, un []unexpressible) (unexpressible, bool) {
+	for _, u := range un {
+		var lit []string
+		for w := range strings.FieldsSeq(u.pattern) {
+			if strings.Contains(w, "*") {
 				break
 			}
+			lit = append(lit, w)
 		}
-		if overlap {
-			return d, true
+		n := min(len(allow), len(lit))
+		if slices.Equal(allow[:n], lit[:n]) {
+			return u, true
 		}
 	}
-	return "", false
+	return unexpressible{}, false
 }

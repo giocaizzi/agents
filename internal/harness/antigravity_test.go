@@ -1,6 +1,7 @@
 package harness
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -108,11 +109,11 @@ func TestAntigravityAllowSkipsOverlappingDeny(t *testing.T) {
 	}
 	b := &builder{}
 	got := antigravityPermissions(c, b)
-	want := []any{"command(make)", "command(gh pr view)", "command(git push --force-with-lease origin)"}
+	want := []any{"command(make)", "command(gh pr view)"}
 	if diff := cmp.Diff(want, got["allow"]); diff != "" {
 		t.Errorf("allow (-want +got):\n%s", diff)
 	}
-	for _, skipped := range []string{`allow "git *"`, `allow "gh *"`, `allow "git push *"`} {
+	for _, skipped := range []string{`allow "git *"`, `allow "gh *"`, `allow "git push *"`, `allow "git push --force-with-lease origin *"`} {
 		n := 0
 		for _, w := range b.warnings {
 			if strings.Contains(w, skipped) && strings.Contains(w, "Antigravity cannot express it") {
@@ -121,6 +122,32 @@ func TestAntigravityAllowSkipsOverlappingDeny(t *testing.T) {
 		}
 		if n != 1 {
 			t.Errorf("warnings for %s = %d, want 1: %q", skipped, n, b.warnings)
+		}
+	}
+}
+
+// TestAntigravityAllowSkipsOverlappingAsk pins the rule for an ask prefix with
+// a wildcard before its last word, and that the warning names the field the
+// skipped allow came from.
+func TestAntigravityAllowSkipsOverlappingAsk(t *testing.T) {
+	t.Parallel()
+	c := &config.Config{}
+	c.Permissions = config.Permissions{
+		AllowCommands:        []string{"git", "make"},
+		AllowCommandPatterns: []string{"git push *"},
+		AskCommandPrefixes:   []string{"git push * prod"},
+	}
+	b := &builder{}
+	got := antigravityPermissions(c, b)
+	if diff := cmp.Diff([]any{"command(make)"}, got["allow"]); diff != "" {
+		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+	for _, want := range []string{
+		`permissions.allow_commands: skipped, allow "git" could cover commands that ask pattern "git push * prod"`,
+		`permissions.allow_command_patterns: skipped, allow "git push *" could cover commands that ask pattern "git push * prod"`,
+	} {
+		if !slices.ContainsFunc(b.warnings, func(w string) bool { return strings.Contains(w, want) }) {
+			t.Errorf("missing warning %q in %q", want, b.warnings)
 		}
 	}
 }
