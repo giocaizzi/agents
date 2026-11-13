@@ -11,6 +11,9 @@ import (
 // renderPi adds the pi targets: settings, MCP servers and instructions.
 func renderPi(c *config.Config, b *builder) error {
 	p := c.Harness.Pi
+	tierModel, tierEffort := sessionModel(c, config.Pi)
+	p.DefaultModel = valueOr(p.DefaultModel, tierModel) // the typed field wins over the default tier
+	p.DefaultThinkingLevel = valueOr(p.DefaultThinkingLevel, tierEffort)
 	settings := map[string]any{}
 	setIf(settings, "defaultProvider", p.DefaultProvider)
 	setIf(settings, "defaultModel", p.DefaultModel)
