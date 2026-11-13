@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/giocaizzi/agents/internal/cache"
+	"github.com/giocaizzi/agents/internal/config"
 	"github.com/giocaizzi/agents/internal/provider"
 	"github.com/giocaizzi/agents/internal/term"
 	usg "github.com/giocaizzi/agents/internal/usage"
@@ -30,12 +30,7 @@ func (d Deps) runUsageWith(ctx context.Context, args []string, store provider.St
 		return d.parseFailure(flags, err)
 	}
 
-	dir, err := cache.Dir(d.Getenv)
-	if err != nil {
-		fmt.Fprintf(d.Stderr, "usage: %v\n", err)
-		return 1
-	}
-	path := filepath.Join(dir, usageCacheFile)
+	path := filepath.Join(config.ResolveDirs(d.Getenv, d.GOOS, d.home()).Cache, usageCacheFile)
 	now := f.now()
 
 	cached, cacheErr := readUsageCache(path)

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"slices"
 	"strings"
 
@@ -83,17 +82,6 @@ func (d Deps) parsePluginsFlags(name string, args []string) (pluginsCommonFlags,
 		force:       *forceFlag || *forceLong,
 		jsonOutput:  *jsonFlag,
 	}, nil
-}
-
-func (d Deps) homeDir() string {
-	if h := d.Getenv("HOME"); h != "" {
-		return h
-	}
-	h, err := os.UserHomeDir()
-	if err == nil {
-		return h
-	}
-	return ""
 }
 
 // pluginSetup is the plugin manager with what it was built from.

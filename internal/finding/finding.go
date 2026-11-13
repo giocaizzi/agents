@@ -4,7 +4,6 @@ package finding
 import (
 	"fmt"
 	"slices"
-	"strings"
 )
 
 // Severity ranks a Finding. The zero value is an error.
@@ -49,14 +48,4 @@ func (f Finding) String() string {
 		return f.Message
 	}
 	return f.Where + ": " + f.Message
-}
-
-// Lines renders the findings one per line, sorted so the output is stable.
-func Lines(fs []Finding) string {
-	lines := make([]string, 0, len(fs))
-	for _, f := range fs {
-		lines = append(lines, f.String())
-	}
-	slices.Sort(lines)
-	return strings.Join(slices.Compact(lines), "\n")
 }

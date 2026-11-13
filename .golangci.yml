@@ -51,7 +51,7 @@ linters:
       disable:
         - fieldalignment   # memory layout tuning, not correctness; enable per hot struct
     interfacebloat:
-      max: 12   # the edit.Chezmoi port mirrors the chezmoi CLI surface
+      max: 12   # a consumer-side port may be wider than the default of 10
     funcorder:
       struct-method: false   # helpers stay beside their callers
     gocognit:

@@ -3,7 +3,6 @@
 package pluginreg
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"slices"
@@ -82,10 +81,4 @@ func Check(s Selection) []finding.Finding {
 		}
 	}
 	return out
-}
-
-// ValidateFile is a placeholder for the removed harness.toml check; the check
-// command stops calling it when it reads the configuration instead.
-func ValidateFile(_ context.Context, _, _ string) ([]finding.Finding, error) {
-	return nil, nil
 }
