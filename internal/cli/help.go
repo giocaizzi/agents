@@ -26,6 +26,7 @@ const (
 	commandSync    = "sync"
 	commandAdd     = "add"
 	commandList    = "list"
+	commandTiers   = "tiers"
 	configHelpEnv  = "AGENTS_CONFIG: config file; AGENTS_PROFILE: profile; AGENTS_HARNESSES: harnesses; XDG_CONFIG_HOME (Windows APPDATA): config directory."
 	pluginHelpEnv  = configHelpEnv + " XDG_DATA_HOME (Windows LOCALAPPDATA): registry checkouts."
 )
@@ -57,6 +58,7 @@ func helpTree() helpNode {
 			{name: commandAdd, summary: "Add or update a workspace MCP server and sync", arguments: "<name> <commandOrUrl> [args...]  Server name, executable or URL, and forwarded server arguments.", defaults: "Transport is inferred from the command or URL. Options must precede name; following arguments are forwarded unchanged.", env: "MCP_CONNECTOR_ACCOUNT: fallback for -account when synchronizing.", example: "agents mcp add -e MODE=local example npx -y example-server"},
 		}},
 		{name: commandModels, summary: "Display model tiers (default) or sync data", defaults: "Without a subcommand, displays the model tier list from the model catalog cache.", env: configHelpEnv + " XDG_CACHE_HOME (Windows LOCALAPPDATA): model catalog cache.", example: "agents models", children: []helpNode{
+			{name: commandTiers, summary: "Show which model each tier and agent gets per harness", defaults: "Prints the tier x harness model matrix, then each assigned agent's tier and effective model per harness (plugin default, session model or unsupported where agents writes nothing).", env: configHelpEnv, example: "agents models tiers"},
 			{name: commandSync, summary: "Refresh model data and recompute tiers", defaults: "Fetches live model and benchmark data and writes the model catalog cache.", env: configHelpEnv + " XDG_CACHE_HOME (Windows LOCALAPPDATA): model catalog cache.", example: "agents models sync"},
 		}},
 		{name: commandPlugins, summary: "Inspect, update, or prune plugins", defaults: "Without a subcommand, lists plugins.", children: []helpNode{

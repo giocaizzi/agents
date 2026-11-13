@@ -61,6 +61,8 @@ func (d Deps) runModels(ctx context.Context, args []string) int {
 		switch args[0] {
 		case "sync":
 			return d.runModelsSync(ctx, args[1:])
+		case commandTiers:
+			return d.runModelsTiers(ctx, args[1:])
 		case helpCmd:
 			return d.explicitHelp(ctx, append([]string{"models"}, args[1:]...))
 		default:

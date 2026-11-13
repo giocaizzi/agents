@@ -4,6 +4,7 @@ USAGE
   agents models [command]
 
 COMMANDS
+  tiers        Show which model each tier and agent gets per harness
   sync         Refresh model data and recompute tiers
 
 DEFAULTS
