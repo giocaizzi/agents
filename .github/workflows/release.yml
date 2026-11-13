@@ -55,6 +55,12 @@ jobs:
           TAG: ${{ github.ref_name }}
         run: |
           set -eu
+          # A depth-1 checkout of a tag push can leave the tag lightweight; --notes-from-tag needs the annotation.
+          git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          if [ "$(git cat-file -t "$TAG")" != tag ]; then
+            echo "::error::$TAG is not an annotated tag; write the release notes in the tag message (docs/release.md)"
+            exit 1
+          fi
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" --draft --title "agents ${TAG#v}" --notes-from-tag --verify-tag
           fi
