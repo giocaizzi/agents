@@ -55,10 +55,14 @@ func TestCodexRules(t *testing.T) {
 prefix_rule(
     pattern = ["git","push","--force-with-lease","origin"],
     decision = "allow",
+    justification = "Allowed by the agents permissions.",
+    match = ["git push --force-with-lease origin"],
 )
 prefix_rule(
     pattern = ["git","push","origin","main"],
     decision = "forbidden",
+    justification = "Denied by the agents permissions.",
+    match = ["git push origin main"],
 )
 `
 	if diff := cmp.Diff(want, got); diff != "" {

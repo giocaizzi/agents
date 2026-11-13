@@ -129,7 +129,7 @@ func codexRules(p *config.Permissions, b *builder) string {
 	var sb strings.Builder
 	sb.WriteString("# Managed by agents from permissions: do not edit.\n")
 	seen := map[string]bool{}
-	emit := func(where string, patterns []string, decision string) {
+	emit := func(where string, patterns []string, decision, justification string) {
 		for _, pat := range patterns {
 			words, ok := prefixWords(pat)
 			if !ok {
@@ -145,11 +145,12 @@ func codexRules(p *config.Permissions, b *builder) string {
 			for i, w := range words {
 				quoted[i] = fmt.Sprintf("%q", w)
 			}
-			fmt.Fprintf(&sb, "prefix_rule(\n    pattern = [%s],\n    decision = %q,\n)\n", strings.Join(quoted, ","), decision)
+			fmt.Fprintf(&sb, "prefix_rule(\n    pattern = [%s],\n    decision = %q,\n    justification = %q,\n    match = [%q],\n)\n",
+				strings.Join(quoted, ","), decision, justification, strings.Join(words, " "))
 		}
 	}
-	emit("permissions.allow_command_patterns", p.AllowCommandPatterns, "allow")
-	emit("permissions.deny_command_patterns", p.DenyCommandPatterns, "forbidden")
+	emit("permissions.allow_command_patterns", p.AllowCommandPatterns, "allow", "Allowed by the agents permissions.")
+	emit("permissions.deny_command_patterns", p.DenyCommandPatterns, "forbidden", "Denied by the agents permissions.")
 	return sb.String()
 }
 
