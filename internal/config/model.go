@@ -1,5 +1,5 @@
 // Package config loads the standalone agents configuration: one strict TOML
-// file layered with a project file, a profile overlay, the environment and
+// file layered with its OS overlay, a profile overlay, the environment and
 // flags. Descriptions in the jsonschema tags feed the generated JSON Schema, so
 // they carry no commas.
 package config
@@ -71,7 +71,7 @@ type Profile struct {
 }
 
 // OSTable has one overlay per operating system. The loader applies the one for
-// the running GOOS after the project file and before the profile.
+// the running GOOS after the file and before the profile.
 type OSTable struct {
 	Darwin  Overlay `json:"darwin,omitzero"  jsonschema:"description=Overlay on macOS"   toml:"darwin,omitzero"`
 	Linux   Overlay `json:"linux,omitzero"   jsonschema:"description=Overlay on Linux"   toml:"linux,omitzero"`

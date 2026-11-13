@@ -1101,5 +1101,5 @@
     }
   },
   "title": "agents configuration",
-  "description": "The standalone agents configuration file (config.toml or a project agents.toml)."
+  "description": "The standalone agents configuration file (config.toml)."
 }

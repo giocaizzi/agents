@@ -36,7 +36,7 @@ func Schema() ([]byte, error) {
 	annotate(s)
 	s.ID = SchemaID
 	s.Title = "agents configuration"
-	s.Description = "The standalone agents configuration file (config.toml or a project agents.toml)."
+	s.Description = "The standalone agents configuration file (config.toml)."
 	b, err := json.MarshalIndent(s, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("marshal schema: %w", err)
