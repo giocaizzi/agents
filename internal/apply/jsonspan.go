@@ -151,9 +151,11 @@ func (p *jparser) member() (jmember, error) {
 	if err != nil {
 		return jmember{}, err
 	}
-	var key string
-	if uerr := json.Unmarshal([]byte(p.src[keyStart:keyEnd]), &key); uerr != nil {
-		return jmember{}, fmt.Errorf("decode key: %w", uerr)
+	key := p.src[keyStart+1 : keyEnd-1]
+	if strings.Contains(key, `\`) { // only escaped keys need the decoder
+		if uerr := json.Unmarshal([]byte(p.src[keyStart:keyEnd]), &key); uerr != nil {
+			return jmember{}, fmt.Errorf("decode key: %w", uerr)
+		}
 	}
 	p.skip()
 	if p.i >= len(p.src) || p.src[p.i] != ':' {
