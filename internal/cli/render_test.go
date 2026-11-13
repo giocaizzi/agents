@@ -38,3 +38,19 @@ func TestRenderLoadError(t *testing.T) {
 		t.Fatalf("exit = %d, want 1", code)
 	}
 }
+
+func TestRenderRedactsSensitiveValues(t *testing.T) {
+	t.Parallel()
+	t.Skip("xfail: pending internal/harness filling Target.Sensitive")
+	const secret = "expanded-header-value"
+	e := newStdEnv(t, "")
+	env := map[string]string{"HOME": e.home, "DOCS_TOKEN": secret}
+	e.deps.Getenv = func(k string) string { return env[k] }
+	p := e.writeConfig(t, claudeConfig+"[mcp.servers.docs]\nurl = \"https://mcp.example.com/mcp\"\nheaders = { Authorization = \"Bearer ${DOCS_TOKEN}\" }\n")
+	if code := e.run("render", "-file", p); code != 0 {
+		t.Fatalf("exit = %d, err = %s", code, e.errOut)
+	}
+	if strings.Contains(e.out.String(), secret) {
+		t.Errorf("render printed the secret:\n%s", e.out)
+	}
+}
