@@ -46,8 +46,19 @@ func (f *fakeStore) path(elem ...string) string {
 	return filepath.Join(append([]string{f.home}, elem...)...)
 }
 
+// slashed returns m with every key in slash form. Fixtures spell paths with
+// "/" or with f.path, and the code under test hands the store native paths
+// (backslashes on Windows), so the store compares both sides in slash form.
+func slashed[V any](m map[string]V) map[string]V {
+	out := make(map[string]V, len(m))
+	for k, v := range m {
+		out[filepath.ToSlash(k)] = v
+	}
+	return out
+}
+
 func (f *fakeStore) ReadFile(p string) ([]byte, error) {
-	if s, ok := f.files[p]; ok {
+	if s, ok := slashed(f.files)[filepath.ToSlash(p)]; ok {
 		return []byte(s), nil
 	}
 	return nil, &fs.PathError{Op: "open", Path: p, Err: fs.ErrNotExist}
@@ -61,7 +72,7 @@ func (f *fakeStore) Secret(service, account string) (string, error) {
 }
 
 func (f *fakeStore) OpencodeCredentials(db string) ([]OpencodeRow, error) {
-	if r, ok := f.rows[db]; ok {
+	if r, ok := slashed(f.rows)[filepath.ToSlash(db)]; ok {
 		return r, nil
 	}
 	if f.rowsErr != nil {
@@ -72,7 +83,7 @@ func (f *fakeStore) OpencodeCredentials(db string) ([]OpencodeRow, error) {
 
 // Canonical returns the path unchanged unless canon maps it.
 func (f *fakeStore) Canonical(p string) string {
-	if c, ok := f.canon[p]; ok {
+	if c, ok := slashed(f.canon)[filepath.ToSlash(p)]; ok {
 		return c
 	}
 	return p
@@ -82,20 +93,22 @@ func (f *fakeStore) Canonical(p string) string {
 func (f *fakeStore) SameFile(a, b string) bool {
 	norm := func(p string) string {
 		c := f.Canonical(p)
-		if al, ok := f.alias[c]; ok {
+		if al, ok := slashed(f.alias)[filepath.ToSlash(c)]; ok {
 			return al
 		}
 		return c
 	}
-	return norm(a) == norm(b)
+	return filepath.ToSlash(norm(a)) == filepath.ToSlash(norm(b))
 }
 
 func (f *fakeStore) Exists(p string) bool {
-	if _, ok := f.files[p]; ok {
+	p = filepath.ToSlash(p)
+	files := slashed(f.files)
+	if _, ok := files[p]; ok {
 		return true
 	}
-	for k := range f.files {
-		if strings.HasPrefix(k, p+string(filepath.Separator)) {
+	for k := range files {
+		if strings.HasPrefix(k, p+"/") {
 			return true
 		}
 	}
@@ -105,20 +118,20 @@ func (f *fakeStore) Exists(p string) bool {
 // ListDir returns the names of the entries directly under dir, derived from
 // the file paths.
 func (f *fakeStore) ListDir(dir string) []string {
-	return listFakeDir(f.files, dir)
+	return listFakeDir(slashed(f.files), filepath.ToSlash(dir))
 }
 
 // listFakeDir returns the sorted first path components under dir.
 func listFakeDir(files map[string]string, dir string) []string {
 	seen := map[string]bool{}
 	var out []string
-	prefix := dir + string(filepath.Separator)
+	prefix := dir + "/"
 	for k := range files {
 		rest, ok := strings.CutPrefix(k, prefix)
 		if !ok {
 			continue
 		}
-		name, _, _ := strings.Cut(rest, string(filepath.Separator))
+		name, _, _ := strings.Cut(rest, "/")
 		if !seen[name] {
 			seen[name] = true
 			out = append(out, name)

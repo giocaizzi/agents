@@ -3,6 +3,8 @@ package instructions_test
 import (
 	"errors"
 	"io/fs"
+	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -11,9 +13,12 @@ import (
 	"github.com/giocaizzi/agents/internal/instructions"
 )
 
+// vol makes a slash-rooted fixture path absolute on Windows (a drive letter).
+var vol = filepath.VolumeName(os.TempDir())
+
 func fakeRead(files map[string]string) func(string) ([]byte, error) {
 	return func(path string) ([]byte, error) {
-		s, ok := files[path]
+		s, ok := files[filepath.ToSlash(path)]
 		if !ok {
 			return nil, &fs.PathError{Op: "open", Path: path, Err: fs.ErrNotExist}
 		}
@@ -55,13 +60,13 @@ func TestCompose(t *testing.T) {
 
 func TestPath(t *testing.T) {
 	t.Parallel()
-	s := instructions.Spec{Dir: "/d", Layers: map[string]instructions.Layer{
-		"a": {}, "b": {File: "sub/b.txt"}, "c": {File: "/abs/c.md"},
+	s := instructions.Spec{Dir: vol + "/d", Layers: map[string]instructions.Layer{
+		"a": {}, "b": {File: "sub/b.txt"}, "c": {File: vol + "/abs/c.md"},
 	}}
-	for name, want := range map[string]string{"a": "/d/a.md", "b": "/d/sub/b.txt", "c": "/abs/c.md"} {
+	for name, want := range map[string]string{"a": vol + "/d/a.md", "b": vol + "/d/sub/b.txt", "c": vol + "/abs/c.md"} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if got := s.Path(name); got != want {
+			if got := filepath.ToSlash(s.Path(name)); got != want {
 				t.Errorf("Path(%q) = %q, want %q", name, got, want)
 			}
 		})
@@ -88,57 +93,57 @@ func renderCases() []renderCase {
 	return []renderCase{
 		{
 			name: "empty composition",
-			spec: instructions.Spec{Dir: "/d"},
+			spec: instructions.Spec{Dir: vol + "/d"},
 			want: "",
 		},
 		{
 			name:  "join and newline rule",
-			spec:  instructions.Spec{Dir: "/d", Layers: layers("a", "b"), Profiles: map[string][]string{"p": {"a", "b"}}},
-			files: map[string]string{"/d/a.md": "one\n\n\n", "/d/b.md": "two"},
+			spec:  instructions.Spec{Dir: vol + "/d", Layers: layers("a", "b"), Profiles: map[string][]string{"p": {"a", "b"}}},
+			files: map[string]string{vol + "/d/a.md": "one\n\n\n", vol + "/d/b.md": "two"},
 			want:  "one\n\ntwo\n",
 		},
 		{
 			name: "context and vars",
 			spec: instructions.Spec{
-				Dir: "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}},
+				Dir: vol + "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}},
 				Vars: map[string]any{"user": map[string]any{"name": "ann"}},
 			},
-			files: map[string]string{"/d/a.md": "{{.profile}} {{.harness}} {{.os}} {{.hostname}} {{.vars.user.name}}\n"},
+			files: map[string]string{vol + "/d/a.md": "{{.profile}} {{.harness}} {{.os}} {{.hostname}} {{.vars.user.name}}\n"},
 			want:  "p h linux box ann\n",
 		},
 		{
 			name:  "relative file override",
-			spec:  instructions.Spec{Dir: "/d", Layers: map[string]instructions.Layer{"a": {File: "x/y.md"}}, Profiles: map[string][]string{"p": {"a"}}},
-			files: map[string]string{"/d/x/y.md": "rel"},
+			spec:  instructions.Spec{Dir: vol + "/d", Layers: map[string]instructions.Layer{"a": {File: "x/y.md"}}, Profiles: map[string][]string{"p": {"a"}}},
+			files: map[string]string{vol + "/d/x/y.md": "rel"},
 			want:  "rel\n",
 		},
 		{
 			name:  "absolute file override",
-			spec:  instructions.Spec{Dir: "/d", Layers: map[string]instructions.Layer{"a": {File: "/other/z.md"}}, Profiles: map[string][]string{"p": {"a"}}},
-			files: map[string]string{"/other/z.md": "abs"},
+			spec:  instructions.Spec{Dir: vol + "/d", Layers: map[string]instructions.Layer{"a": {File: vol + "/other/z.md"}}, Profiles: map[string][]string{"p": {"a"}}},
+			files: map[string]string{vol + "/other/z.md": "abs"},
 			want:  "abs\n",
 		},
 		{
 			name:     "undeclared layer",
-			spec:     instructions.Spec{Dir: "/d", Profiles: map[string][]string{"p": {"ghost"}}},
+			spec:     instructions.Spec{Dir: vol + "/d", Profiles: map[string][]string{"p": {"ghost"}}},
 			wantKind: instructions.UnknownLayer,
 		},
 		{
 			name:     "missing file",
-			spec:     instructions.Spec{Dir: "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
+			spec:     instructions.Spec{Dir: vol + "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
 			wantKind: instructions.MissingFile,
 			wantErr:  fs.ErrNotExist,
 		},
 		{
 			name:     "missingkey error",
-			spec:     instructions.Spec{Dir: "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
-			files:    map[string]string{"/d/a.md": "{{.vars.nope}}"},
+			spec:     instructions.Spec{Dir: vol + "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
+			files:    map[string]string{vol + "/d/a.md": "{{.vars.nope}}"},
 			wantKind: instructions.RenderError,
 		},
 		{
 			name:     "parse error",
-			spec:     instructions.Spec{Dir: "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
-			files:    map[string]string{"/d/a.md": "{{"},
+			spec:     instructions.Spec{Dir: vol + "/d", Layers: layers("a"), Profiles: map[string][]string{"p": {"a"}}},
+			files:    map[string]string{vol + "/d/a.md": "{{"},
 			wantKind: instructions.RenderError,
 		},
 	}
@@ -203,12 +208,12 @@ func TestMatrix(t *testing.T) {
 func TestCheck(t *testing.T) {
 	t.Parallel()
 	s := instructions.Spec{
-		Dir:      "/d",
+		Dir:      vol + "/d",
 		Layers:   map[string]instructions.Layer{"ok": {}, "gone": {}, "bad": {}},
 		Profiles: map[string][]string{"p": {"ok", "ghost"}},
 		Harness:  map[string][]string{"h1": {"gone"}, "h2": {"bad", "ok"}},
 	}
-	files := map[string]string{"/d/ok.md": "fine", "/d/bad.md": "{{.vars.nope}}"}
+	files := map[string]string{vol + "/d/ok.md": "fine", vol + "/d/bad.md": "{{.vars.nope}}"}
 	ctxFor := func(p, h string) instructions.Context { return instructions.Context{Profile: p, Harness: h} }
 	got := s.Check([]string{"p"}, []string{"h1", "h2"}, ctxFor, fakeRead(files))
 	type key struct {
