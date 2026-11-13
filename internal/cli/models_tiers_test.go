@@ -49,7 +49,7 @@ func tiersDeps(t *testing.T, withCheckout bool) (d Deps, out, errOut *bytes.Buff
 	}
 	if withCheckout {
 		for _, f := range []string{"dev-tools/agents/scout.md", "dev-tools/agents/reviewer.md", "dev-tools/agents/worker.md"} {
-			p := filepath.Join(root, "data", "agents", "registries", "harness", "plugins", filepath.FromSlash(f))
+			p := filepath.Join(root, "data", "agents", "registries", "acme", "harness", "plugins", filepath.FromSlash(f))
 			if err := os.MkdirAll(filepath.Dir(p), 0o750); err != nil {
 				t.Fatal(err)
 			}

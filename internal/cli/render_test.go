@@ -41,7 +41,6 @@ func TestRenderLoadError(t *testing.T) {
 
 func TestRenderRedactsSensitiveValues(t *testing.T) {
 	t.Parallel()
-	t.Skip("xfail: pending internal/harness filling Target.Sensitive")
 	const secret = "expanded-header-value"
 	e := newStdEnv(t, "")
 	env := map[string]string{"HOME": e.home, "DOCS_TOKEN": secret}

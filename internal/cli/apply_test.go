@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -98,9 +99,8 @@ headers = { Authorization = "Bearer ${DOCS_TOKEN}" }
 		}
 	})
 
-	t.Run("xfail: a workspace .mcp.json never holds an expanded secret", func(t *testing.T) {
+	t.Run("a workspace .mcp.json never holds an expanded secret", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: ${VAR} in workspace servers is expanded into the shared, world-readable .mcp.json that projects commit")
 		e := withToken(t)
 		ws := filepath.Join(e.home, "src", "app")
 		if err := os.MkdirAll(ws, 0o700); err != nil {
@@ -158,6 +158,9 @@ command = "run-untrusted"
 	}
 	for _, f := range []string{filepath.Join(e.home, ".claude", "settings.json"), filepath.Join(e.home, ".claude.json")} {
 		data, err := os.ReadFile(f)
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
 		if err != nil {
 			t.Fatal(err)
 		}

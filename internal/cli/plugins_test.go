@@ -32,7 +32,7 @@ func newPluginEnv(t *testing.T, config string) pluginEnv {
 	e := pluginEnv{
 		root:     root,
 		home:     filepath.Join(root, "home"),
-		checkout: filepath.Join(root, "data", "agents", "registries", "harness"),
+		checkout: filepath.Join(root, "data", "agents", "registries", "acme", "harness"),
 		cfg:      filepath.Join(root, "config.toml"),
 	}
 	if err := os.WriteFile(e.cfg, []byte(config), 0o600); err != nil {
