@@ -168,3 +168,70 @@ command = "run-untrusted"
 		}
 	}
 }
+
+// TestApply_ReviewRound2XFailSyncedDir reproduces a bug found in the second
+// review; drop the t.Skip to verify a fix.
+func TestApply_ReviewRound2XFailSyncedDir(t *testing.T) {
+	t.Parallel()
+	t.Run("xfail: apply keeps the files mcp sync wrote for a directory", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: mcp sync <dir> records its files in the shared manifest, and the next full apply retires them")
+		e := newStdEnv(t, "")
+		p := e.writeConfig(t, "schema_version = 1\nharnesses = [\"codex\"]\n")
+		dir := filepath.Join(e.home, "proj")
+		if err := os.MkdirAll(dir, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		src := `{"mcpServers": {"docs": {"type": "http", "url": "https://docs.example.com/mcp"}}}`
+		if err := os.WriteFile(filepath.Join(dir, ".mcp.json"), []byte(src), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if code := e.run("mcp", "sync", "-file", p, dir); code != 0 {
+			t.Fatalf("mcp sync exit = %d, err = %s", code, e.errOut)
+		}
+		codex := filepath.Join(dir, ".codex", "config.toml")
+		if _, err := os.Stat(codex); err != nil {
+			t.Fatalf("mcp sync did not write %s: %v", codex, err)
+		}
+		if code := e.run("apply", "-file", p); code != 0 {
+			t.Fatalf("apply exit = %d, err = %s", code, e.errOut)
+		}
+		data, err := os.ReadFile(codex)
+		if err != nil {
+			t.Fatalf("apply removed the synced file: %v\nout: %s", err, e.out)
+		}
+		if !strings.Contains(string(data), "docs.example.com") {
+			t.Errorf("apply removed the synced server:\n%s", data)
+		}
+	})
+}
+
+// TestApply_ReviewRound2XFailClaudeAllow reproduces a bug found in the second
+// review; drop the t.Skip to verify a fix.
+func TestApply_ReviewRound2XFailClaudeAllow(t *testing.T) {
+	t.Parallel()
+	t.Run("xfail: apply keeps the Claude allow rules the user added", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: Claude permissions.allow replaces the live array instead of merging as a union")
+		e := newStdEnv(t, "")
+		settings := filepath.Join(e.home, ".claude", "settings.json")
+		if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+			t.Fatal(err)
+		}
+		live := `{"permissions": {"allow": ["Read(~/notes/**)"]}}`
+		if err := os.WriteFile(settings, []byte(live), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		p := e.writeConfig(t, claudeConfig+"[permissions]\nallowed_urls = [\"https://docs.example.com\"]\n")
+		if code := e.run("apply", "-file", p); code != 0 {
+			t.Fatalf("exit = %d, err = %s", code, e.errOut)
+		}
+		data, err := os.ReadFile(settings)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !strings.Contains(string(data), "Read(~/notes/**)") {
+			t.Errorf("the user's own allow rule was deleted:\n%s", data)
+		}
+	})
+}
