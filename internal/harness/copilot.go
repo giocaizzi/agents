@@ -1,6 +1,205 @@
 package harness
 
-import "github.com/giocaizzi/agents/internal/config"
+import (
+	"maps"
+	"slices"
+
+	"github.com/giocaizzi/agents/internal/apply"
+	"github.com/giocaizzi/agents/internal/config"
+)
+
+// copilotKeyCommand is the key of a server's executable in Copilot's config files.
+const copilotKeyCommand = "command"
 
 // renderCopilot adds the Copilot CLI targets.
-func renderCopilot(_ *config.Config, _ *builder) error { return nil }
+func renderCopilot(c *config.Config, b *builder) error {
+	renderCopilotFiles(c, b, string(config.Copilot))
+	return nil
+}
+
+// renderCopilotFiles adds the files under ~/.copilot, owned by owner: VS
+// Code's agent chat reads the same files, so renderVSCode calls it too.
+func renderCopilotFiles(c *config.Config, b *builder, owner string) {
+	b.add(apply.Target{
+		Owner: owner, Path: b.home(".copilot", "settings.json"), Format: apply.JSON,
+		Managed: copilotSettings(c, b), Union: [][]string{{"allowedUrls"}},
+		Remove: [][]string{{"statusLine"}}, Mode: 0o600,
+	})
+	if servers := b.lspServers(); len(servers) > 0 || len(c.LSP.Servers) > 0 {
+		b.add(apply.Target{
+			Owner: owner, Path: b.home(".copilot", "lsp-config.json"), Format: apply.JSON,
+			Managed: map[string]any{"lspServers": copilotLSP(servers)},
+			Remove:  copilotLSPRemove(c, servers), Mode: 0o600,
+		})
+	}
+	if servers := b.mcpServers(); len(servers) > 0 {
+		b.add(apply.Target{
+			Owner: owner, Path: b.home(".copilot", "mcp-config.json"), Format: apply.JSON,
+			Managed: map[string]any{"mcpServers": copilotMCP(servers)}, Mode: 0o600,
+		})
+	}
+	before := len(b.targets)
+	b.instructions(config.Copilot, b.home(".copilot", "copilot-instructions.md"))
+	if len(b.targets) > before {
+		b.targets[len(b.targets)-1].Owner = owner
+	}
+}
+
+// copilotSettings is the managed part of ~/.copilot/settings.json.
+func copilotSettings(c *config.Config, b *builder) map[string]any {
+	out := map[string]any{}
+	if c.Notifications.TerminalBell {
+		out["beep"] = true
+	}
+	out["voice"] = map[string]any{"enabled": c.Voice.Enabled}
+	if len(c.Permissions.AllowedURLs) > 0 {
+		out["allowedUrls"] = slices.Clone(c.Permissions.AllowedURLs)
+	}
+	if len(c.Harness.Copilot.Agents) > 0 {
+		agents := map[string]any{}
+		for name, a := range c.Harness.Copilot.Agents {
+			agents[name] = map[string]any{"model": a.Model, "effortLevel": a.EffortLevel}
+		}
+		out["subagents"] = map[string]any{"agents": agents}
+	}
+	if mkt := MarketplaceName(c); mkt != "" {
+		plugins := map[string]any{}
+		for name, on := range PluginStates(c, config.Copilot) {
+			plugins[name+"@"+mkt] = on
+		}
+		if len(plugins) > 0 {
+			out["enabledPlugins"] = plugins
+		}
+		out["extraKnownMarketplaces"] = map[string]any{
+			mkt: map[string]any{"source": map[string]any{"source": "github", "repo": c.Plugins.Registry}},
+		}
+	}
+	extra, _ := b.expandSettings("harness.copilot.settings", c.Harness.Copilot.Settings).(map[string]any)
+	return mergeSettings(out, extra)
+}
+
+// copilotLSP renders the lspServers of lsp-config.json: argv split into
+// command and args.
+func copilotLSP(servers []LSPServer) map[string]any {
+	out := map[string]any{}
+	for _, s := range servers {
+		out[s.Name] = map[string]any{
+			copilotKeyCommand: s.Command[0],
+			"args":            append([]string{}, s.Command[1:]...),
+			"fileExtensions":  maps.Clone(s.Extensions),
+		}
+	}
+	return out
+}
+
+// copilotLSPRemove lists the managed keys of every configured server that is
+// not rendered (lsp off, or its command is not on PATH), so an entry from an
+// earlier run goes while keys the user added to it stay.
+func copilotLSPRemove(c *config.Config, rendered []LSPServer) [][]string {
+	var out [][]string
+	for _, name := range slices.Sorted(maps.Keys(c.LSP.Servers)) {
+		if slices.ContainsFunc(rendered, func(s LSPServer) bool { return s.Name == name }) {
+			continue
+		}
+		for _, key := range []string{copilotKeyCommand, "args", "fileExtensions"} {
+			out = append(out, []string{"lspServers", name, key})
+		}
+	}
+	return out
+}
+
+// copilotMCP renders the mcpServers of mcp-config.json. A pre-registered
+// OAuth client uses Copilot's flat keys.
+func copilotMCP(servers map[string]config.MCPServer) map[string]any {
+	out := map[string]any{}
+	for name, s := range servers {
+		if s.URL != "" {
+			out[name] = copilotRemoteServer(s)
+		} else {
+			out[name] = copilotLocalServer(s)
+		}
+	}
+	return out
+}
+
+func copilotRemoteServer(s config.MCPServer) map[string]any {
+	e := map[string]any{"type": valueOr(s.Type, "http"), "url": s.URL}
+	if len(s.Headers) > 0 {
+		e["headers"] = maps.Clone(s.Headers)
+	}
+	if s.OAuth.ClientID == "" {
+		return e
+	}
+	e["oauthClientId"] = s.OAuth.ClientID
+	if s.OAuth.PublicClient != nil {
+		e["oauthPublicClient"] = *s.OAuth.PublicClient
+	}
+	if s.OAuth.CallbackPort != 0 {
+		e["auth"] = map[string]any{"redirectPort": s.OAuth.CallbackPort}
+	}
+	return e
+}
+
+func copilotLocalServer(s config.MCPServer) map[string]any {
+	e := map[string]any{"type": valueOr(s.Type, "stdio"), copilotKeyCommand: s.Command}
+	if len(s.Args) > 0 {
+		e["args"] = slices.Clone(s.Args)
+	}
+	if len(s.Env) > 0 {
+		e["env"] = maps.Clone(s.Env)
+	}
+	return e
+}
+
+func valueOr(v, def string) string {
+	if v == "" {
+		return def
+	}
+	return v
+}
+
+// expandSettings returns v with ${VAR} expanded in every string. A string
+// with an unset variable is dropped from its map or list (warned once).
+func (b *builder) expandSettings(where string, v any) any {
+	switch t := v.(type) {
+	case string:
+		s, ok := b.expand(where, t)
+		if !ok {
+			return nil
+		}
+		return s
+	case map[string]any:
+		out := make(map[string]any, len(t))
+		for k, e := range t {
+			if x := b.expandSettings(where+"."+k, e); x != nil {
+				out[k] = x
+			}
+		}
+		return out
+	case []any:
+		out := make([]any, 0, len(t))
+		for _, e := range t {
+			if x := b.expandSettings(where, e); x != nil {
+				out = append(out, x)
+			}
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// mergeSettings deep-merges src over dst: nested maps merge, anything else in
+// src replaces.
+func mergeSettings(dst, src map[string]any) map[string]any {
+	for k, v := range src {
+		sm, sok := v.(map[string]any)
+		dm, dok := dst[k].(map[string]any)
+		if sok && dok {
+			dst[k] = mergeSettings(dm, sm)
+			continue
+		}
+		dst[k] = v
+	}
+	return dst
+}
