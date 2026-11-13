@@ -74,7 +74,7 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 			mkt: map[string]any{"source": map[string]any{"source": "github", "repo": c.Plugins.Registry}},
 		}
 	}
-	extra, _ := b.expandSettings("harness.copilot.settings", c.Harness.Copilot.Settings).(map[string]any)
+	extra := b.expandSettings("harness.copilot.settings", c.Harness.Copilot.Settings)
 	return mergeSettings(out, extra)
 }
 
@@ -156,50 +156,4 @@ func valueOr(v, def string) string {
 		return def
 	}
 	return v
-}
-
-// expandSettings returns v with ${VAR} expanded in every string. A string
-// with an unset variable is dropped from its map or list (warned once).
-func (b *builder) expandSettings(where string, v any) any {
-	switch t := v.(type) {
-	case string:
-		s, ok := b.expand(where, t)
-		if !ok {
-			return nil
-		}
-		return s
-	case map[string]any:
-		out := make(map[string]any, len(t))
-		for k, e := range t {
-			if x := b.expandSettings(where+"."+k, e); x != nil {
-				out[k] = x
-			}
-		}
-		return out
-	case []any:
-		out := make([]any, 0, len(t))
-		for _, e := range t {
-			if x := b.expandSettings(where, e); x != nil {
-				out = append(out, x)
-			}
-		}
-		return out
-	default:
-		return v
-	}
-}
-
-// mergeSettings deep-merges src over dst: nested maps merge, anything else in
-// src replaces.
-func mergeSettings(dst, src map[string]any) map[string]any {
-	for k, v := range src {
-		sm, sok := v.(map[string]any)
-		dm, dok := dst[k].(map[string]any)
-		if sok && dok {
-			dst[k] = mergeSettings(dm, sm)
-			continue
-		}
-		dst[k] = v
-	}
-	return dst
 }

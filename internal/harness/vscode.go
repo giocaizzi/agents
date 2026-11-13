@@ -69,6 +69,6 @@ func vscodeSettings(c *config.Config, b *builder) map[string]any {
 	if c.Voice.Language != "" {
 		out["agents.voice.language"] = c.Voice.Language
 	}
-	extra, _ := b.expandSettings("harness.vscode.settings", c.Harness.VSCode.Settings).(map[string]any)
+	extra := b.expandSettings("harness.vscode.settings", c.Harness.VSCode.Settings)
 	return mergeSettings(out, extra)
 }

@@ -71,4 +71,3 @@ func mcpJSON(servers map[string]config.MCPServer, withPort bool) map[string]any 
 	}
 	return out
 }
-

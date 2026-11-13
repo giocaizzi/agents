@@ -36,3 +36,18 @@ func anyMap(in map[string]string) map[string]any {
 	}
 	return out
 }
+
+// mergeSettings deep-merges src over dst: nested maps merge, anything else in
+// src replaces.
+func mergeSettings(dst, src map[string]any) map[string]any {
+	for k, v := range src {
+		sm, sok := v.(map[string]any)
+		dm, dok := dst[k].(map[string]any)
+		if sok && dok {
+			dst[k] = mergeSettings(dm, sm)
+			continue
+		}
+		dst[k] = v
+	}
+	return dst
+}
