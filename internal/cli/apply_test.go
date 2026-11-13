@@ -214,7 +214,6 @@ func TestApply_ReviewRound2XFailClaudeAllow(t *testing.T) {
 	t.Parallel()
 	t.Run("xfail: apply keeps the Claude allow rules the user added", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: Claude permissions.allow replaces the live array instead of merging as a union")
 		e := newStdEnv(t, "")
 		settings := filepath.Join(e.home, ".claude", "settings.json")
 		if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {

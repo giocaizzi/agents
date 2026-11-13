@@ -17,7 +17,7 @@ import (
 // renderFor renders c for the selected harnesses on goos, with home "/h".
 func renderFor(t *testing.T, c config.Config, goos string, hs ...config.Harness) Plan {
 	t.Helper()
-	env := map[string]string{"TOKEN": "tok"}
+	env := map[string]string{"TOKEN": "tok", "WSDIR": "wsroot"}
 	plan, err := Render(&config.Resolved{Config: c, Harnesses: hs}, Env{
 		Home: "/h", Hostname: "host", Arch: "arm64", GOOS: goos,
 		Getenv:   func(k string) string { return env[k] },

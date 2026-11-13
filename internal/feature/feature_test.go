@@ -241,7 +241,7 @@ func renderFixture(t *testing.T, h config.Harness) (harness.Plan, func(string) s
 		return ""
 	}
 	r, err := config.Load(config.Options{
-		Getenv: getenv, GOOS: "linux", Home: home, Cwd: home,
+		Getenv: getenv, GOOS: "linux", Home: home,
 		ConfigPath: filepath.Join("testdata", "full.toml"), Harnesses: []string{string(h)},
 	})
 	if err != nil {

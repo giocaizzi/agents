@@ -23,8 +23,6 @@ type Options struct {
 	GOOS string
 	// Home is the user home (default os.UserHomeDir).
 	Home string
-	// Cwd is unused: there is no project-level configuration file.
-	Cwd string
 	// ConfigPath is an explicit user config file; it must exist.
 	ConfigPath string
 	// Profile is the -profile flag.

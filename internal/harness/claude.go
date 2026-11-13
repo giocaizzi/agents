@@ -22,6 +22,11 @@ const (
 	keyName   = "name"
 	keyDesc   = "description"
 	otlp      = "otlp"
+
+	keyPermissions = "permissions"
+	keyAllow       = "allow"
+	keyDeny        = "deny"
+	keyAsk         = "ask"
 )
 
 // claudeLegacy are the key paths the earlier dotfiles manager wrote into
@@ -71,6 +76,7 @@ func renderClaude(c *config.Config, b *builder) error {
 	b.add(apply.Target{
 		Owner: claudeOwner, Path: b.home(".claude", "settings.json"), Format: apply.JSON,
 		Managed: settings, Legacy: claudeLegacy, Mode: 0o600,
+		Union: [][]string{{keyPermissions, keyAllow}, {keyPermissions, keyDeny}, {keyPermissions, keyAsk}},
 	})
 
 	if len(servers) > 0 {
@@ -153,7 +159,7 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	set("cleanupPeriodDays", cl.CleanupPeriodDays)
 	set("disableClaudeAiConnectors", cl.DisableClaudeAIConnectors)
 	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
-	s["permissions"] = claudePermissions(c, b)
+	s[keyPermissions] = claudePermissions(c, b)
 
 	env := map[string]any{}
 	if tel, on := b.telemetry(config.Claude); on {
@@ -211,7 +217,7 @@ func claudePermissions(c *config.Config, b *builder) map[string]any {
 		mode = "auto"
 	}
 	out := map[string]any{"defaultMode": mode}
-	for k, v := range map[string][]string{"allow": allow, "deny": deny, "ask": ask} {
+	for k, v := range map[string][]string{keyAllow: allow, keyDeny: deny, keyAsk: ask} {
 		if len(v) > 0 {
 			out[k] = v
 		}
@@ -236,8 +242,8 @@ func (b *builder) claudeURLRules(urls []string) []string {
 
 // claudeHost is the WebFetch(domain:) target of an allowed URL. The rule
 // matches a whole host, so only a URL with no path, or a trailing /, /* or /**,
-// can be expressed, and a leading "*." is dropped because the bare domain
-// already covers subdomains.
+// can be expressed. A leading "*." stays: Claude Code reads it as any subdomain
+// at any depth, not the bare domain.
 func claudeHost(u string) (string, bool) {
 	_, rest, found := strings.Cut(u, "://")
 	if !found {
@@ -247,28 +253,37 @@ func claudeHost(u string) (string, bool) {
 	if path != "" && path != "*" && path != "**" {
 		return "", false
 	}
-	host = strings.TrimPrefix(host, "*.")
-	if host == "" || strings.Contains(host, "*") {
+	if host == "" || strings.Contains(strings.TrimPrefix(host, "*."), "*") {
 		return "", false
 	}
 	return host, true
 }
 
-// claudeMCPRule is the allow rule for an MCP server name. Claude writes a
-// server into tool names with every character outside letters, digits, "_"
-// and "-" turned into "_", and only the wildcard form matches every server
-// name. An entry that already starts with mcp__ is a rule and stays as is.
+// claudeMCPRule is the allow rule for an MCP entry. Claude writes a server
+// into tool names with every character outside letters, digits, "_" and "-"
+// turned into "_", and only the wildcard form matches every server name. A
+// "server/tool" entry names one tool: mcp__<server>__<tool>. An entry that
+// already starts with mcp__ is a rule and stays as is.
 func claudeMCPRule(name string) string {
 	if strings.HasPrefix(name, "mcp__") {
 		return name
 	}
-	server := strings.Map(func(r rune) rune {
-		if r == '_' || r == '-' || unicode.IsDigit(r) || (r < unicode.MaxASCII && unicode.IsLetter(r)) {
+	server, tool, ok := strings.Cut(name, "/")
+	if !ok {
+		return "mcp__" + claudeMCPName(server) + "__*"
+	}
+	return "mcp__" + claudeMCPName(server) + "__" + claudeMCPName(tool)
+}
+
+// claudeMCPName replaces the characters Claude does not keep in a tool-name
+// segment; "*" stays so a tool glob such as get_* still works.
+func claudeMCPName(s string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '_' || r == '-' || r == '*' || unicode.IsDigit(r) || (r < unicode.MaxASCII && unicode.IsLetter(r)) {
 			return r
 		}
 		return '_'
-	}, name)
-	return "mcp__" + server + "__*"
+	}, s)
 }
 
 // claudeTelemetry is the env of Claude Code's OpenTelemetry export.

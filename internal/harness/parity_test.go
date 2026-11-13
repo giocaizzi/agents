@@ -185,7 +185,7 @@ func applyFixture(t *testing.T, c parityCase) (string, config.Dirs, Plan) {
 	}
 	getenv := func(k string) string { return env[k] }
 	r, err := config.Load(config.Options{
-		Getenv: getenv, GOOS: "linux", Home: home, Cwd: home,
+		Getenv: getenv, GOOS: "linux", Home: home,
 		ConfigPath: filepath.Join(fixture, "config.toml"), Profile: c.Profile,
 	})
 	if err != nil {

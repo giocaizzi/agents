@@ -115,7 +115,6 @@ func load(t *testing.T, fsys *fakeFS, mut func(*config.Options), envs map[string
 		Getenv:   env(envs),
 		GOOS:     "darwin",
 		Home:     p("home", "u"),
-		Cwd:      p("repo", "sub"),
 		Stat:     fsys.Stat,
 		ReadFile: fsys.ReadFile,
 	}
@@ -310,7 +309,7 @@ func TestLoadIgnoresProjectFile(t *testing.T) {
 		p("repo", "agents.toml"):        "[ui]\ntheme = \"root\"\n",
 		p("repo", "sub", "agents.toml"): "[ui]\ntheme = \"here\"\n",
 	}
-	r, err := load(t, newFS(files, p("repo", ".git")), func(o *config.Options) { o.Cwd = p("repo", "sub") }, nil)
+	r, err := load(t, newFS(files, p("repo", ".git")), nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -376,7 +375,7 @@ func TestLoadErrors(t *testing.T) {
 
 	t.Run("nil Getenv", func(t *testing.T) {
 		t.Parallel()
-		if _, err := config.Load(config.Options{GOOS: "linux", Home: "/h", Cwd: "/c"}); err == nil {
+		if _, err := config.Load(config.Options{GOOS: "linux", Home: "/h"}); err == nil {
 			t.Error("want an error when Getenv is nil")
 		}
 	})
@@ -459,7 +458,6 @@ func TestLoadTestdata(t *testing.T) {
 				Getenv:     env(nil),
 				GOOS:       "windows",
 				Home:       t.TempDir(),
-				Cwd:        t.TempDir(),
 				ConfigPath: filepath.Join("testdata", "valid", name),
 			})
 			if err != nil {

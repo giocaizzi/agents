@@ -168,9 +168,10 @@ func (b *builder) expand(where, s string) (string, bool) {
 	return out, true
 }
 
-// expandPath is expand with a leading ~ replaced by the home directory.
+// expandPath is expand with a leading ~ replaced by the home directory. A
+// path is not a secret, so its variables are not recorded as sensitive.
 func (b *builder) expandPath(where, p string) (string, bool) {
-	out, unset := config.ExpandPath(p, b.env.Home, b.getenv)
+	out, unset := config.ExpandPath(p, b.env.Home, b.env.Getenv)
 	if len(unset) > 0 {
 		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false

@@ -49,7 +49,7 @@ func renderOpenCode(c *config.Config, b *builder) error {
 	b.add(apply.Target{
 		Owner: string(config.OpenCode), Path: b.home(".config", "opencode", "opencode.jsonc"),
 		Format: apply.JSONC, Managed: cfg, Mode: 0o600,
-		Union:  [][]string{{"permissions"}, {"policies"}},
+		Union:  [][]string{{keyPermissions}, {"policies"}},
 		Legacy: openCodeLegacy(servers),
 	})
 	b.instructions(config.OpenCode, b.home(".config", "opencode", "AGENTS.md"))
