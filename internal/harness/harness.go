@@ -197,12 +197,12 @@ func MarketplaceName(c *config.Config) string {
 }
 
 // RegistryDir is the local checkout of the plugin registry:
-// <data>/registries/<repo>, "" without a registry.
+// <data>/registries/<owner>/<repo>, "" without a registry.
 func RegistryDir(c *config.Config, dirs config.Dirs) string {
 	if c.Plugins.Registry == "" {
 		return ""
 	}
-	return filepath.Join(dirs.Data, "registries", filepath.Base(c.Plugins.Registry))
+	return filepath.Join(dirs.Data, "registries", filepath.FromSlash(c.Plugins.Registry))
 }
 
 // Telemetry is the resolved OpenTelemetry export for one harness.
