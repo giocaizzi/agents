@@ -55,12 +55,14 @@ func TestCheck(t *testing.T) {
 		{
 			name: "in step",
 			sel: func(t *testing.T) pluginreg.Selection {
+				t.Helper()
 				return pluginreg.Selection{Checkout: checkout(t, "api", "go"), Enabled: enabled, Harnesses: harnesses}
 			},
 		},
 		{
 			name: "gone upstream",
 			sel: func(t *testing.T) pluginreg.Selection {
+				t.Helper()
 				return pluginreg.Selection{Checkout: checkout(t, "api"), Enabled: enabled, Harnesses: harnesses}
 			},
 			want: "plugins.enabled.go: not a plugin of the registry checkout",
@@ -68,6 +70,7 @@ func TestCheck(t *testing.T) {
 		{
 			name: "unknown harness",
 			sel: func(t *testing.T) pluginreg.Selection {
+				t.Helper()
 				return pluginreg.Selection{Checkout: checkout(t, "api"), Enabled: map[string][]string{"api": {"emacs"}}, Harnesses: harnesses}
 			},
 			want: "unknown harness emacs",
@@ -75,6 +78,7 @@ func TestCheck(t *testing.T) {
 		{
 			name: "disabled and enabled nowhere",
 			sel: func(t *testing.T) pluginreg.Selection {
+				t.Helper()
 				return pluginreg.Selection{Checkout: checkout(t, "api"), Enabled: map[string][]string{"api": {"claude"}}, Disabled: []string{"hud"}, Harnesses: harnesses}
 			},
 			want: "hud is not enabled for any harness",
@@ -91,6 +95,7 @@ func TestCheck(t *testing.T) {
 		{
 			name: "checkout directory without plugins",
 			sel: func(t *testing.T) pluginreg.Selection {
+				t.Helper()
 				return pluginreg.Selection{Checkout: t.TempDir(), Enabled: enabled, Harnesses: harnesses}
 			},
 			want: "registry checkout missing",
