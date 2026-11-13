@@ -177,13 +177,23 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 // claudeSandbox is the sandbox object: enabled for the shared workspace mode.
 // autoAllowBashIfSandboxed defaults to true and would skip the prompts that
 // ask wants (and an unset mode must not silently widen), so it is written
-// false unless execution_mode is auto or full.
+// false unless the effective defaultMode (the typed harness.claude.default_mode,
+// else the shared execution_mode) is auto or bypassPermissions. Every other
+// mode (default, acceptEdits, plan, dontAsk) still gates Bash, and so does an
+// unset one.
 func claudeSandbox(c *config.Config, b *builder) map[string]any {
 	sandbox := b.sandboxEnabled(c.Autonomy.SandboxMode, "Claude Code", "sandbox.enabled")
-	if sandbox != nil && (c.Autonomy.ExecutionMode == "" || c.Autonomy.ExecutionMode == config.ExecutionAsk) {
+	if mode := claudeEffectiveMode(c, b); sandbox != nil && mode != nativeAuto && mode != "bypassPermissions" {
 		sandbox["autoAllowBashIfSandboxed"] = false
 	}
 	return sandbox
+}
+
+// claudeEffectiveMode is the defaultMode that agents manages: the typed field,
+// else the shared execution mode's native value, "" when neither is set.
+func claudeEffectiveMode(c *config.Config, b *builder) string {
+	return valueOr(c.Harness.Claude.DefaultMode,
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Claude Code", "permissions.defaultMode", claudeExecution()))
 }
 
 // claudePermissions maps the shared permission rules to Claude's schema.
@@ -226,8 +236,7 @@ func claudePermissions(c *config.Config, b *builder) map[string]any {
 		ask = append(ask, "Bash("+pfx+")", "Bash("+pfx+" *)")
 	}
 	// The typed field wins, then the shared execution mode, then Claude's auto.
-	mode := valueOr(c.Harness.Claude.DefaultMode,
-		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Claude Code", "permissions.defaultMode", claudeExecution()))
+	mode := claudeEffectiveMode(c, b)
 	if mode == "" {
 		mode = nativeAuto
 	}
