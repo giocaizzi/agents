@@ -27,7 +27,7 @@ func renderOne(t *testing.T, cfg config.Config, h config.Harness, home string) P
 	return plan
 }
 
-func targetAt(t *testing.T, plan Plan, path string) apply.Target {
+func planTargetAt(t *testing.T, plan Plan, path string) apply.Target {
 	t.Helper()
 	for _, tg := range plan.Targets {
 		if tg.Path == path {
@@ -50,7 +50,7 @@ func TestCodexRules(t *testing.T) {
 	}}
 	home := t.TempDir()
 	plan := renderOne(t, cfg, config.Codex, home)
-	got := targetAt(t, plan, filepath.Join(home, ".codex", "rules", "agents.rules")).Managed
+	got := planTargetAt(t, plan, filepath.Join(home, ".codex", "rules", "agents.rules")).Managed
 	want := `# Managed by agents from permissions: do not edit.
 prefix_rule(
     pattern = ["git","push","--force-with-lease","origin"],
@@ -93,7 +93,7 @@ func TestCodexConfig(t *testing.T) {
 	}
 	home := t.TempDir()
 	plan := renderOne(t, cfg, config.Codex, home)
-	got := targetAt(t, plan, filepath.Join(home, ".codex", "config.toml"))
+	got := planTargetAt(t, plan, filepath.Join(home, ".codex", "config.toml"))
 	if got.Format != apply.TOML || got.Mode != 0o600 {
 		t.Errorf("format/mode = %v/%o", got.Format, got.Mode)
 	}

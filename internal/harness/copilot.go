@@ -35,7 +35,7 @@ func renderCopilotFiles(c *config.Config, b *builder, owner string) {
 	if servers := b.mcpServers(); len(servers) > 0 {
 		b.add(apply.Target{
 			Owner: owner, Path: b.home(".copilot", "mcp-config.json"), Format: apply.JSON,
-			Managed: map[string]any{"mcpServers": copilotMCP(servers)}, Mode: 0o600,
+			Managed: map[string]any{keyMCPServers: copilotMCP(servers)}, Mode: 0o600,
 		})
 	}
 	before := len(b.targets)
@@ -51,7 +51,7 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 	if c.Notifications.TerminalBell {
 		out["beep"] = true
 	}
-	out["voice"] = map[string]any{"enabled": c.Voice.Enabled}
+	out["voice"] = map[string]any{keyEnabled: c.Voice.Enabled}
 	if len(c.Permissions.AllowedURLs) > 0 {
 		out["allowedUrls"] = slices.Clone(c.Permissions.AllowedURLs)
 	}
@@ -60,7 +60,7 @@ func copilotSettings(c *config.Config, b *builder) map[string]any {
 		for name, a := range c.Harness.Copilot.Agents {
 			agents[name] = map[string]any{"model": a.Model, "effortLevel": a.EffortLevel}
 		}
-		out["subagents"] = map[string]any{"agents": agents}
+		out["subagents"] = map[string]any{keyCopilotAgents: agents}
 	}
 	if mkt := MarketplaceName(c); mkt != "" {
 		plugins := map[string]any{}
@@ -85,7 +85,7 @@ func copilotLSP(servers []LSPServer) map[string]any {
 	for _, s := range servers {
 		out[s.Name] = map[string]any{
 			copilotKeyCommand: s.Command[0],
-			"args":            append([]string{}, s.Command[1:]...),
+			keyArgs:           append([]string{}, s.Command[1:]...),
 			"fileExtensions":  maps.Clone(s.Extensions),
 		}
 	}
@@ -101,7 +101,7 @@ func copilotLSPRemove(c *config.Config, rendered []LSPServer) [][]string {
 		if slices.ContainsFunc(rendered, func(s LSPServer) bool { return s.Name == name }) {
 			continue
 		}
-		for _, key := range []string{copilotKeyCommand, "args", "fileExtensions"} {
+		for _, key := range []string{copilotKeyCommand, keyArgs, "fileExtensions"} {
 			out = append(out, []string{"lspServers", name, key})
 		}
 	}
@@ -143,7 +143,7 @@ func copilotRemoteServer(s config.MCPServer) map[string]any {
 func copilotLocalServer(s config.MCPServer) map[string]any {
 	e := map[string]any{"type": valueOr(s.Type, "stdio"), copilotKeyCommand: s.Command}
 	if len(s.Args) > 0 {
-		e["args"] = slices.Clone(s.Args)
+		e[keyArgs] = slices.Clone(s.Args)
 	}
 	if len(s.Env) > 0 {
 		e["env"] = maps.Clone(s.Env)

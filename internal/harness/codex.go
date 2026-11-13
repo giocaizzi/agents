@@ -2,7 +2,6 @@ package harness
 
 import (
 	"fmt"
-	"maps"
 	"slices"
 	"strings"
 
@@ -43,7 +42,7 @@ func renderCodex(c *config.Config, b *builder) error {
 		}
 		cfg["projects"] = projects
 	}
-	mergeSettings(cfg, b.expandSettings("harness.codex.settings", h.Settings))
+	deepMerge(cfg, b.expandSettings("harness.codex.settings", h.Settings))
 
 	b.add(apply.Target{Owner: string(config.Codex), Path: b.home(".codex", "config.toml"), Format: apply.TOML, Managed: cfg, Mode: 0o600})
 	b.add(apply.Target{
@@ -63,7 +62,7 @@ func codexServers(in map[string]config.MCPServer) map[string]any {
 		case s.URL != "":
 			e["url"] = s.URL
 			if len(s.Headers) > 0 {
-				e["http_headers"] = stringMap(s.Headers)
+				e["http_headers"] = anyMap(s.Headers)
 			}
 			if o := codexOAuth(s.OAuth); o != nil {
 				e["oauth"] = o
@@ -71,10 +70,10 @@ func codexServers(in map[string]config.MCPServer) map[string]any {
 		case s.Command != "":
 			e["command"] = s.Command
 			if len(s.Args) > 0 {
-				e["args"] = stringSlice(s.Args)
+				e[keyArgs] = toAnySlice(s.Args)
 			}
 			if len(s.Env) > 0 {
-				e["env"] = stringMap(s.Env)
+				e["env"] = anyMap(s.Env)
 			}
 		default:
 			continue
@@ -133,7 +132,7 @@ func codexRules(p *config.Permissions, b *builder) string {
 		for _, pat := range patterns {
 			words, ok := prefixWords(pat)
 			if !ok {
-				b.warn("%s: skipped, %q is not a command prefix Codex rules can match", where, pat)
+				b.warnf("%s: skipped, %q is not a command prefix Codex rules can match", where, pat)
 				continue
 			}
 			key := decision + "\x00" + strings.Join(words, "\x00")
@@ -165,65 +164,4 @@ func prefixWords(pat string) ([]string, bool) {
 		return nil, false
 	}
 	return words, true
-}
-
-func stringMap(m map[string]string) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = v
-	}
-	return out
-}
-
-func stringSlice(s []string) []any {
-	out := make([]any, len(s))
-	for i, v := range s {
-		out[i] = v
-	}
-	return out
-}
-
-// mergeSettings deep-merges src into dst: tables merge, anything else in src
-// replaces.
-func mergeSettings(dst, src map[string]any) {
-	for _, k := range slices.Sorted(maps.Keys(src)) {
-		sm, sIsMap := src[k].(map[string]any)
-		dm, dIsMap := dst[k].(map[string]any)
-		if sIsMap && dIsMap {
-			mergeSettings(dm, sm)
-			continue
-		}
-		dst[k] = src[k]
-	}
-}
-
-// expandSettings returns native settings with ${VAR} expanded in every
-// string; an entry with an unset variable is skipped (warned).
-func (b *builder) expandSettings(where string, in map[string]any) map[string]any {
-	out := map[string]any{}
-	for _, k := range slices.Sorted(maps.Keys(in)) {
-		if v, ok := b.expandValue(where+"."+k, in[k]); ok {
-			out[k] = v
-		}
-	}
-	return out
-}
-
-func (b *builder) expandValue(where string, v any) (any, bool) {
-	switch x := v.(type) {
-	case string:
-		return b.expand(where, x)
-	case map[string]any:
-		return b.expandSettings(where, x), true
-	case []any:
-		out := make([]any, 0, len(x))
-		for i, e := range x {
-			if ev, ok := b.expandValue(fmt.Sprintf("%s[%d]", where, i), e); ok {
-				out = append(out, ev)
-			}
-		}
-		return out, true
-	default:
-		return v, true
-	}
 }

@@ -35,7 +35,7 @@ func renderPi(c *config.Config, b *builder) error {
 	})
 	b.add(apply.Target{
 		Owner: string(config.Pi), Path: filepath.Join(base, "mcp.json"), Format: apply.JSON,
-		Managed: map[string]any{"mcpServers": mcpJSON(b.mcpServers(), true)}, Mode: 0o600,
+		Managed: map[string]any{keyMCPServers: mcpJSON(b.mcpServers(), true)}, Mode: 0o600,
 	})
 	b.instructions(config.Pi, filepath.Join(base, "AGENTS.md"))
 	return nil
@@ -54,7 +54,7 @@ func mcpJSON(servers map[string]config.MCPServer, withPort bool) map[string]any 
 			e["headers"] = anyMap(s.Headers)
 		}
 		if len(s.Args) > 0 {
-			e["args"] = toAnySlice(s.Args)
+			e[keyArgs] = toAnySlice(s.Args)
 		}
 		if len(s.Env) > 0 {
 			e["env"] = anyMap(s.Env)

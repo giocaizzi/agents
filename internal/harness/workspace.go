@@ -38,7 +38,7 @@ func renderWorkspaces(_ *config.Config, b *builder, selected []config.Harness) e
 			if strings.HasPrefix(warning, "antigravity:") && !slices.Contains(names, string(config.Antigravity)) {
 				continue
 			}
-			b.warn("mcp.workspaces.%s: %s", w.Name, warning)
+			b.warnf("mcp.workspaces.%s: %s", w.Name, warning)
 		}
 	}
 	return nil

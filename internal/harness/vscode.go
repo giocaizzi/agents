@@ -25,7 +25,7 @@ func vscodeSettingsPath(b *builder) string {
 	switch b.env.GOOS {
 	case "darwin":
 		return b.home("Library", "Application Support", "Code", "User", "settings.json")
-	case "windows":
+	case goosWindows:
 		appdata := b.env.Getenv("APPDATA")
 		if appdata == "" {
 			appdata = b.home("AppData", "Roaming")

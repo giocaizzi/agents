@@ -93,7 +93,7 @@ func TestParity(t *testing.T) {
 				rel, _ := filepath.Rel(root, path)
 				owner, file, _ := strings.Cut(filepath.ToSlash(rel), "/")
 				t.Run(owner+"/"+file, func(t *testing.T) {
-					compareGolden(t, c, plan, home, dirs, owner, file, path)
+					compareGolden(t, c, home, dirs, owner, file, path)
 				})
 				return nil
 			})
@@ -104,12 +104,9 @@ func TestParity(t *testing.T) {
 	}
 }
 
-func compareGolden(t *testing.T, c parityCase, plan Plan, home string, dirs config.Dirs, owner, file, goldenPath string) {
+func compareGolden(t *testing.T, c parityCase, home string, dirs config.Dirs, owner, file, goldenPath string) {
 	t.Helper()
 	target := goldenTarget(home, dirs, owner, file)
-	if !rendersOwner(plan, home, owner) {
-		t.Skip("xfail: " + owner + " is not rendered yet")
-	}
 	gotRaw, err := os.ReadFile(target)
 	if err != nil {
 		t.Fatalf("read rendered %s: %v", target, err)
@@ -127,19 +124,6 @@ func compareGolden(t *testing.T, c parityCase, plan Plan, home string, dirs conf
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("%s (-golden +agents):\n%s", file, diff)
 	}
-}
-
-// rendersOwner reports whether the plan has any target of owner (ops: under ~/ops).
-func rendersOwner(plan Plan, home, owner string) bool {
-	for _, tg := range plan.Targets {
-		if owner == "ops" && strings.HasPrefix(tg.Path, filepath.Join(home, "ops")+string(filepath.Separator)) {
-			return true
-		}
-		if tg.Owner == owner && !strings.HasPrefix(tg.Path, filepath.Join(home, "ops")) {
-			return true
-		}
-	}
-	return false
 }
 
 // userServerURLs reduces ~/.claude.json to the golden mcp-user.json shape: name -> url.

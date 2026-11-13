@@ -115,8 +115,8 @@ func (b *builder) add(t apply.Target) {
 	b.targets = append(b.targets, t)
 }
 
-// warn records a warning, once per distinct text.
-func (b *builder) warn(format string, args ...any) {
+// warnf records a warning, once per distinct text.
+func (b *builder) warnf(format string, args ...any) {
 	w := fmt.Sprintf(format, args...)
 	if !slices.Contains(b.warnings, w) {
 		b.warnings = append(b.warnings, w)
@@ -133,7 +133,7 @@ func (b *builder) home(elem ...string) string {
 func (b *builder) expand(where, s string) (string, bool) {
 	out, unset := config.Expand(s, b.env.Getenv)
 	if len(unset) > 0 {
-		b.warn("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
+		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
 	}
 	return out, true
@@ -143,7 +143,7 @@ func (b *builder) expand(where, s string) (string, bool) {
 func (b *builder) expandPath(where, p string) (string, bool) {
 	out, unset := config.ExpandPath(p, b.env.Home, b.env.Getenv)
 	if len(unset) > 0 {
-		b.warn("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
+		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(unset, "}, ${"))
 		return "", false
 	}
 	return out, true
@@ -239,12 +239,12 @@ func (b *builder) lspServers() []LSPServer {
 		}
 		found, err := b.env.LookPath(s.Command[0])
 		if err != nil {
-			b.warn("lsp.servers.%s: skipped, %s is not on PATH", name, s.Command[0])
+			b.warnf("lsp.servers.%s: skipped, %s is not on PATH", name, s.Command[0])
 			continue
 		}
 		cmd := slices.Clone(s.Command)
 		ext := strings.ToLower(filepath.Ext(found))
-		if b.env.GOOS == "windows" && (ext == ".cmd" || ext == ".bat") {
+		if b.env.GOOS == goosWindows && (ext == ".cmd" || ext == ".bat") {
 			cmd = append([]string{"cmd", "/c"}, cmd...)
 		}
 		ft := slices.Clone(s.Filetypes)
@@ -334,7 +334,7 @@ func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServ
 	s.OAuth.ClientID = ex(s.OAuth.ClientID)
 	if len(missing) > 0 {
 		slices.Sort(missing)
-		b.warn("%s: skipped, ${%s} is unset", where, strings.Join(slices.Compact(missing), "}, ${"))
+		b.warnf("%s: skipped, ${%s} is unset", where, strings.Join(slices.Compact(missing), "}, ${"))
 		return config.MCPServer{}, false
 	}
 	return s, true

@@ -33,7 +33,7 @@ func TestOpenCodeConfig(t *testing.T) {
 	}
 	home := t.TempDir()
 	plan := renderOne(t, cfg, config.OpenCode, home)
-	got := targetAt(t, plan, filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
+	got := planTargetAt(t, plan, filepath.Join(home, ".config", "opencode", "opencode.jsonc"))
 	if got.Format != apply.JSONC || got.Mode != 0o600 {
 		t.Errorf("format/mode = %v/%o", got.Format, got.Mode)
 	}
@@ -77,7 +77,7 @@ func TestOpenCodeLSPOff(t *testing.T) {
 	cfg := config.Config{LSP: config.LSP{Servers: map[string]config.LSPServer{"ruff": {Command: []string{"ruff"}}}}}
 	home := t.TempDir()
 	plan := renderOne(t, cfg, config.OpenCode, home)
-	m, _ := targetAt(t, plan, filepath.Join(home, ".config", "opencode", "opencode.jsonc")).Managed.(map[string]any)
+	m, _ := planTargetAt(t, plan, filepath.Join(home, ".config", "opencode", "opencode.jsonc")).Managed.(map[string]any)
 	if _, ok := m["lsp"]; ok {
 		t.Errorf("lsp = %v with lsp disabled, want none", m["lsp"])
 	}

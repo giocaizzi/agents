@@ -51,3 +51,12 @@ func mergeSettings(dst, src map[string]any) map[string]any {
 	}
 	return dst
 }
+
+// Keys and values several native formats share.
+const (
+	keyMCPServers    = "mcpServers"
+	keyEnabled       = "enabled"
+	keyArgs          = "args"
+	keyCopilotAgents = "agents"
+	goosWindows      = "windows"
+)

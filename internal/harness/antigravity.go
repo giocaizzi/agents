@@ -34,7 +34,7 @@ func renderAntigravity(c *config.Config, b *builder) error {
 	})
 	b.add(apply.Target{
 		Owner: string(config.Antigravity), Path: filepath.Join(gemini, "config", "mcp_config.json"),
-		Format: apply.JSON, Managed: map[string]any{"mcpServers": mcpJSON(b.mcpServers(), false)}, Mode: 0o600,
+		Format: apply.JSON, Managed: map[string]any{keyMCPServers: mcpJSON(b.mcpServers(), false)}, Mode: 0o600,
 	})
 	b.instructions(config.Antigravity, filepath.Join(gemini, "config", "AGENTS.md"))
 	return nil

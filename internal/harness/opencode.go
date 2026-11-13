@@ -19,8 +19,8 @@ func renderOpenCode(c *config.Config, b *builder) error {
 		out := map[string]any{}
 		for _, s := range lsp {
 			out[s.Name] = map[string]any{
-				"command":    stringSlice(s.Command),
-				"extensions": stringSlice(slices.Sorted(maps.Keys(s.Extensions))),
+				"command":    toAnySlice(s.Command),
+				"extensions": toAnySlice(slices.Sorted(maps.Keys(s.Extensions))),
 			}
 		}
 		cfg["lsp"] = out
@@ -35,7 +35,7 @@ func renderOpenCode(c *config.Config, b *builder) error {
 	if len(policies) > 0 {
 		cfg["policies"] = policies
 	}
-	mergeSettings(cfg, b.expandSettings("harness.opencode.settings", c.Harness.OpenCode.Settings))
+	deepMerge(cfg, b.expandSettings("harness.opencode.settings", c.Harness.OpenCode.Settings))
 
 	b.add(apply.Target{
 		Owner: string(config.OpenCode), Path: b.home(".config", "opencode", "opencode.jsonc"),
@@ -50,22 +50,22 @@ func renderOpenCode(c *config.Config, b *builder) error {
 func openCodeServers(in map[string]config.MCPServer) map[string]any {
 	out := map[string]any{}
 	for name, s := range in {
-		e := map[string]any{"enabled": true}
+		e := map[string]any{keyEnabled: true}
 		switch {
 		case s.URL != "":
 			e["type"] = "remote"
 			e["url"] = s.URL
 			if len(s.Headers) > 0 {
-				e["headers"] = stringMap(s.Headers)
+				e["headers"] = anyMap(s.Headers)
 			}
 			if s.OAuth.ClientID != "" {
 				e["oauth"] = map[string]any{"clientId": s.OAuth.ClientID}
 			}
 		case s.Command != "":
 			e["type"] = "local"
-			e["command"] = stringSlice(append([]string{s.Command}, s.Args...))
+			e["command"] = toAnySlice(append([]string{s.Command}, s.Args...))
 			if len(s.Env) > 0 {
-				e["environment"] = stringMap(s.Env)
+				e["environment"] = anyMap(s.Env)
 			}
 		default:
 			continue
