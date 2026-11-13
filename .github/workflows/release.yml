@@ -1,5 +1,6 @@
-# Emergency-only manual-tag recovery; ordinary releases use release-please.
-name: Emergency manual-tag release fallback
+# Manual-tag release: publishes only while release-please is inactive (repo variable RELEASE_PLEASE
+# is not 'true'). Once it is active, release-please.yml is the only publisher (see docs/release.md).
+name: Manual-tag release
 
 on:
   push:
@@ -10,16 +11,21 @@ permissions:
 
 jobs:
   release:
+    if: vars.RELEASE_PLEASE != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
+          cache: false
       - name: Build cross-platform binaries
         env:
           VERSION: ${{ github.ref_name }}
@@ -33,17 +39,20 @@ jobs:
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.buildVersion=${v}" \
               -o "dist/agents_${v}_${os}_${arch}${ext}" ./cmd/agents
           done
-          cd dist && sha256sum ./* > checksums.txt
+          cd dist && sha256sum -- * > checksums.txt
       - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-checksums: dist/checksums.txt
-      - name: Publish Release
+      # Draft first, publish after the assets are attached, so "latest" never points at a release without them.
+      - name: Upload assets and publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
         run: |
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/* --clobber
-          else
-            gh release create "$TAG" dist/* --title "agents ${TAG#v}" --generate-notes --verify-tag
+          set -eu
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "agents ${TAG#v}" --generate-notes --verify-tag
           fi
+          gh release upload "$TAG" dist/* --clobber
+          gh release edit "$TAG" --draft=false
