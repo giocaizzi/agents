@@ -344,10 +344,6 @@ default_provider = "openai"
 default_model = "gpt-6.1-sol"
 default_thinking_level = "medium"
 
-[harness.opencode]
-default_model = "gpt-5.5"
-sandbox = false
-
 # Windows only: Claude Code runs PowerShell.
 [os.windows.harness.claude.settings]
 defaultShell = "powershell"

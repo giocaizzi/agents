@@ -87,10 +87,6 @@ func modelFeatures() []Feature {
 
 func autonomyFeatures() []Feature {
 	const modeAmb = "ambiguous: native mode names differ and the value is a free name"
-	allAmbiguous := make([]pair, 0, len(HarnessIDs()))
-	for _, h := range HarnessIDs() {
-		allAmbiguous = append(allAmbiguous, pl(h, "ambiguous: no renderer reads autonomy.mode and its meaning overlaps autonomy.execution_mode"))
-	}
 	return []Feature{
 		shared("autonomy.execution_mode", "How freely agents act.",
 			"no documented permission mode setting",
@@ -111,7 +107,7 @@ func autonomyFeatures() []Feature {
 			rd(antigravity, at(antigravitySettings, "allowNonWorkspaceAccess")),
 			pl(claude, "ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping"),
 			pl(vscode, "github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)"),
-			pl(opencode, "permission external_directory")),
+			rd(opencode, at(opencodeConfig, "permissions"))),
 		shared("autonomy.subagent_depth", "Maximum subagent nesting depth.",
 			"no documented subagent depth setting",
 			rd(opencode, at(opencodeConfig, "experimental")),
@@ -124,7 +120,6 @@ func autonomyFeatures() []Feature {
 		shared("autonomy.ask_timeout", "How long to wait for an answer to a question.",
 			"no documented timeout for questions",
 			rd(claude, at(claudeSettings, "askUserQuestionTimeout"))),
-		shared("autonomy.mode", "Default agent mode.", "", allAmbiguous...),
 	}
 }
 
@@ -146,13 +141,13 @@ func permissionFeatures() []Feature {
 			vscodeCommands,
 			rd(claude, at(claudeSettings, "permissions.allow")),
 			pl(codex, "prefix_rule with decision allow"),
-			pl(opencode, "permission bash allow"),
+			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allowed_urls", "URLs agents may fetch.", "no documented URL allow list",
 			rd(copilot, at(copilotSettings, "allowedUrls")),
 			rd(vscode, all(at(vscodeSettings, "chat.tools.urls.autoApprove"), at(copilotSettings, "allowedUrls"))),
 			pl(claude, "ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path"),
-			pl(opencode, "permission webfetch"),
+			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allow_command_patterns", "Command patterns allowed without asking.", noCmd,
 			claudeAllow, vscodeCommands, codexRule, ocAllow, agyAllow),
@@ -175,7 +170,7 @@ func permissionFeatures() []Feature {
 		shared("permissions.allowed_mcp", "MCP servers or tools allowed without asking.",
 			"no documented MCP approval setting",
 			rd(claude, at(claudeSettings, "permissions.allow")),
-			pl(opencode, "permission actions for MCP tools"),
+			pl(opencode, "ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)"),
 			agyAllow),
 		shared("permissions.reasons", "Message shown when a permission rule matches, keyed by the rule pattern.",
 			"no documented per-rule message",
@@ -189,7 +184,7 @@ func contextFeatures() []Feature {
 			"no documented automatic compaction setting",
 			rd(claude, at(claudeSettings, "autoCompactEnabled")),
 			rd(vscode, at(vscodeSettings, "github.copilot.chat.summarizeAgentConversationHistory.enabled")),
-			pl(opencode, "compaction.auto"),
+			rd(opencode, at(opencodeConfig, "compaction")),
 			rd(pi, at(piSettings, "compaction.enabled"))),
 		shared("context.auto_compact_window", "Context size that triggers compaction.",
 			"no documented compaction trigger size",
@@ -219,7 +214,7 @@ func uiFeatures() []Feature {
 			pl(codex, "tui.theme"),
 			rd(pi, at(piSettings, "theme")),
 			rd(antigravity, at(antigravitySettings, "colorScheme")),
-			pl(opencode, "ambiguous: theme is not among the researched opencode keys; verify against its config docs")),
+			pl(opencode, "ambiguous: opencode 2 keeps the theme in cli.json as theme.name (a theme such as catppuccin) plus theme.mode (system, dark or light); the shared value is a free string that is a mode for Claude Code and a theme name for VS Code, and agents writes no cli.json; options: write it as theme.name, write dark or light as theme.mode and anything else as theme.name (https://opencode.ai/docs/themes)")),
 		claudeOnly("tui_mode", "Terminal UI mode.", "tui"),
 		claudeOnly("view_mode", "Transcript view mode.", "viewMode"),
 		claudeOnly("output_style", "Output style.", "outputStyle"),
@@ -306,19 +301,20 @@ func lspFeatures() []Feature {
 		shared("lsp.servers", "Language servers: command and file extensions.", noLSP, servers...),
 		shared("lsp.servers.*.filetypes", "Editor file types of a language server.", noExt),
 		shared("lsp.servers.*.format", "Use the language server to format.", noExt,
-			pl(opencode, "formatter key (separate from lsp)")),
+			un(opencode, "the formatter section runs a command with $FILE over file extensions and is separate from lsp, so a language server cannot be asked to format (https://opencode.ai/docs/formatters)")),
 	}
 }
 
 func pluginFeatures() []Feature {
 	const noPlugins = "no documented plugin setting"
+	const noOpenCode = "plugins entries are npm, git or directory plugins by their own id, with no registry of harness plugins and no enabled map to fill; agents plugins installs harness plugins instead (https://opencode.ai/docs/plugins)"
 	plugins := []pair{
 		rd(claude, at(claudeSettings, "enabledPlugins", "extraKnownMarketplaces")),
 		rd(copilot, at(copilotSettings, "enabledPlugins", "extraKnownMarketplaces")),
 		rd(vscode, at(copilotSettings, "enabledPlugins", "extraKnownMarketplaces")),
 		rd(pi, at(piSettings, "packages")),
 		pl(codex, "plugins.<name> enabled (agents plugins installs them instead)"),
-		pl(opencode, "plugin array (agents plugins installs them instead)"),
+		un(opencode, noOpenCode),
 	}
 	return []Feature{
 		shared("plugins.registry", "Plugin registry repository.", noPlugins, plugins...),
@@ -340,12 +336,11 @@ func mcpFeatures() []Feature {
 	}
 	withoutPort := make([]pair, 0, len(servers))
 	for _, p := range servers {
-		if p.h != opencode && p.h != antigravity {
+		if p.h != antigravity {
 			withoutPort = append(withoutPort, p)
 		}
 	}
 	withoutPort = append(withoutPort,
-		un(opencode, "no callback port field for an OAuth client"),
 		un(antigravity, "no callback port field for an OAuth client"))
 	return []Feature{
 		shared("mcp.servers", "MCP servers written to the user config of each harness.", noMCP, servers...),
@@ -389,11 +384,6 @@ func harnessFeatures() []Feature {
 		x("model_reasoning_effort", "Reasoning effort.", "model_reasoning_effort"),
 		x("approval_policy", "Approval policy.", "approval_policy"),
 		x("sandbox_mode", "Sandbox mode.", "sandbox_mode"),
-	)
-	out = append(out,
-		own("harness.opencode.default_model", "Default model.",
-			pl(opencode, "model (ambiguous: the key is accepted and suppresses the tier model, but no renderer writes it)")),
-		own("harness.opencode.sandbox", "Run sandboxed.", un(opencode, "no sandbox setting")),
 	)
 	i := func(key, summary, native string) Feature {
 		return own("harness.pi."+key, summary, rd(pi, at(piSettings, native)))
