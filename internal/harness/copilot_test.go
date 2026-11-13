@@ -158,23 +158,23 @@ func applyIn(t *testing.T, home string, c config.Config, layers map[string]strin
 	}
 }
 
+// TestCopilotNoServersNoMCPTarget: under the engine contract a target that is
+// no longer emitted loses the keys agents wrote through the manifest, so the
+// harness side only has to stop emitting (never an empty mcpServers object).
+func TestCopilotNoServersNoMCPTarget(t *testing.T) {
+	t.Parallel()
+	plan := renderFor(t, config.Config{}, "linux", config.Copilot)
+	for _, tg := range plan.Targets {
+		if filepath.Base(tg.Path) == "mcp-config.json" {
+			t.Errorf("mcp-config.json emitted without servers: %v", tg.Managed)
+		}
+	}
+}
+
 // TestCopilotReviewXFail holds reproductions of bugs found in review; drop
 // the t.Skip to verify a fix.
 func TestCopilotReviewXFail(t *testing.T) {
 	t.Parallel()
-
-	t.Run("no servers: no mcp-config.json target and no empty container", func(t *testing.T) {
-		t.Parallel()
-		// Under the engine contract a target that is no longer emitted loses the
-		// keys agents wrote through the manifest, so the harness side only has
-		// to stop emitting (and never emit an empty mcpServers object).
-		plan := renderFor(t, config.Config{}, "linux", config.Copilot)
-		for _, tg := range plan.Targets {
-			if filepath.Base(tg.Path) == "mcp-config.json" {
-				t.Errorf("mcp-config.json emitted without servers: %v", tg.Managed)
-			}
-		}
-	})
 
 	t.Run("xfail: removing the last MCP server removes it from mcp-config.json", func(t *testing.T) {
 		t.Parallel()
