@@ -23,7 +23,7 @@ func TestRunMCP_SubcommandRouting(t *testing.T) {
 		deps := cli.Deps{
 			Stdout: &stdout,
 			Stderr: &stderr,
-			Getenv: hermeticGetenv(t, nil),
+			Getenv: hermeticGetenv(t),
 		}
 		code := deps.Run(ctx, []string{"mcp"})
 		if code != 2 {
@@ -40,7 +40,7 @@ func TestRunMCP_SubcommandRouting(t *testing.T) {
 		deps := cli.Deps{
 			Stdout: &stdout,
 			Stderr: &stderr,
-			Getenv: hermeticGetenv(t, nil),
+			Getenv: hermeticGetenv(t),
 		}
 		code := deps.Run(ctx, []string{"mcp", "unknown"})
 		if code != 2 {
@@ -57,7 +57,7 @@ func TestRunMCP_SubcommandRouting(t *testing.T) {
 		deps := cli.Deps{
 			Stdout: &stdout,
 			Stderr: &stderr,
-			Getenv: hermeticGetenv(t, nil),
+			Getenv: hermeticGetenv(t),
 		}
 		code := deps.Run(ctx, []string{"mcp", "help"})
 		if code != 0 {
@@ -271,7 +271,7 @@ func TestRunMCPAdd_MissingArgs(t *testing.T) {
 	deps := cli.Deps{
 		Stdout: &stdout,
 		Stderr: &stderr,
-		Getenv: hermeticGetenv(t, nil),
+		Getenv: hermeticGetenv(t),
 	}
 	code := deps.Run(ctx, []string{"mcp", "add", "onlyName"})
 	if code != 2 {
@@ -348,7 +348,7 @@ func TestRunMCPAdd_InvalidEnvAndHeader(t *testing.T) {
 	t.Run("invalid env", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		deps := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: hermeticGetenv(t, nil)}
+		deps := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: hermeticGetenv(t)}
 		code := deps.Run(ctx, []string{"mcp", "add", "-dir", tmpDir, "-env", "invalid_no_equal", "srv", "cmd"})
 		if code != 2 {
 			t.Fatalf("expected exit code 2, got %d", code)
@@ -361,7 +361,7 @@ func TestRunMCPAdd_InvalidEnvAndHeader(t *testing.T) {
 	t.Run("invalid header", func(t *testing.T) {
 		t.Parallel()
 		var stdout, stderr bytes.Buffer
-		deps := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: hermeticGetenv(t, nil)}
+		deps := cli.Deps{Stdout: &stdout, Stderr: &stderr, Getenv: hermeticGetenv(t)}
 		code := deps.Run(ctx, []string{"mcp", "add", "-dir", tmpDir, "-header", "invalid_no_colon", "srv", "https://example.com"})
 		if code != 2 {
 			t.Fatalf("expected exit code 2, got %d", code)

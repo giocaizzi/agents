@@ -16,6 +16,8 @@ func helpDeps(out, err *bytes.Buffer) Deps {
 		switch key {
 		case "HARNESS_DIR", "NO_COLOR", "TERM":
 			return ""
+		case "HOME", "USERPROFILE": // a path that exists nowhere
+			return filepath.Join(string(filepath.Separator), "nonexistent", "agents-test-home")
 		default:
 			panic("help accessed execution environment: " + key)
 		}
@@ -306,10 +308,14 @@ func TestHelpBeforeWrites(t *testing.T) {
 		args func(dir string) []string
 		env  func(dir string) map[string]string
 	}{
-		{"init", func(string) []string { return []string{"init", "-force", "--help"} },
-			func(dir string) map[string]string { return map[string]string{"XDG_CONFIG_HOME": dir} }},
-		{"mcp add", func(dir string) []string { return []string{"mcp", "add", "-dir", dir, "--help"} },
-			func(string) map[string]string { return nil }},
+		{
+			"init", func(string) []string { return []string{"init", "-force", "--help"} },
+			func(dir string) map[string]string { return map[string]string{"XDG_CONFIG_HOME": dir} },
+		},
+		{
+			"mcp add", func(dir string) []string { return []string{"mcp", "add", "-dir", dir, "--help"} },
+			func(string) map[string]string { return nil },
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

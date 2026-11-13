@@ -16,7 +16,7 @@ func TestCLIRun_Help(t *testing.T) {
 		Stdin:  strings.NewReader(""),
 		Stdout: &stdout,
 		Stderr: &stderr,
-		Getenv: hermeticGetenv(t, nil),
+		Getenv: hermeticGetenv(t),
 	}
 
 	code := d.Run(context.Background(), []string{"help"})
@@ -35,7 +35,7 @@ func TestCLIRun_Version(t *testing.T) {
 		Stdin:   strings.NewReader(""),
 		Stdout:  &stdout,
 		Stderr:  &stderr,
-		Getenv:  hermeticGetenv(t, nil),
+		Getenv:  hermeticGetenv(t),
 		Version: "0.2.0",
 	}
 
@@ -45,5 +45,18 @@ func TestCLIRun_Version(t *testing.T) {
 	}
 	if !strings.Contains(stdout.String(), "agents 0.2.0") {
 		t.Errorf("expected version output, got %q", stdout.String())
+	}
+}
+
+func TestCLIRun_NilGetenv(t *testing.T) {
+	t.Parallel()
+	var stdout, stderr bytes.Buffer
+	d := cli.Deps{Stdout: &stdout, Stderr: &stderr}
+
+	if code := d.Run(context.Background(), []string{"version"}); code != 2 {
+		t.Fatalf("expected code 2, got %d", code)
+	}
+	if !strings.Contains(stderr.String(), "Getenv is nil") || stdout.Len() != 0 {
+		t.Errorf("stdout=%q stderr=%q", stdout.String(), stderr.String())
 	}
 }
