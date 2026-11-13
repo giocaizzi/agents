@@ -43,7 +43,7 @@ func (f *fakeRunner) run(_ context.Context, name string, args ...string) ([]byte
 }
 
 func (e pluginEnv) stamp() string {
-	return filepath.Join(e.root, "state", "agents", "registries", "harness.pulled")
+	return filepath.Join(e.root, "state", "agents", "registries", "acme", "harness.pulled")
 }
 
 func (e pluginEnv) setStamp(t *testing.T, age time.Duration) {
@@ -258,6 +258,9 @@ func TestPluginsUpdateClonesThenActsOnBehindHarness(t *testing.T) {
 		if !strings.Contains(out, w) {
 			t.Errorf("output missing %q:\n%s", w, out)
 		}
+	}
+	if _, err := os.Stat(e.stamp()); err != nil {
+		t.Errorf("pull stamp not keyed by owner/repo: %v", err)
 	}
 }
 
