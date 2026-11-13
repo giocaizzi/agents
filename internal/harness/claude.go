@@ -160,6 +160,9 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	set("disableClaudeAiConnectors", cl.DisableClaudeAIConnectors)
 	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
 	s[keyPermissions] = claudePermissions(c, b)
+	if on := b.sandboxOn(c.Autonomy.SandboxMode, "Claude Code", "sandbox.enabled"); on {
+		s["sandbox"] = map[string]any{keyEnabled: true}
+	}
 
 	env := map[string]any{}
 	if tel, on := b.telemetry(config.Claude); on {
@@ -212,7 +215,9 @@ func claudePermissions(c *config.Config, b *builder) map[string]any {
 	for _, pfx := range p.AskCommandPrefixes {
 		ask = append(ask, "Bash("+pfx+")", "Bash("+pfx+" *)")
 	}
-	mode := c.Harness.Claude.DefaultMode
+	// The typed field wins, then the shared execution mode, then Claude's auto.
+	mode := valueOr(c.Harness.Claude.DefaultMode,
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Claude Code", "permissions.defaultMode", claudeExecution()))
 	if mode == "" {
 		mode = "auto"
 	}

@@ -23,6 +23,11 @@ func renderCodex(c *config.Config, b *builder) error {
 	h.Model = valueOr(h.Model, tierModel) // the typed field wins over the default tier
 	// The typed field wins, then the default tier's effort, then models.default_effort_level.
 	h.ModelReasoningEffort = valueOr(h.ModelReasoningEffort, valueOr(tierEffort, c.Models.DefaultEffortLevel))
+	// The typed fields win over the shared modes.
+	h.ApprovalPolicy = valueOr(h.ApprovalPolicy,
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Codex", "approval_policy", codexExecution()))
+	h.SandboxMode = valueOr(h.SandboxMode,
+		b.nativeMode(keySandbox, c.Autonomy.SandboxMode, "Codex", "sandbox_mode", codexSandbox()))
 	for k, v := range map[string]string{
 		keyModel:                 h.Model,
 		"model_reasoning_effort": h.ModelReasoningEffort,

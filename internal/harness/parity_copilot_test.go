@@ -17,6 +17,9 @@ func adjustCopilot(c parityCase, file string, want any) any {
 			root["subagents"] = sub
 		}
 		sub["maxDepth"] = float64(2)
+		// The fixture's shared execution_mode "auto" maps to Copilot's "assisted" (model review
+		// of eligible requests); the old templates never wrote defaultPermissionMode.
+		root["defaultPermissionMode"] = "assisted"
 	}
 	if c.Start != "live" {
 		return want
