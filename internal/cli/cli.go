@@ -28,6 +28,9 @@ type Deps struct {
 	LookPath func(string) (string, error)
 	// Hostname names this machine (default os.Hostname).
 	Hostname func() (string, error)
+	// RunCommand runs an external command with the given streams (default
+	// os/exec).
+	RunCommand func(ctx context.Context, argv []string, stdin io.Reader, stdout, stderr io.Writer) error
 }
 
 // Run dispatches subcommands with standard OS dependencies.
