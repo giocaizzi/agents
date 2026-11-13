@@ -14,5 +14,9 @@ func adjustPi(_ parityCase, file string, want any) any {
 			pkgs[i] = "/home/user/.local/share/agents/registries/giocaizzi/harness"
 		}
 	}
+	// The templates wrote neither of these; agents renders models.show_thinking_summaries
+	// as the inverse hideThinkingBlock and context.auto_compact as compaction.enabled.
+	m["hideThinkingBlock"] = false
+	m["compaction"] = map[string]any{"enabled": true}
 	return want
 }
