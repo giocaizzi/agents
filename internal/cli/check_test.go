@@ -110,3 +110,64 @@ func TestCheck_LiveDrift(t *testing.T) {
 		t.Fatalf("after edit: exit = %d, out = %s", code, e.out)
 	}
 }
+
+// readOnlySandboxConfig sets sandbox_mode = read-only, which Claude's
+// on/off sandbox approximates by turning the sandbox on, with a note.
+const readOnlySandboxConfig = claudeConfig + "[autonomy]\nsandbox_mode = \"read-only\"\n"
+
+func TestNotes_PrintedAsNoteAndReportedAsInfo(t *testing.T) {
+	t.Parallel()
+	t.Run("apply -n prints note: on stderr and not as a warning", func(t *testing.T) {
+		t.Parallel()
+		e := newStdEnv(t, "")
+		p := e.writeConfig(t, readOnlySandboxConfig)
+		if code := e.run("apply", "-n", "-file", p); code != 0 {
+			t.Fatalf("exit = %d, err = %s", code, e.errOut)
+		}
+		if !strings.Contains(e.errOut.String(), "note: ") || strings.Contains(e.errOut.String(), "warning: note") {
+			t.Errorf("stderr = %q, want a note: line and no 'warning: note'", e.errOut)
+		}
+	})
+	t.Run("render prints note: on stderr", func(t *testing.T) {
+		t.Parallel()
+		e := newStdEnv(t, "")
+		p := e.writeConfig(t, readOnlySandboxConfig)
+		if code := e.run("render", "-file", p); code != 0 {
+			t.Fatalf("exit = %d, err = %s", code, e.errOut)
+		}
+		if !strings.Contains(e.errOut.String(), "note: ") {
+			t.Errorf("stderr = %q, want a note: line", e.errOut)
+		}
+	})
+	t.Run("check reports the note as an info finding, not a warning", func(t *testing.T) {
+		t.Parallel()
+		assertReadOnlyNoteIsInfo(t)
+	})
+}
+
+func assertReadOnlyNoteIsInfo(t *testing.T) {
+	t.Helper()
+	e := newStdEnv(t, "")
+	p := e.writeConfig(t, readOnlySandboxConfig)
+	if code := e.run("check", "-json", "-file", p); code != 0 {
+		t.Fatalf("exit = %d, out = %s", code, e.out)
+	}
+	var got struct {
+		Findings []map[string]string `json:"findings"`
+	}
+	if err := json.Unmarshal(e.out.Bytes(), &got); err != nil {
+		t.Fatalf("%v: %s", err, e.out)
+	}
+	found := false
+	for _, f := range got.Findings {
+		if strings.Contains(f["message"], "read-only") {
+			found = true
+			if f["severity"] != "info" {
+				t.Errorf("read-only finding severity = %q, want info: %v", f["severity"], f)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("no read-only note among findings: %v", got.Findings)
+	}
+}
