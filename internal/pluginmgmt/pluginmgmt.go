@@ -106,41 +106,36 @@ type PruneCandidate struct {
 	Reason  string
 }
 
+// Standalone is a plugin outside any registry.
+type Standalone struct {
+	Source    string
+	Path      string
+	Harnesses []string
+	Version   string
+}
+
 // Manager inspects and manages plugins across harnesses.
 type Manager struct {
-	HarnessDir    string
-	HomeDir       string
-	ConfigHome    string // XDG config home; empty means HomeDir/.config
-	Registry      string
-	Namespace     string
-	HarnessConfig pluginreg.HarnessConfig
+	HarnessDir string // registry checkout; "" when there is none
+	HomeDir    string
+	ConfigHome string // XDG config home; empty means HomeDir/.config
+	Namespace  string // marketplace name of the registry
+	// Plugins maps each registry plugin to the harnesses it is enabled for.
+	Plugins    map[string][]string
+	Standalone map[string]Standalone
 }
+
+// defaultNamespace is the marketplace name when no registry is configured.
+const defaultNamespace = "harness"
+
+// EffectiveNamespace returns the active namespace for the manager.
+func (m Manager) EffectiveNamespace() string { return m.namespace() }
 
 func (m Manager) namespace() string {
 	if m.Namespace != "" {
 		return m.Namespace
 	}
-	reg := m.Registry
-	if reg == "" {
-		reg = m.HarnessConfig.Registry
-	}
-	if reg != "" {
-		return pluginreg.ResolveNamespace(reg)
-	}
-	if m.HarnessDir != "" {
-		if discovered := pluginreg.DiscoverMarketplaceNamespace(m.HarnessDir); discovered != "" {
-			return discovered
-		}
-	}
-	if reg == "" {
-		reg = pluginreg.DefaultHarnessRegistry
-	}
-	return pluginreg.ResolveNamespace(reg)
-}
-
-// EffectiveNamespace returns the active namespace for the manager.
-func (m Manager) EffectiveNamespace() string {
-	return m.namespace()
+	return defaultNamespace
 }
 
 // CompareVersions compares two semver strings (with or without 'v' prefix).
@@ -236,6 +231,9 @@ func upstreamVersions(ctx context.Context, dir string, names []string) (map[stri
 	out := make(map[string]string, len(names))
 	fresh := true
 	useGit := false
+	if dir == "" {
+		return out, fresh
+	}
 	if dir != "" {
 		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
 			if fetchRemoteTip(ctx, dir) == nil {
@@ -256,18 +254,18 @@ func upstreamVersions(ctx context.Context, dir string, names []string) (map[stri
 }
 
 // ListPlugins inspects all configured plugins and their status per harness.
-func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
-	upstreamNames, err := pluginreg.ResolveUpstreamRegistry(ctx, m.HarnessDir, m.Registry)
-	if err != nil {
-		upstreamNames = make([]string, 0, len(m.HarnessConfig.Plugins))
-		for p := range m.HarnessConfig.Plugins {
+func (m Manager) ListPlugins(ctx context.Context) []PluginInfo {
+	upstreamNames := pluginreg.Names(m.HarnessDir)
+	if len(upstreamNames) == 0 {
+		upstreamNames = make([]string, 0, len(m.Plugins))
+		for p := range m.Plugins {
 			upstreamNames = append(upstreamNames, p)
 		}
 		sort.Strings(upstreamNames)
 	}
 
 	versions, fresh := upstreamVersions(ctx, m.HarnessDir, upstreamNames)
-	out := make([]PluginInfo, 0, len(upstreamNames)+len(m.HarnessConfig.Standalone))
+	out := make([]PluginInfo, 0, len(upstreamNames)+len(m.Standalone))
 
 	for _, name := range upstreamNames {
 		info := PluginInfo{
@@ -278,7 +276,7 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 			Installed:       make(map[string]string),
 		}
 
-		if hs, ok := m.HarnessConfig.Plugins[name]; ok {
+		if hs, ok := m.Plugins[name]; ok {
 			for _, h := range hs {
 				info.Enabled[h] = true
 			}
@@ -295,7 +293,7 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 	}
 
 	// List standalone plugins
-	for name, s := range m.HarnessConfig.Standalone {
+	for name, s := range m.Standalone {
 		upVer := s.Version
 		if upVer == "" && s.Path != "" {
 			upVer = ReadPluginVersion(s.Path)
@@ -323,7 +321,7 @@ func (m Manager) ListPlugins(ctx context.Context) ([]PluginInfo, error) {
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].Name < out[j].Name
 	})
-	return out, nil
+	return out
 }
 
 const statusInstalled = "installed"
@@ -525,7 +523,7 @@ func (m Manager) FindPruneCandidates() ([]PruneCandidate, error) {
 				continue
 			}
 			name := p.Name()
-			if _, ok := m.HarnessConfig.Plugins[name]; !ok && name == "api" {
+			if _, ok := m.Plugins[name]; !ok && name == "api" {
 				candidates = append(candidates, PruneCandidate{
 					Harness: harnessAntigravity,
 					Plugin:  name,
@@ -549,22 +547,6 @@ func (m Manager) Prune(candidates []PruneCandidate) ([]string, error) {
 		pruned = append(pruned, c.Path)
 	}
 	return pruned, nil
-}
-
-// EnabledHarnesses returns the distinct list of harnesses configured.
-func EnabledHarnesses(cfg pluginreg.HarnessConfig) []string {
-	seen := make(map[string]bool)
-	for _, hs := range cfg.Plugins {
-		for _, h := range hs {
-			seen[h] = true
-		}
-	}
-	out := make([]string, 0, len(seen))
-	for h := range seen {
-		out = append(out, h)
-	}
-	sort.Strings(out)
-	return out
 }
 
 // DefaultHarnessOrder returns the canonical ordering of harnesses for display.

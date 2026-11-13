@@ -8,16 +8,20 @@ OPTIONS
     	dry-run mode
   -f	force mode
   -file string
-    	path to harness.toml
+    	config file (default: $AGENTS_CONFIG, else the user config.toml); - reads stdin
   -force
     	force mode
   -harness string
     	target harness (antigravity, claude, codex, etc.)
   -harness-dir string
-    	path to plugin registry repository checkout
+    	registry checkout to use instead of the one under the data directory
+  -harnesses string
+    	comma-separated harnesses to configure (overrides $AGENTS_HARNESSES)
   -json
     	output JSON format
   -n	dry-run mode (inspect only, do not modify)
+  -profile string
+    	profile to select (overrides $AGENTS_PROFILE and the profile key)
   -h, --help
     Show this help and exit.
 

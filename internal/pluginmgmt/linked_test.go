@@ -45,11 +45,8 @@ func registryFixture(t *testing.T) string {
 // installedOn returns what ListPlugins reports for plugin on harness.
 func installedOn(t *testing.T, m pluginmgmt.Manager, plugin, harness string) string {
 	t.Helper()
-	m.HarnessConfig.Plugins = map[string][]string{plugin: {harness}}
-	list, err := m.ListPlugins(t.Context())
-	if err != nil {
-		t.Fatal(err)
-	}
+	m.Plugins = map[string][]string{plugin: {harness}}
+	list := m.ListPlugins(t.Context())
 	for _, p := range list {
 		if p.Name == plugin {
 			return p.Installed[harness]
