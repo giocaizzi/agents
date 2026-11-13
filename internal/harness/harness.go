@@ -299,11 +299,13 @@ func (b *builder) mcpServers() map[string]config.MCPServer {
 // Workspace is one MCP workspace with its path expanded. Its servers keep
 // their ${VAR} references, which land in committed project files: the
 // renderer rewrites or refuses them per harness. Only the OAuth client id, a
-// public value, is expanded.
+// public value, is expanded. With ExpandEnv (refused inside a git work tree)
+// every value is expanded instead.
 type Workspace struct {
-	Name    string
-	Path    string
-	Servers map[string]config.MCPServer
+	Name      string
+	Path      string
+	Servers   map[string]config.MCPServer
+	ExpandEnv bool // the servers are expanded: no ${VAR} is left
 }
 
 // workspaces returns the MCP workspaces sorted by name, expanded; a workspace
@@ -320,7 +322,11 @@ func (b *builder) workspaces() []Workspace {
 		if !ok {
 			continue
 		}
-		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.workspaceServers(where+".servers", w.Servers)})
+		servers := b.workspaceServers(where+".servers", w.Servers)
+		if w.ExpandEnv {
+			servers = b.expandServers(where+".servers", w.Servers)
+		}
+		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: servers, ExpandEnv: w.ExpandEnv})
 	}
 	return b.ws
 }

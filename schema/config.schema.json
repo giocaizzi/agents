@@ -1111,6 +1111,10 @@
           },
           "type": "object",
           "description": "MCP servers of the workspace (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
+        },
+        "expand_env": {
+          "type": "boolean",
+          "description": "Write expanded ${VAR} values (secrets in plaintext) into the workspace files for every harness; refused inside a git work tree. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,

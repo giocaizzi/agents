@@ -2,7 +2,9 @@ package config
 
 import (
 	"fmt"
+	"io/fs"
 	"maps"
+	"path/filepath"
 	"slices"
 	"strings"
 	"unicode"
@@ -181,5 +183,58 @@ func validateServers(where string, servers map[string]MCPServer, complete bool, 
 				add(w+".oauth.client_id", "must not contain control characters, quotes or backslashes")
 			}
 		}
+	}
+}
+
+// ValidateWorkspaces refuses expand_env on a workspace inside a git work
+// tree, where the expanded secrets could be committed. The path is expanded
+// with home and getenv; the filesystem is read through stat. A path with an
+// unset variable is skipped: the renderer skips that workspace too.
+func ValidateWorkspaces(c Config, home string, getenv func(string) string, stat func(string) (fs.FileInfo, error)) []finding.Finding {
+	var out []finding.Finding
+	for _, name := range slices.Sorted(maps.Keys(c.MCP.Workspaces)) {
+		w := c.MCP.Workspaces[name]
+		if !w.ExpandEnv || strings.TrimSpace(w.Path) == "" {
+			continue
+		}
+		path, unset := ExpandPath(w.Path, home, getenv)
+		if len(unset) > 0 {
+			continue
+		}
+		if abs, err := filepath.Abs(path); err == nil {
+			path = abs
+		}
+		if root, ok := gitWorkTree(path, stat); ok {
+			out = append(out, finding.New("mcp.workspaces."+name+".expand_env",
+				"refused: %s is inside the git work tree %s, where the expanded secrets could be committed", path, root))
+		}
+	}
+	return out
+}
+
+// gitWorkTree walks up from the nearest existing ancestor of path and returns
+// the first directory that holds a .git entry (a directory, or a file in a
+// linked work tree).
+func gitWorkTree(path string, stat func(string) (fs.FileInfo, error)) (string, bool) {
+	dir := path
+	for {
+		if _, err := stat(dir); err == nil {
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
+	}
+	for {
+		if _, err := stat(filepath.Join(dir, ".git")); err == nil {
+			return dir, true
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", false
+		}
+		dir = parent
 	}
 }

@@ -12,6 +12,7 @@ import (
 
 	"github.com/giocaizzi/agents/internal/apply"
 	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/finding"
 	"github.com/giocaizzi/agents/internal/harness"
 	"github.com/giocaizzi/agents/internal/mcpsync"
 	"github.com/giocaizzi/agents/internal/term"
@@ -77,6 +78,11 @@ func (d Deps) runMCPSync(_ context.Context, args []string) int {
 		return d.syncMCPDir(r, fs.Arg(0), *accountFlag, *dryRun)
 	}
 
+	if findings := config.ValidateWorkspaces(r.Config, d.home(), d.Getenv, os.Stat); finding.HasErrors(findings) {
+		sortFindings(findings)
+		d.printFindings(findings)
+		return exitFindings
+	}
 	plan, err := harness.RenderWorkspaces(r, d.harnessEnv(r))
 	if err != nil {
 		return d.mcpFailure(err)

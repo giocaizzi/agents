@@ -28,7 +28,7 @@ func (d Deps) runCheck(ctx context.Context, args []string) int {
 		return exitFindings
 	}
 
-	findings := config.Validate(r.Config)
+	findings := d.validate(r)
 	findings = append(findings, d.pluginFindings(ctx, r)...)
 	findings = append(findings, d.modelFindings(r)...)
 	findings = append(findings, d.featureFindings(r)...)

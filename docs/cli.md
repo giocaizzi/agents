@@ -110,6 +110,8 @@ Instruction layers; see [Editing instructions](#editing-instructions).
 | `mcp sync [-n] [-account id] [path]` | Without a path, write the MCP files of every configured workspace (`mcp.workspaces`). With a path, write that directory's native MCP files from its `.mcp.json` for the selected harnesses |
 | `mcp add [-type t] [-env K=V] [-header 'H: V'] [-dir d] [-no-sync] [-account id] <name> <commandOrUrl> [args...]` | Add or update a server in `<dir>/.mcp.json`, then sync unless `-no-sync` |
 
+A workspace with `expand_env = true` gets expanded values (plaintext, `0600`) for every harness; `mcp sync` refuses it before writing when the workspace is inside a git work tree.
+
 `mcp sync` only touches the harnesses currently selected in `harnesses`. It does not remove the workspace file of a harness you dropped; delete that file by hand.
 
 `-account` (default `$MCP_CONNECTOR_ACCOUNT`) fills the account placeholder of a `.mcp.json` source. Workspace files go through the same apply engine as every other target, so they get the same diffs, symlink refusal and merge rules. If the sync of `mcp add` fails, `.mcp.json` has already changed; fix the error and run `agents mcp sync <dir>`.

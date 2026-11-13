@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/giocaizzi/agents/internal/config"
+	"github.com/giocaizzi/agents/internal/finding"
 	"github.com/giocaizzi/agents/internal/harness"
 )
 
@@ -63,6 +64,12 @@ func (d Deps) loadConfig(f *configFlags) (*config.Resolved, error) {
 		return nil, fmt.Errorf("load config: %w", err)
 	}
 	return r, nil
+}
+
+// validate is config.Validate plus the checks that read the machine: expand_env
+// is refused on a workspace inside a git work tree.
+func (d Deps) validate(r *config.Resolved) []finding.Finding {
+	return append(config.Validate(r.Config), config.ValidateWorkspaces(r.Config, d.home(), d.Getenv, os.Stat)...)
 }
 
 // home is the user home: $HOME ($USERPROFILE on Windows), else the OS answer,

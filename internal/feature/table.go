@@ -375,6 +375,14 @@ func mcpFeatures() []Feature {
 			rd(opencode, at("<workspace>/opencode.json", "mcp")),
 			rd(pi, at("<workspace>/.pi/mcp.json", mcpServer)),
 			rd(antigravity, at("<workspace>/.agents/mcp_config.json", mcpServer))),
+		shared("mcp.workspaces.*.expand_env", "Write expanded ${VAR} values into the files of a workspace outside any git work tree.", noMCP,
+			rd(claude, at("<workspace>/.mcp.json", mcpServer)),
+			rd(copilot, at("<workspace>/.mcp.json", mcpServer)),
+			rd(vscode, at("<workspace>/.mcp.json", mcpServer)),
+			rd(codex, at("<workspace>/.codex/config.toml", "mcp_servers")),
+			rd(opencode, at("<workspace>/opencode.json", "mcp")),
+			rd(pi, at("<workspace>/.pi/mcp.json", mcpServer)),
+			rd(antigravity, at("<workspace>/.agents/mcp_config.json", mcpServer))),
 	}
 }
 

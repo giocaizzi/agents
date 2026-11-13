@@ -76,6 +76,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `mcp.servers.*.oauth.callback_port` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | — |
 | `mcp.servers.*.oauth.public_client` | — | ✓ | ✓ | — | — | — | — |
 | `mcp.workspaces` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `mcp.workspaces.*.expand_env` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | `harness.claude.settings` | ✓ |  |  |  |  |  |  |
 | `harness.copilot.settings` |  | ✓ |  |  |  |  |  |
 | `harness.vscode.settings` |  |  | ✓ |  |  |  |  |
@@ -184,6 +185,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `mcp.servers`: `~/.claude.json: mcpServers`
 - `mcp.servers.*.oauth.callback_port`: `~/.claude.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.claude.settings`: `~/.claude/settings.json: (any key)`
 - `harness.claude.default_mode`: `~/.claude/settings.json: permissions.defaultMode`
 - `harness.claude.skip_auto_permission_prompt`: `~/.claude/settings.json: skipAutoPermissionPrompt`
@@ -232,6 +234,7 @@ Documentation checked in 2026-11: https://docs.github.com/en/copilot/how-tos/cop
 - `mcp.servers.*.oauth.callback_port`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.servers.*.oauth.public_client`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.copilot.settings`: `~/.copilot/settings.json: (any key)`
 
 **Planned**
@@ -302,6 +305,7 @@ Documentation checked in 2026-11: https://code.visualstudio.com/docs/copilot
 - `mcp.servers.*.oauth.callback_port`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.servers.*.oauth.public_client`: `~/.copilot/mcp-config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.mcp.json: mcpServers`
 - `harness.vscode.settings`: `<Code user dir>/settings.json: (any key)`
 
 **Planned**
@@ -360,6 +364,7 @@ Documentation checked in 2026-11: https://developers.openai.com/codex/config-ref
 - `mcp.servers`: `~/.codex/config.toml: mcp_servers`
 - `mcp.servers.*.oauth.callback_port`: `~/.codex/config.toml: mcp_servers`
 - `mcp.workspaces`: `<workspace>/.codex/config.toml: mcp_servers`, `~/.codex/config.toml: projects`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.codex/config.toml: mcp_servers`
 - `harness.codex.settings`: `~/.codex/config.toml: (any key)`
 - `harness.codex.model`: `~/.codex/config.toml: model`
 - `harness.codex.model_reasoning_effort`: `~/.codex/config.toml: model_reasoning_effort`
@@ -429,6 +434,7 @@ Documentation checked in 2026-11: https://opencode.ai/docs/config
 - `mcp.servers`: `~/.config/opencode/opencode.jsonc: mcp`
 - `mcp.servers.*.oauth.callback_port`: `~/.config/opencode/opencode.jsonc: mcp`
 - `mcp.workspaces`: `<workspace>/opencode.json: mcp`
+- `mcp.workspaces.*.expand_env`: `<workspace>/opencode.json: mcp`
 - `harness.opencode.settings`: `~/.config/opencode/opencode.jsonc: (any key)`
 
 **Planned**
@@ -482,6 +488,7 @@ Documentation checked in 2026-11: https://github.com/badlogic/pi-mono, coding-ag
 - `mcp.servers`: `~/.pi/agent/mcp.json: mcpServers`
 - `mcp.servers.*.oauth.callback_port`: `~/.pi/agent/mcp.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.pi/mcp.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.pi/mcp.json: mcpServers`
 - `harness.pi.settings`: `~/.pi/agent/settings.json: (any key)`
 - `harness.pi.default_provider`: `~/.pi/agent/settings.json: defaultProvider`
 - `harness.pi.default_model`: `~/.pi/agent/settings.json: defaultModel`
@@ -546,6 +553,7 @@ Documentation checked in 2026-11: Antigravity CLI settings documentation
 - `notifications.terminal_bell`: `~/.gemini/antigravity-cli/settings.json: notifications`
 - `mcp.servers`: `~/.gemini/config/mcp_config.json: mcpServers`
 - `mcp.workspaces`: `<workspace>/.agents/mcp_config.json: mcpServers`
+- `mcp.workspaces.*.expand_env`: `<workspace>/.agents/mcp_config.json: mcpServers`
 - `harness.antigravity.settings`: `~/.gemini/antigravity-cli/settings.json: (any key)`
 - `harness.antigravity.agent_mode`: `~/.gemini/antigravity-cli/settings.json: agentMode`
 - `harness.antigravity.tool_permission`: `~/.gemini/antigravity-cli/settings.json: toolPermission`
