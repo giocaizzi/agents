@@ -131,27 +131,24 @@ func TestDiffMaskingIsStructural(t *testing.T) {
 // «unmanaged») must not print raw on the - line that held it.
 func TestDiffMasksRetiredSecretKeptUnmanaged(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: retired value also held by an unmanaged key", func(t *testing.T) {
-		t.Parallel()
-		dir := t.TempDir()
-		path := filepath.Join(dir, "s.json")
-		writeFileT(t, path, "{\n  \"mine\": {\"Authorization\": \"Bearer old-token-1234\"}\n}\n")
-		e := engineIn(dir)
-		first := Target{
-			Path: path, Format: JSON,
-			Managed:   map[string]any{"h": map[string]any{"Authorization": "Bearer old-token-1234"}},
-			Sensitive: []string{"old-token-1234"},
-		}
-		if res := runOne(t, e, first); res.Err != nil {
-			t.Fatal(res.Err)
-		}
-		e.DryRun = true
-		res := runOne(t, e, Target{Path: path, Format: JSON, Managed: map[string]any{"k": 1}})
-		if res.Err != nil {
-			t.Fatal(res.Err)
-		}
-		if strings.Contains(res.Diff, "old-token-1234") {
-			t.Errorf("diff leaks the retired token:\n%s", res.Diff)
-		}
-	})
+	dir := t.TempDir()
+	path := filepath.Join(dir, "s.json")
+	writeFileT(t, path, "{\n  \"mine\": {\"Authorization\": \"Bearer old-token-1234\"}\n}\n")
+	e := engineIn(dir)
+	first := Target{
+		Path: path, Format: JSON,
+		Managed:   map[string]any{"h": map[string]any{"Authorization": "Bearer old-token-1234"}},
+		Sensitive: []string{"old-token-1234"},
+	}
+	if res := runOne(t, e, first); res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	e.DryRun = true
+	res := runOne(t, e, Target{Path: path, Format: JSON, Managed: map[string]any{"k": 1}})
+	if res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	if strings.Contains(res.Diff, "old-token-1234") {
+		t.Errorf("diff leaks the retired token:\n%s", res.Diff)
+	}
 }

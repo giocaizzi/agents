@@ -2,6 +2,7 @@ package harness
 
 import (
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -149,5 +150,27 @@ func TestAntigravityAllowSkipsOverlappingAsk(t *testing.T) {
 		if !slices.ContainsFunc(b.warnings, func(w string) bool { return strings.Contains(w, want) }) {
 			t.Errorf("missing warning %q in %q", want, b.warnings)
 		}
+	}
+}
+
+// TestAntigravityAllowWithoutWords: an allow that has no prefix words ("" or
+// " *", which means every command) cannot be checked against the
+// unexpressible patterns, so it must not be written as command(), a rule
+// whose empty prefix covers every command, "git push x HEAD:main" included.
+func TestAntigravityAllowWithoutWords(t *testing.T) {
+	t.Parallel()
+	for _, allow := range []string{"", " *"} {
+		t.Run("xfail: allow "+strconv.Quote(allow), func(t *testing.T) {
+			t.Parallel()
+			t.Skip("xfail: antigravityAllow appends command() when prefixWords fails, skipping the overlap check")
+			c := &config.Config{}
+			c.Permissions = config.Permissions{
+				AllowCommandPatterns: []string{allow},
+				DenyCommandPatterns:  []string{"git push * HEAD:main"},
+			}
+			if got := antigravityPermissions(c, &builder{})["allow"]; got != nil {
+				t.Errorf("allow = %v, want none", got)
+			}
+		})
 	}
 }
