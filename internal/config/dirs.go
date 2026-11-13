@@ -42,7 +42,9 @@ func ResolveDirs(getenv func(string) string, goos, home string) Dirs {
 // Expand replaces ${VAR} (only that form) with its value and returns the names
 // that were unset or empty, in order of first appearance. The text of an unset
 // reference stays in the result, which is then unusable: callers skip the entry
-// and warn.
+// and warn. A doubled dollar before the brace escapes it: it yields the
+// literal text of the reference, for a value the harness expands itself later
+// (e.g. CLAUDE_PROJECT_DIR in a hook).
 func Expand(s string, getenv func(string) string) (string, []string) {
 	var (
 		b     strings.Builder
@@ -52,6 +54,12 @@ func Expand(s string, getenv func(string) string) (string, []string) {
 		i := strings.Index(s, "${")
 		if i < 0 {
 			break
+		}
+		if i > 0 && s[i-1] == '$' { // escape: drop one dollar, keep the reference literal
+			b.WriteString(s[:i-1])
+			b.WriteString("${")
+			s = s[i+2:]
+			continue
 		}
 		end := strings.IndexByte(s[i+2:], '}')
 		if end < 0 {
@@ -75,10 +83,14 @@ func Expand(s string, getenv func(string) string) (string, []string) {
 	return b.String(), unset
 }
 
-// ExpandPath is Expand with a leading "~/" (or a bare "~") replaced by home.
+// ExpandPath is Expand with a leading "~/" or "~\" (the Windows separator,
+// accepted on every OS) or a bare "~" replaced by home.
 func ExpandPath(p, home string, getenv func(string) string) (string, []string) {
-	if p == "~" || strings.HasPrefix(p, "~/") {
-		out, unset := Expand(p[1:], getenv)
+	if p == "~" {
+		return home, nil
+	}
+	if strings.HasPrefix(p, "~/") || strings.HasPrefix(p, `~\`) {
+		out, unset := Expand(p[2:], getenv)
 		return filepath.Join(home, out), unset
 	}
 	return Expand(p, getenv)
