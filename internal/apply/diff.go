@@ -1,7 +1,10 @@
 package apply
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
+	"net/url"
 	"strconv"
 	"strings"
 )
@@ -40,7 +43,7 @@ func buildDiff(t Target, managed [][]string, oldText, newText string) string {
 			return "(diff unavailable: the file could not be scanned)\n"
 		}
 	}
-	return redact(unifiedDiff(t.Path, a, b), t.Sensitive)
+	return unifiedDiff(t.Path, a, b, func(line string) string { return redact(line, t.Sensitive) })
 }
 
 // maskText replaces the values of unmanaged keys in text with a marker.
@@ -54,7 +57,8 @@ func maskText(f Format, text string, managed func([]string) bool) (string, error
 	return maskJSON(text, managed)
 }
 
-// redact replaces every secret in text, as written raw or escaped for JSON or TOML.
+// redact replaces every secret in text, as written raw or escaped for JSON
+// (with and without HTML escaping), TOML or a URL.
 func redact(text string, secrets []string) string {
 	var pairs []string
 	for _, s := range secrets {
@@ -62,9 +66,12 @@ func redact(text string, secrets []string) string {
 			continue
 		}
 		pairs = append(pairs, s)
-		for _, q := range []string{plainString(s), tomlString(s)} {
-			if inner := q[1 : len(q)-1]; inner != s {
-				pairs = append(pairs, inner)
+		toml := tomlString(s)
+		forms := []string{jsonInner(s, false), jsonInner(s, true), toml[1 : len(toml)-1],
+			url.QueryEscape(s), url.PathEscape(s)}
+		for _, f := range forms {
+			if f != s && f != "" {
+				pairs = append(pairs, f)
 			}
 		}
 	}
@@ -84,8 +91,22 @@ func redact(text string, secrets []string) string {
 	return strings.NewReplacer(args...).Replace(text)
 }
 
+// jsonInner is s as the inside of a JSON string, with HTML escaping or without.
+func jsonInner(s string, html bool) string {
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	enc.SetEscapeHTML(html)
+	if err := enc.Encode(s); err != nil {
+		return s
+	}
+	q := strings.TrimRight(buf.String(), "\n")
+	return q[1 : len(q)-1]
+}
+
 // unifiedDiff returns a unified diff of old and new, or "" when they are equal.
-func unifiedDiff(path, oldText, newText string) string {
+// mask, when set, rewrites each content line; the file and hunk header lines
+// are never passed through it.
+func unifiedDiff(path, oldText, newText string, mask func(string) string) string {
 	if oldText == newText {
 		return ""
 	}
@@ -102,8 +123,12 @@ func unifiedDiff(path, oldText, newText string) string {
 			if op.kind != '-' {
 				newCount++
 			}
+			text := op.text
+			if mask != nil {
+				text = mask(text)
+			}
 			body.WriteByte(op.kind)
-			body.WriteString(op.text)
+			body.WriteString(text)
 			if !strings.HasSuffix(op.text, "\n") {
 				body.WriteString("\n\\ No newline at end of file\n")
 			}

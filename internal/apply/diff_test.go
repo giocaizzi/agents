@@ -2,6 +2,7 @@ package apply
 
 import (
 	"math/rand/v2"
+	"net/url"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -107,5 +108,43 @@ func TestTOMLDiffMasksUnmanaged(t *testing.T) {
 	}
 	if !strings.Contains(res.Diff, "-x = 'a'") || !strings.Contains(res.Diff, `+x = "b"`) {
 		t.Errorf("managed change not shown:\n%s", res.Diff)
+	}
+}
+
+func TestRedactEscapedForms(t *testing.T) {
+	t.Parallel()
+	secret := `a"b\c&d <e> f/g?h`
+	toml := tomlString(secret)
+	forms := map[string]string{
+		"raw":      secret,
+		"json":     jsonInner(secret, false),
+		"jsonhtml": jsonInner(secret, true),
+		"toml":     toml[1 : len(toml)-1],
+		"query":    url.QueryEscape(secret),
+		"path":     url.PathEscape(secret),
+	}
+	for name, form := range forms {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := redact("x = "+form+"\n", []string{secret})
+			if strings.Contains(got, form) || !strings.Contains(got, redactedMark) {
+				t.Errorf("redact left %s form: %q", name, got)
+			}
+		})
+	}
+}
+
+func TestDiffHeadersNeverRedacted(t *testing.T) {
+	t.Parallel()
+	// The secrets also appear in the path and the hunk header.
+	path := "/home/u1/f1.json"
+	got := unifiedDiff(path, "a = 1\n", "a = 2\n", func(l string) string { return redact(l, []string{"1", "f1", "@@"}) })
+	for _, want := range []string{"--- " + path + "\n", "+++ " + path + "\n", "@@ -1 +1 @@\n"} {
+		if !strings.Contains(got, want) {
+			t.Errorf("header %q was altered:\n%s", want, got)
+		}
+	}
+	if !strings.Contains(got, "-a = "+redactedMark+"\n") {
+		t.Errorf("content not redacted:\n%s", got)
 	}
 }
