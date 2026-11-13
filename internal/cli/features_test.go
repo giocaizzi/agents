@@ -7,8 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/giocaizzi/agents/internal/feature"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/giocaizzi/agents/internal/feature"
 )
 
 func TestFeatures_TextShowsTheMatrix(t *testing.T) {
@@ -115,35 +116,44 @@ auto_compact_window = 500000
 	selected := []string{"claude", "codex", "pi"}
 	want := 0
 	for _, key := range []string{"context.max_tokens", "context.auto_compact_window"} {
-		f, ok := feature.Lookup(key)
-		if !ok {
-			t.Fatalf("%s is not in the registry", key)
-		}
-		for sev, status := range map[string]feature.Status{"info": feature.StatusUnsupported, "warning": feature.StatusPlanned} {
-			var hs []string
-			for _, h := range selected {
-				if f.Cells[h].Status == status {
-					hs = append(hs, h)
-				}
-			}
-			m, found := bySeverity[key+"/"+sev]
-			if len(hs) == 0 {
-				if found {
-					t.Errorf("%s %s = %q, want none", key, sev, m["message"])
-				}
-				continue
-			}
-			want++
-			for _, h := range hs {
-				if !strings.Contains(m["message"], h+" (") {
-					t.Errorf("%s %s = %q, want %s", key, sev, m["message"], h)
-				}
-			}
-		}
+		want += assertIgnoredKey(t, bySeverity, key, selected)
 	}
 	if len(got.Findings) != want {
 		t.Errorf("findings = %v, want %d", got.Findings, want)
 	}
+}
+
+// assertIgnoredKey checks the info and warning findings of one key against
+// the registry and returns how many findings the key should give.
+func assertIgnoredKey(t *testing.T, bySeverity map[string]map[string]string, key string, selected []string) int {
+	t.Helper()
+	f, ok := feature.Lookup(key)
+	if !ok {
+		t.Fatalf("%s is not in the registry", key)
+	}
+	n := 0
+	for sev, status := range map[string]feature.Status{"info": feature.StatusUnsupported, "warning": feature.StatusPlanned} {
+		var hs []string
+		for _, h := range selected {
+			if f.Cells[h].Status == status {
+				hs = append(hs, h)
+			}
+		}
+		m, found := bySeverity[key+"/"+sev]
+		if len(hs) == 0 {
+			if found {
+				t.Errorf("%s %s = %q, want none", key, sev, m["message"])
+			}
+			continue
+		}
+		n++
+		for _, h := range hs {
+			if !strings.Contains(m["message"], h+" (") {
+				t.Errorf("%s %s = %q, want %s", key, sev, m["message"], h)
+			}
+		}
+	}
+	return n
 }
 
 func TestCheck_IgnoresHarnessesThatAreNotSelected(t *testing.T) {
