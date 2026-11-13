@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -43,7 +44,49 @@ func buildDiff(t Target, managed [][]string, oldText, newText string) string {
 			return "(diff unavailable: the file could not be scanned)\n"
 		}
 	}
-	return unifiedDiff(t.Path, a, b, func(line string) string { return redact(line, t.Sensitive) })
+	secrets := append(slices.Clone(t.Sensitive), rotatedSecrets(t, oldText)...)
+	return unifiedDiff(t.Path, a, b, func(line string) string { return redact(line, secrets) })
+}
+
+// rotatedSecrets returns the live values, in oldText, of the managed string
+// keys whose new value carries a secret: the previous token of a rotated
+// secret is no longer in Sensitive but must not be printed on a - line.
+func rotatedSecrets(t Target, oldText string) []string {
+	if t.Format == Text || len(t.Sensitive) == 0 {
+		return nil
+	}
+	live, err := parseLive(t.Format, oldText)
+	if err != nil {
+		return nil
+	}
+	managed, err := normalize(t.Managed)
+	if err != nil {
+		return nil
+	}
+	mo, ok := managed.(*Object)
+	if !ok {
+		return nil
+	}
+	var out []string
+	var walk func(o *Object, path []string)
+	walk = func(o *Object, path []string) {
+		for _, k := range o.Keys {
+			p := append(slices.Clone(path), k)
+			switch v := o.Values[k].(type) {
+			case *Object:
+				walk(v, p)
+			case string:
+				if !slices.ContainsFunc(t.Sensitive, func(s string) bool { return s != "" && strings.Contains(v, s) }) {
+					continue
+				}
+				if old, ok := getPath(live, p).(string); ok && old != "" {
+					out = append(out, old)
+				}
+			}
+		}
+	}
+	walk(mo, nil)
+	return out
 }
 
 // maskText replaces the values of unmanaged keys in text with a marker.

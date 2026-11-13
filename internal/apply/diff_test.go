@@ -92,6 +92,31 @@ func TestDiffHidesSecretsAndUnmanagedValues(t *testing.T) {
 	}
 }
 
+func TestDiffRedactsOldValueOfRotatedSecret(t *testing.T) {
+	t.Parallel()
+	dir := t.TempDir()
+	path := filepath.Join(dir, "s.json")
+	writeFileT(t, path, "{\n  \"h\": {\"Authorization\": \"Bearer old-token-1234\"}\n}\n")
+	e := engineIn(dir)
+	e.DryRun = true
+	res := runOne(t, e, Target{
+		Path: path, Format: JSON,
+		Managed:   map[string]any{"h": map[string]any{"Authorization": "Bearer new-token-5678"}},
+		Sensitive: []string{"new-token-5678"},
+	})
+	if res.Err != nil {
+		t.Fatal(res.Err)
+	}
+	for _, tok := range []string{"old-token-1234", "new-token-5678"} {
+		if strings.Contains(res.Diff, tok) {
+			t.Errorf("diff leaks %s:\n%s", tok, res.Diff)
+		}
+	}
+	if !strings.Contains(res.Diff, redactedMark) {
+		t.Errorf("diff = \n%s", res.Diff)
+	}
+}
+
 func TestTOMLDiffMasksUnmanaged(t *testing.T) {
 	t.Parallel()
 	dir := t.TempDir()

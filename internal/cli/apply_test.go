@@ -258,9 +258,8 @@ func TestApply_ClaudePermissionsUnion(t *testing.T) {
 // drop the t.Skip to verify a fix.
 func TestApply_ReviewRound3XFail(t *testing.T) {
 	t.Parallel()
-	t.Run("xfail: apply -n redacts the old value of a rotated secret", func(t *testing.T) {
+	t.Run("apply -n redacts the old value of a rotated secret", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: Sensitive holds only the newly expanded values, so the - lines of the diff print the previous token")
 		e := newStdEnv(t, "")
 		env := map[string]string{"HOME": e.home, "DOCS_TOKEN": "old-token-1234"}
 		e.deps.Getenv = func(k string) string { return env[k] }
