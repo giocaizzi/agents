@@ -69,11 +69,13 @@ Which keys each harness writes, and which it has no setting for, is in the [feat
 
 | Key | Type | Meaning |
 |---|---|---|
-| `execution_mode` | string | Execution mode name; Antigravity uses it as `agentMode` unless `harness.antigravity.agent_mode` is set |
-| `sandbox_mode` | string | Sandbox mode name |
+| `execution_mode` | `ask`, `auto` or `full` | How freely agents act. `ask`: asks before edits and commands. `auto`: proceeds, and the harness's own safety layer still asks where it decides to. `full`: never asks |
+| `sandbox_mode` | `off`, `workspace` or `read-only` | Sandbox for agent commands: none, writes confined to the workspace, or no writes |
 | `allow_non_workspace_access` | bool | Allow access outside the workspace (Antigravity, opencode) |
 | `subagent_depth` | int | Maximum subagent nesting (opencode) |
 | `allow_subagent_invocations` | bool | Allow agents to invoke subagents |
+
+Any other value of the two modes is rejected. Each harness maps them to its own native settings, listed with their sources in [features.md](features.md) under each harness's rendered keys. A value with no exact native equivalent on a harness is never approximated: nothing is written for that harness and `agents apply` warns (for example `execution_mode = "auto"` on VS Code, `sandbox_mode = "read-only"` on every harness with only an on/off sandbox). The harness's own typed field (`harness.claude.default_mode`, `harness.codex.approval_policy`, `harness.codex.sandbox_mode`, `harness.antigravity.agent_mode`, `harness.antigravity.tool_permission`, `harness.antigravity.enable_terminal_sandbox`) wins over the shared value. opencode and pi have no such settings, so the keys do nothing there.
 | `ask_timeout` | string | How long to wait for an answer (Claude `askUserQuestionTimeout`) |
 
 ## `[permissions]`

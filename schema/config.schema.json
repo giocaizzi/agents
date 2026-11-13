@@ -47,11 +47,21 @@
       "properties": {
         "execution_mode": {
           "type": "string",
-          "description": "Execution mode name. Written to antigravity. Planned for claude, copilot, vscode, codex. Not supported by opencode, pi."
+          "enum": [
+            "ask",
+            "auto",
+            "full"
+          ],
+          "description": "How freely agents act. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
         },
         "sandbox_mode": {
           "type": "string",
-          "description": "Sandbox mode name. Planned for claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
+          "enum": [
+            "off",
+            "workspace",
+            "read-only"
+          ],
+          "description": "Sandbox for agent commands. Written to claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
         },
         "allow_non_workspace_access": {
           "type": "boolean",

@@ -86,22 +86,40 @@ func modelFeatures() []Feature {
 }
 
 func autonomyFeatures() []Feature {
-	const modeAmb = "ambiguous: native mode names differ and the value is a free name"
+	const (
+		noMode    = "no permission or approval mode setting"
+		noSandbox = "no sandbox setting"
+		piSource  = "https://raw.githubusercontent.com/badlogic/pi-mono/main/packages/coding-agent/docs/settings.md (fetched 2026-11-13)"
+	)
 	return []Feature{
-		shared("autonomy.execution_mode", "How freely agents act.",
-			"no documented permission mode setting",
-			rd(antigravity, at(antigravitySettings, "agentMode")),
-			pl(claude, "ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)"),
-			pl(copilot, "defaultPermissionMode ("+modeAmb+")"),
-			pl(vscode, "chat.permissions.default ("+modeAmb+")"),
-			pl(codex, "approval_policy takes on-request, never or a granular table, and agents writes it from harness.codex.approval_policy; "+modeAmb+"; a shared name such as auto would be an invalid Codex value")),
-		shared("autonomy.sandbox_mode", "Sandbox mode name.",
-			"the harness has no sandbox",
-			pl(claude, "ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on"),
-			pl(copilot, "sandbox.enabled (a boolean; "+modeAmb+")"),
-			pl(vscode, "chat.agent.sandbox.enabled (a boolean; "+modeAmb+")"),
-			pl(codex, "ambiguous: sandbox_mode takes read-only, workspace-write or danger-full-access, and agents writes it from harness.codex.sandbox_mode; the shared name is free-form, so an unrelated name would be an invalid Codex value"),
-			pl(antigravity, "enableTerminalSandbox (a boolean; "+modeAmb+"; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)")),
+		shared("autonomy.execution_mode", "How freely agents act: ask, auto or full.",
+			noMode,
+			rdv(claude, at(claudeSettings, "permissions.defaultMode"),
+				"https://code.claude.com/docs/en/permissions (fetched 2026-11-13): ask = default, auto = auto, full = bypassPermissions; acceptEdits, plan and dontAsk are not shared values; harness.claude.default_mode wins"),
+			rdv(copilot, at(copilotSettings, "defaultPermissionMode"),
+				"https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): ask = manual, auto = assisted (model review of eligible requests, the rest still prompts), full = allow-all"),
+			rdv(vscode, all(at(vscodeSettings, "chat.permissions.default"), at(copilotSettings, "defaultPermissionMode")),
+				"https://code.visualstudio.com/docs/copilot/reference/copilot-settings (fetched 2026-11-13): ask = default (Manual), full = autoApprove (Allow all); auto is not written and warns, because no documented chat.permissions.default value auto-approves while a safety layer still asks (Assisted permissions is a UI level without a setting value; autopilot is an agent mode that also answers questions by itself); the ~/.copilot file gets the Copilot CLI values"),
+			rdv(codex, at(codexConfig, "approval_policy"),
+				"https://developers.openai.com/codex/config-reference (fetched 2026-11-13): auto = on-request, full = never; ask is not written and warns, because untrusted is retired and on-request is the only interactive policy; harness.codex.approval_policy wins"),
+			rdv(antigravity, all(at(antigravitySettings, "agentMode"), at(antigravitySettings, "toolPermission")),
+				"https://antigravity.google/docs/settings (fetched 2026-11-13): ask = agentMode default, auto = agentMode auto, full = agentMode auto with toolPermission always-proceed (agentMode alone still pauses risky commands); harness.antigravity.agent_mode and tool_permission win"),
+			un(opencode, "https://opencode.ai/docs/permissions (fetched 2026-11-13): "+noMode+"; permissions is a rule list (allow, ask or deny per action and resource, default ask), which agents renders from permissions.*, so a mode would have to be a synthesized catch-all rule"),
+			un(pi, piSource+": "+noMode)),
+		shared("autonomy.sandbox_mode", "Sandbox for agent commands: off, workspace or read-only.",
+			noSandbox,
+			rdv(claude, at(claudeSettings, "sandbox.enabled"),
+				"https://code.claude.com/docs/en/settings-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default off; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns"),
+			rdv(copilot, at(copilotSettings, "sandbox.enabled"),
+				"https://docs.github.com/en/copilot/reference/copilot-cli-reference/cli-config-dir-reference (fetched 2026-11-13): sandbox.enabled is a boolean, default false; workspace = true, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns"),
+			rdv(vscode, all(at(vscodeSettings, "chat.agent.sandbox.enabled"), at(copilotSettings, "sandbox.enabled")),
+				"https://code.visualstudio.com/docs/agents/run/agent-sandboxing (fetched 2026-11-13): chat.agent.sandbox.enabled is a string, off or on, not a boolean, default off; workspace = on, off writes nothing (the default), read-only has no equivalent: nothing is written and it warns; the ~/.copilot file gets the Copilot CLI sandbox.enabled"),
+			rdv(codex, at(codexConfig, "sandbox_mode"),
+				"https://developers.openai.com/codex/config-reference (fetched 2026-11-13): off = danger-full-access, workspace = workspace-write, read-only = read-only; harness.codex.sandbox_mode wins"),
+			rdv(antigravity, at(antigravitySettings, "enableTerminalSandbox"),
+				"https://antigravity.google/docs/settings (fetched 2026-11-13): enableTerminalSandbox is a boolean that agents always writes; workspace = true, off = false, read-only has no equivalent: false is kept and it warns; harness.antigravity.enable_terminal_sandbox true also turns it on"),
+			un(opencode, "https://opencode.ai/docs/config (fetched 2026-11-13): "+noSandbox),
+			un(pi, piSource+": "+noSandbox)),
 		shared("autonomy.allow_non_workspace_access", "Allow access outside the workspace.",
 			"no documented setting for access outside the workspace",
 			rd(antigravity, at(antigravitySettings, "allowNonWorkspaceAccess")),

@@ -70,6 +70,11 @@ func vscodeSettings(c *config.Config, b *builder) map[string]any {
 	if c.Voice.Language != "" {
 		out["agents.voice.language"] = c.Voice.Language
 	}
+	setIf(out, "chat.permissions.default",
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "VS Code", "chat.permissions.default", vscodeExecution()))
+	if on := b.sandboxOn(c.Autonomy.SandboxMode, "VS Code", "chat.agent.sandbox.enabled"); on {
+		out["chat.agent.sandbox.enabled"] = "on" // a string setting (off, on), not a boolean
+	}
 	if c.Autonomy.AllowSubagentInvocations {
 		out["chat.subagents.allowInvocationsFromSubagents"] = true
 	}

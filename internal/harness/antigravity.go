@@ -17,13 +17,16 @@ func renderAntigravity(c *config.Config, b *builder) error {
 	if perms := antigravityPermissions(c); len(perms) > 0 {
 		settings["permissions"] = perms
 	}
-	mode := a.AgentMode
-	if mode == "" {
-		mode = c.Autonomy.ExecutionMode
+	// The typed fields win over the shared modes.
+	setIf(settings, "agentMode", valueOr(a.AgentMode,
+		b.nativeMode(keyExecution, c.Autonomy.ExecutionMode, "Antigravity", "agentMode", antigravityExecution())))
+	toolPermission := a.ToolPermission
+	if c.Autonomy.ExecutionMode == config.ExecutionFull {
+		toolPermission = valueOr(toolPermission, "always-proceed") // agentMode auto alone still pauses risky commands
 	}
-	setIf(settings, "agentMode", mode)
-	setIf(settings, "toolPermission", a.ToolPermission)
-	settings["enableTerminalSandbox"] = a.EnableTerminalSandbox
+	setIf(settings, "toolPermission", toolPermission)
+	sandbox := b.sandboxOn(c.Autonomy.SandboxMode, "Antigravity", "enableTerminalSandbox")
+	settings["enableTerminalSandbox"] = a.EnableTerminalSandbox || sandbox // always written, so off is false
 	setIf(settings, "colorScheme", c.UI.Theme)
 	if c.Notifications.TerminalBell {
 		settings["notifications"] = true
