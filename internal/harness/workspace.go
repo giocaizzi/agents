@@ -3,7 +3,6 @@ package harness
 import (
 	"errors"
 	"fmt"
-	"io/fs"
 	"maps"
 	"os"
 	"path/filepath"
@@ -68,7 +67,7 @@ func WorkspaceTargets(root string, servers map[string]mcpsync.ServerEntry, harne
 			Path:    filepath.Join(root, filepath.FromSlash(d.RelPath)),
 			Format:  d.Format,
 			Managed: d.Managed,
-			Mode:    workspaceMode(d.RelPath),
+			Mode:    0o600, // a new file is private; git tracks no read bits
 		})
 	}
 	var warnings []string
@@ -82,17 +81,6 @@ func WorkspaceTargets(root string, servers map[string]mcpsync.ServerEntry, harne
 		warnings = append(warnings, warning)
 	}
 	return targets, warnings
-}
-
-// workspaceMode is the mode of a new workspace file. .mcp.json and
-// opencode.json are shared project files that people commit and read, so they
-// stay world-readable (0o644); the per-harness files are private to the user
-// (0o600), like the files agents writes in the home directory.
-func workspaceMode(rel string) fs.FileMode {
-	if rel == mcpsync.SourceFilename || rel == mcpsync.OpenCodeRelPath {
-		return 0o644
-	}
-	return 0o600
 }
 
 // serverEntry converts a configured server to the mcpsync shape. The type is

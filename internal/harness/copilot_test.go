@@ -200,7 +200,6 @@ func TestCopilotReviewXFail(t *testing.T) {
 
 	t.Run("xfail: a new instruction file is private (0600)", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: instruction targets are created 0644, but layers may hold private content")
 		home := t.TempDir()
 		var c config.Config
 		c.Instructions.Dir = filepath.Join(home, "layers")

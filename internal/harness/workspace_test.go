@@ -66,9 +66,9 @@ func TestRenderWorkspaces(t *testing.T) {
 		got[rel] = tg.Owner + " " + tg.Mode.String()
 	}
 	want := map[string]string{
-		".mcp.json":          "claude -rw-r--r--",
+		".mcp.json":          "claude -rw-------",
 		".codex/config.toml": "codex -rw-------",
-		"opencode.json":      "opencode -rw-r--r--",
+		"opencode.json":      "opencode -rw-------",
 	}
 	if diff := cmp.Diff(want, got); diff != "" {
 		t.Errorf("targets (-want +got):\n%s", diff)

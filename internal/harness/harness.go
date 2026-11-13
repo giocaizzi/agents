@@ -390,5 +390,5 @@ func (b *builder) instructions(h config.Harness, path string) {
 	if text == "" {
 		return
 	}
-	b.add(apply.Target{Owner: string(h), Path: path, Format: apply.Text, Managed: text, Mode: 0o644})
+	b.add(apply.Target{Owner: string(h), Path: path, Format: apply.Text, Managed: text, Mode: 0o600})
 }
