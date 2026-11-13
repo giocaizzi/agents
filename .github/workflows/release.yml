@@ -1,4 +1,6 @@
-name: release
+# Manual-tag release: publishes only while release-please is inactive (repo variable RELEASE_PLEASE
+# is not 'true'). Once it is active, release-please.yml is the only publisher (see docs/release.md).
+name: Manual-tag release
 
 on:
   push:
@@ -7,18 +9,27 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: vars.RELEASE_PLEASE != 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
       contents: write
       id-token: write
       attestations: write
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-go@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7
         with:
           go-version-file: go.mod
+          cache: false
       - name: Build cross-platform binaries
         env:
           VERSION: ${{ github.ref_name }}
@@ -32,12 +43,26 @@ jobs:
             CGO_ENABLED=0 GOOS=$os GOARCH=$arch go build -trimpath -ldflags "-s -w -X main.buildVersion=${v}" \
               -o "dist/agents_${v}_${os}_${arch}${ext}" ./cmd/agents
           done
-          cd dist && sha256sum * > checksums.txt
-      - uses: actions/attest@v4
+          cd dist && sha256sum -- * > checksums.txt
+      - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6 # v4
         with:
           subject-checksums: dist/checksums.txt
-      - name: Publish Release
+      # Draft first, publish after the assets are attached, so "latest" never points at a release without them.
+      - name: Upload assets and publish the release
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           TAG: ${{ github.ref_name }}
-        run: gh release create "$TAG" dist/* --title "agents ${TAG#v}" --generate-notes --verify-tag
+        run: |
+          set -eu
+          # A depth-1 checkout of a tag push can leave the tag lightweight; --notes-from-tag needs the annotation.
+          git fetch --no-tags --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          if [ "$(git cat-file -t "$TAG")" != tag ]; then
+            echo "::error::$TAG is not an annotated tag; write the release notes in the tag message (docs/release.md)"
+            exit 1
+          fi
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --draft --title "agents ${TAG#v}" --notes-from-tag --verify-tag
+          fi
+          gh release upload "$TAG" dist/* --clobber
+          gh release edit "$TAG" --draft=false
