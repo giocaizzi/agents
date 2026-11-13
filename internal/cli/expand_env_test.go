@@ -3,6 +3,7 @@ package cli_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -85,4 +86,36 @@ func TestExpandEnv_MCPSyncRefusesWorkTree(t *testing.T) {
 	if _, err := os.Stat(filepath.Join(ws, ".mcp.json")); err == nil {
 		t.Error("mcp sync wrote a workspace file inside a work tree")
 	}
+}
+
+// TestExpandEnv_ExistingFileMode: the expanded secrets land in a file that is
+// 0600 even when the workspace file already existed with wider permissions
+// (as a committed project file usually does).
+func TestExpandEnv_ExistingFileMode(t *testing.T) {
+	t.Parallel()
+	t.Run("xfail: an existing 0644 workspace file keeps its mode", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: apply keeps an existing file's mode, so expanded secrets are written world-readable")
+		if runtime.GOOS == "windows" {
+			t.Skip("POSIX permission bits")
+		}
+		e, ws, cfg := expandSetup(t, false)
+		file := filepath.Join(ws, ".mcp.json")
+		if err := os.WriteFile(file, []byte("{}\n"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chmod(file, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if code := e.run("apply", "-file", cfg); code != 0 {
+			t.Fatalf("exit = %d, err = %s", code, e.errOut)
+		}
+		info, err := os.Stat(file)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if got := info.Mode().Perm(); got != 0o600 {
+			t.Errorf("mode = %o, want 600 for a file holding expanded secrets", got)
+		}
+	})
 }
