@@ -75,7 +75,6 @@ func TestRenderWorkspaces(t *testing.T) {
 	}
 	wantWarnings := []string{
 		`mcp.workspaces.ops: server "crm": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
-		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
 	}
 	if diff := cmp.Diff(wantWarnings, b.warnings); diff != "" {
 		t.Errorf("warnings (-want +got):\n%s", diff)
@@ -107,5 +106,18 @@ func TestRenderWorkspacesOnly(t *testing.T) {
 	}
 	if len(plan.Warnings) != 0 {
 		t.Errorf("warnings = %q, want none", plan.Warnings)
+	}
+}
+
+func TestWorkspaceLegacyOpenCode(t *testing.T) {
+	t.Parallel()
+	d := mcpsync.Doc{RelPath: mcpsync.OpenCodeRelPath, Managed: map[string]any{
+		"mcp": map[string]any{"servers": map[string]any{"b": map[string]any{}, "a": map[string]any{}}},
+	}}
+	if diff := cmp.Diff([][]string{{"mcp", "a"}, {"mcp", "b"}}, workspaceLegacy(d)); diff != "" {
+		t.Errorf("legacy (-want +got):\n%s", diff)
+	}
+	if got := workspaceLegacy(mcpsync.Doc{RelPath: ".mcp.json"}); got != nil {
+		t.Errorf("legacy for another file = %v, want none", got)
 	}
 }

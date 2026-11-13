@@ -271,8 +271,7 @@ func validateURL(raw string) error {
 }
 
 // Warnings lists the source settings that a target cannot represent and that
-// a sync therefore leaves out of it (a callback port for Antigravity, an OAuth
-// client for opencode), and the confidential OAuth clients
+// a sync therefore leaves out of it (a callback port for Antigravity), and the confidential OAuth clients
 // (oauthPublicClient false or unset) whose secret agents never syncs: it
 // lives in the harness's keyring.
 func Warnings(servers map[string]ServerEntry) []string {
@@ -291,9 +290,6 @@ func Warnings(servers map[string]ServerEntry) []string {
 		clientID, port := entry.oauthClient()
 		if port != 0 {
 			warnings = append(warnings, fmt.Sprintf("antigravity: server %q: callback port %d not supported, left out (register %s as a redirect URI)", name, port, AntigravityRedirectURI))
-		}
-		if clientID != "" || port != 0 {
-			warnings = append(warnings, fmt.Sprintf("opencode skips server %q: OAuth clients are not supported", name))
 		}
 		if clientID != "" && (entry.OAuthPublicClient == nil || !*entry.OAuthPublicClient) {
 			warnings = append(warnings, fmt.Sprintf("server %q: OAuth client is not public, so its secret is not synced; add the secret through the harness's own login", name))

@@ -42,6 +42,10 @@ func TestWorkspaceKeepsReferences(t *testing.T) {
 		t.Fatalf("no target %s", rel)
 		return nil
 	}
+	nested := func(rel string) map[string]any {
+		s, _ := servers(rel, "mcp")["servers"].(map[string]any)
+		return s
+	}
 	auth := func(servers map[string]any) any {
 		docs, _ := servers["docs"].(map[string]any)
 		headers, _ := docs["headers"].(map[string]any)
@@ -50,7 +54,7 @@ func TestWorkspaceKeepsReferences(t *testing.T) {
 	if got := auth(servers(".mcp.json", "mcpServers")); got != "Bearer ${DOCS_TOKEN}" {
 		t.Errorf(".mcp.json Authorization = %v, want the reference kept", got)
 	}
-	if got := auth(servers("opencode.json", "mcp")); got != "Bearer {env:DOCS_TOKEN}" {
+	if got := auth(nested("opencode.json")); got != "Bearer {env:DOCS_TOKEN}" {
 		t.Errorf("opencode.json Authorization = %v, want {env:DOCS_TOKEN}", got)
 	}
 	for rel, key := range map[string]string{".codex/config.toml": "mcp_servers", ".pi/mcp.json": "mcpServers", ".agents/mcp_config.json": "mcpServers"} {

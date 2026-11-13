@@ -191,7 +191,6 @@ func TestRunMCPSync_FromConfigIdempotent(t *testing.T) {
 	m, ws, cfg := configWorkspace(t)
 	m.mustRun(t, "claude,codex,opencode", "sync", "-file", cfg)
 	existsAll(t, ws, workspaceFiles...)
-	contains(t, "stderr", m.stderr.String(), `opencode skips server "crm": OAuth clients are not supported`)
 
 	m.mustRun(t, "claude,codex,opencode", "sync", "-file", cfg)
 	if got := strings.Count(m.stdout.String(), "unchanged "); got != len(workspaceFiles) {
@@ -217,7 +216,6 @@ func TestRunMCPSync_Path(t *testing.T) {
 	if strings.Contains(m.stdout.String(), mcpsync.SourceFilename+"\n") {
 		t.Errorf("the source was applied to: %q", m.stdout.String())
 	}
-	contains(t, "stderr", m.stderr.String(), `opencode skips server "crm": OAuth clients are not supported`)
 	src, err := os.ReadFile(filepath.Join(dir, mcpsync.SourceFilename))
 	if err != nil || string(src) != mcpSource {
 		t.Errorf("source changed (err %v): %s", err, src)

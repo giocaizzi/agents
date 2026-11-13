@@ -59,7 +59,7 @@ The redirect host each harness sends is in [cli.md](cli.md#oauth-redirect-hosts)
 
 ### Workspaces
 
-`agents mcp sync` (and `agents apply`, for configured workspaces) writes MCP files under a workspace root: `.mcp.json` for Claude Code, Copilot CLI and VS Code (shared, with both OAuth styles), `.codex/config.toml`, `.pi/mcp.json`, `opencode.json` (servers with an OAuth client are left out: no verified translation) and `.agents/mcp_config.json`. In Codex's user config each workspace path is also marked `trust_level = "trusted"`.
+`agents mcp sync` (and `agents apply`, for configured workspaces) writes MCP files under a workspace root: `.mcp.json` for Claude Code, Copilot CLI and VS Code (shared, with both OAuth styles), `.codex/config.toml`, `.pi/mcp.json`, `opencode.json` (opencode 2 layout: `mcp.servers.<name>`, OAuth as `oauth.client_id` and `oauth.callback_port`) and `.agents/mcp_config.json`. In Codex's user config each workspace path is also marked `trust_level = "trusted"`.
 
 ## Models
 

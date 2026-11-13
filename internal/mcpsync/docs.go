@@ -141,16 +141,21 @@ func codexDoc(servers map[string]ServerEntry) map[string]any {
 func openCodeDoc(servers map[string]ServerEntry) map[string]any {
 	out := map[string]any{}
 	for name, e := range servers {
-		clientID, port := e.oauthClient()
-		if clientID != "" || port != 0 {
-			continue
-		}
-		s := map[string]any{"enabled": true}
+		s := map[string]any{}
 		switch {
 		case e.URL != "":
 			s["type"] = "remote"
 			s["url"] = e.URL
 			setStrings(s, "headers", e.Headers)
+			clientID, port := e.oauthClient()
+			if clientID != "" || port != 0 {
+				o := map[string]any{}
+				setString(o, "client_id", clientID)
+				if port != 0 {
+					o["callback_port"] = port
+				}
+				s["oauth"] = o
+			}
 		case e.Command != "":
 			s["type"] = "local"
 			s["command"] = anySlice(append([]string{e.Command}, e.Args...))
@@ -160,7 +165,7 @@ func openCodeDoc(servers map[string]ServerEntry) map[string]any {
 		}
 		out[name] = s
 	}
-	return map[string]any{"$schema": openCodeSchema, "mcp": out}
+	return map[string]any{"$schema": openCodeSchema, "mcp": map[string]any{"servers": out}}
 }
 
 func oauthMap(clientID string, port int) map[string]any {

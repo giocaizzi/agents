@@ -27,7 +27,7 @@ The table is Go code (`internal/feature`); it also feeds the descriptions in the
 | `autonomy.allow_subagent_invocations` | — | — | ✓ | — | — | — | — |
 | `autonomy.ask_timeout` | ✓ | — | — | — | — | — | — |
 | `permissions.allow_commands` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
-| `permissions.allowed_urls` | planned | ✓ | ✓ | — | ✓ | — | ✓ |
+| `permissions.allowed_urls` | ✓ | ✓ | ✓ | — | ✓ | — | ✓ |
 | `permissions.allow_command_patterns` | ✓ | — | ✓ | ✓ | ✓ | — | ✓ |
 | `permissions.deny_read` | ✓ | — | — | — | ✓ | — | ✓ |
 | `permissions.deny_write` | ✓ | — | — | — | ✓ | — | ✓ |
@@ -137,6 +137,7 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `models.show_thinking_summaries`: `~/.claude/settings.json: showThinkingSummaries`
 - `autonomy.ask_timeout`: `~/.claude/settings.json: askUserQuestionTimeout`
 - `permissions.allow_commands`: `~/.claude/settings.json: permissions.allow`
+- `permissions.allowed_urls`: `~/.claude/settings.json: permissions.allow`
 - `permissions.allow_command_patterns`: `~/.claude/settings.json: permissions.allow`
 - `permissions.deny_read`: `~/.claude/settings.json: permissions.deny`
 - `permissions.deny_write`: `~/.claude/settings.json: permissions.deny`
@@ -191,7 +192,6 @@ Documentation checked in 2026-11: https://docs.claude.com/en/docs/claude-code/se
 - `autonomy.execution_mode`: ambiguous: permissions.defaultMode takes one of default, acceptEdits, plan, auto, dontAsk, bypassPermissions; the shared value is a free name, so the options are passing Claude names through or a mapping table (agents writes it from harness.claude.default_mode)
 - `autonomy.sandbox_mode`: ambiguous: sandbox.enabled is a boolean but the shared value is a free mode name; the options are on for any non-empty name or a list of names that mean on
 - `autonomy.allow_non_workspace_access`: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
-- `permissions.allowed_urls`: ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path
 
 **Not supported**
 
@@ -597,7 +597,6 @@ The harness supports the setting natively and agents does not write it yet. `age
 - `autonomy.sandbox_mode` on Antigravity: enableTerminalSandbox (a boolean; ambiguous: native mode names differ and the value is a free name; the typed harness.antigravity.enable_terminal_sandbox is always written and wins)
 - `autonomy.allow_non_workspace_access` on Claude Code: ambiguous: permissions.additionalDirectories takes a directory list but the shared value is a boolean; the options are a new list key or no mapping
 - `autonomy.allow_non_workspace_access` on VS Code: github.copilot.chat.additionalReadAccessFolders (ambiguous: it takes a folder list, not a boolean)
-- `permissions.allowed_urls` on Claude Code: ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path
 - `permissions.allowed_mcp` on opencode: ambiguous: permissions rules name an MCP tool by action <server>_<tool> (wildcards allowed), but allowed_mcp does not say whether an entry is a server or a tool, nor how a tool is spelled; options: treat each entry as a server and write <server>_*, or define a tool syntax first (https://opencode.ai/docs/permissions)
 - `context.auto_compact_window` on pi: compaction.reserveTokens (ambiguous: it reserves tokens instead of setting a trigger size)
 - `ui.theme` on Copilot CLI: theme (ambiguous: the CLI accepts only default, github, dim, high-contrast or colorblind, while ui.theme is a free name that VS Code reads as a colour theme)

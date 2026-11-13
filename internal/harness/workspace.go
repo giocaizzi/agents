@@ -111,15 +111,13 @@ func WorkspaceTargets(root string, servers map[string]mcpsync.ServerEntry, harne
 			Path:    filepath.Join(root, filepath.FromSlash(d.RelPath)),
 			Format:  d.Format,
 			Managed: d.Managed,
+			Legacy:  workspaceLegacy(d),
 			Mode:    0o600, // a new file is private; git tracks no read bits
 		})
 	}
 	var warnings []string
 	for _, warning := range mcpsync.Warnings(servers) {
 		if strings.HasPrefix(warning, "antigravity:") && !slices.Contains(harnesses, string(config.Antigravity)) {
-			continue
-		}
-		if strings.HasPrefix(warning, "opencode ") && !slices.Contains(harnesses, string(config.OpenCode)) {
 			continue
 		}
 		warnings = append(warnings, warning)
@@ -158,4 +156,19 @@ func serverEntry(s config.MCPServer) mcpsync.ServerEntry {
 		e.OAuthPublicClient = &public
 	}
 	return e
+}
+
+// workspaceLegacy are the flat mcp.<name> entries that earlier versions wrote
+// into opencode.json, a layout opencode 2 deprecates in favour of mcp.servers.
+func workspaceLegacy(d mcpsync.Doc) [][]string {
+	if d.RelPath != mcpsync.OpenCodeRelPath {
+		return nil
+	}
+	mcp, _ := d.Managed["mcp"].(map[string]any)
+	servers, _ := mcp["servers"].(map[string]any)
+	var out [][]string
+	for _, name := range slices.Sorted(maps.Keys(servers)) {
+		out = append(out, []string{"mcp", name})
+	}
+	return out
 }

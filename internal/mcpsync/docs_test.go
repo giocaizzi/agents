@@ -59,10 +59,13 @@ func TestDocs(t *testing.T) {
 		}}},
 		{"opencode", "opencode.json", apply.JSON, map[string]any{
 			"$schema": "https://opencode.ai/config.json",
-			"mcp": map[string]any{
-				// "web" has an OAuth client: left out.
-				"local": map[string]any{"type": "local", "command": []any{"npx", "-y", "srv"}, "environment": map[string]any{"K": "v"}, "enabled": true},
-			},
+			"mcp": map[string]any{"servers": map[string]any{
+				"web": map[string]any{
+					"type": "remote", "url": "https://a.example.com", "headers": map[string]any{"X-Key": "v"},
+					"oauth": map[string]any{"client_id": "c1", "callback_port": 8765},
+				},
+				"local": map[string]any{"type": "local", "command": []any{"npx", "-y", "srv"}, "environment": map[string]any{"K": "v"}},
+			}},
 		}},
 	}
 	for _, tt := range tests {

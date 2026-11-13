@@ -36,6 +36,10 @@ func adjustClaude(c parityCase, file string, want any) any {
 		for _, cmd := range []string{"git", "gh", "make", "uv", "jq", "npm", "cargo", "go", "terraform"} {
 			allow = append(allow, "Bash("+cmd+" *)")
 		}
+		// permissions.allowed_urls entries that cover a whole host become WebFetch(domain:) rules.
+		for _, host := range []string{"github.com", "api.github.com", "docs.github.com", "learn.microsoft.com", "example.org", "claude.ai", "claude.com", "docs.anthropic.com", "openai.com", "google.com"} {
+			allow = append(allow, "WebFetch(domain:"+host+")")
+		}
 		perms["allow"] = allow
 	}
 	// agents removes only the env keys it wrote (known from its manifest), so with telemetry

@@ -14,7 +14,19 @@ func adjustWorkspace(_ parityCase, file string, want any) any {
 		table(servers, "alpha")["url"] = "https://alpha.${MCP_ACCOUNT}.example.com/mcp"
 		table(servers, "beta")["url"] = "https://beta.${MCP_ACCOUNT}.example.com/mcp?toolset=admin"
 	case "opencode.json":
-		servers := table(m, "mcp")
+		// opencode 2 reads mcp.servers, with no enabled field, and takes the OAuth client
+		// of crm as oauth.client_id and oauth.callback_port.
+		servers := map[string]any{}
+		for name, v := range table(m, "mcp") {
+			entry, _ := v.(map[string]any)
+			delete(entry, "enabled")
+			servers[name] = entry
+		}
+		m["mcp"] = map[string]any{"servers": servers}
+		servers["crm"] = map[string]any{
+			"type": "remote", "url": crm,
+			"oauth": map[string]any{"client_id": "client-123", "callback_port": float64(8765)},
+		}
 		table(servers, "alpha")["url"] = "https://alpha.{env:MCP_ACCOUNT}.example.com/mcp"
 		table(servers, "beta")["url"] = "https://beta.{env:MCP_ACCOUNT}.example.com/mcp?toolset=admin"
 	case ".codex/config.toml":
