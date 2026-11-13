@@ -94,6 +94,16 @@ func TestSharedModes(t *testing.T) {
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("%s (-want +got):\n%s", strings.Join(tt.key, "."), diff)
 			}
+			if note, isNote := strings.CutPrefix(tt.warn, "note: "); isNote {
+				// A note is informational: in Notes, never in Warnings.
+				if !slices.ContainsFunc(plan.Notes, func(n string) bool { return strings.Contains(n, note) }) {
+					t.Errorf("notes = %q, want one containing %q", plan.Notes, note)
+				}
+				if slices.ContainsFunc(plan.Warnings, func(w string) bool { return strings.Contains(w, note) }) {
+					t.Errorf("warnings = %q, the note must not be a warning", plan.Warnings)
+				}
+				return
+			}
 			switch {
 			case tt.warn == "" && len(plan.Warnings) != 0:
 				t.Errorf("unexpected warnings: %q", plan.Warnings)
@@ -197,6 +207,44 @@ func TestAntigravitySandboxAndToolPermission(t *testing.T) {
 			got := nested(findTarget(t, plan, file).Managed, tt.key)
 			if diff := cmp.Diff(tt.want, got); diff != "" {
 				t.Errorf("%s (-want +got):\n%s", tt.key, diff)
+			}
+		})
+	}
+}
+
+// TestClaudeSandboxFollowsEffectiveMode pins that autoAllowBashIfSandboxed
+// follows the defaultMode Claude really gets: a typed default_mode that asks
+// beats a shared execution_mode of full.
+func TestClaudeSandboxFollowsEffectiveMode(t *testing.T) {
+	t.Parallel()
+	file := filepath.Join("/h", ".claude", "settings.json")
+	tests := []struct {
+		name      string
+		execution string
+		typed     string
+		wantMode  string
+		wantAuto  any // nil: the key is absent
+	}{
+		{"typed default beats shared full", "full", "default", "default", false},
+		{"typed acceptEdits beats shared auto", "auto", "acceptEdits", "acceptEdits", false},
+		{"shared full", "full", "", "bypassPermissions", nil},
+		{"shared auto", "auto", "", "auto", nil},
+		{"typed auto beats shared ask", "ask", "auto", "auto", nil},
+		{"shared ask", "ask", "", "default", false},
+		{"unset", "", "", "auto", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var c config.Config
+			c.Autonomy = config.Autonomy{ExecutionMode: tt.execution, SandboxMode: "workspace"}
+			c.Harness.Claude.DefaultMode = tt.typed
+			managed := findTarget(t, renderFor(t, c, "linux", config.Claude), file).Managed
+			if diff := cmp.Diff(tt.wantMode, nested(managed, "permissions", "defaultMode")); diff != "" {
+				t.Errorf("permissions.defaultMode (-want +got):\n%s", diff)
+			}
+			if diff := cmp.Diff(tt.wantAuto, nested(managed, "sandbox", "autoAllowBashIfSandboxed")); diff != "" {
+				t.Errorf("sandbox.autoAllowBashIfSandboxed (-want +got):\n%s", diff)
 			}
 		})
 	}

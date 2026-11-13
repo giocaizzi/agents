@@ -40,6 +40,9 @@ func (d Deps) runRender(_ context.Context, args []string) int {
 	for _, w := range plan.Warnings {
 		fmt.Fprintf(d.Stderr, "warning: %s\n", w)
 	}
+	for _, n := range plan.Notes {
+		fmt.Fprintf(d.Stderr, "note: %s\n", n)
+	}
 	if err != nil {
 		fmt.Fprintln(d.Stderr, err)
 		return exitFindings
