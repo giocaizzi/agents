@@ -684,7 +684,7 @@
             "type": "string"
           },
           "type": "array",
-          "description": "URLs agents may fetch. Written to copilot, vscode, opencode, antigravity. Planned for claude. Not supported by codex, pi."
+          "description": "URLs agents may fetch. Written to claude, copilot, vscode, opencode, antigravity. Not supported by codex, pi."
         },
         "allow_command_patterns": {
           "items": {

@@ -146,7 +146,7 @@ func permissionFeatures() []Feature {
 		shared("permissions.allowed_urls", "URLs agents may fetch.", "no documented URL allow list",
 			rd(copilot, at(copilotSettings, "allowedUrls")),
 			rd(vscode, all(at(vscodeSettings, "chat.tools.urls.autoApprove"), at(copilotSettings, "allowedUrls"))),
-			pl(claude, "ambiguous: WebFetch(domain:host) rules match a host only while allowed_urls entries are URL globs with paths, so rendering them widens the rule; the options are host-only entries or rendering only entries without a path"),
+			rd(claude, at(claudeSettings, "permissions.allow")),
 			rd(opencode, at(opencodeConfig, "permissions")),
 			agyAllow),
 		shared("permissions.allow_command_patterns", "Command patterns allowed without asking.", noCmd,

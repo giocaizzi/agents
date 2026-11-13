@@ -153,7 +153,7 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 	set("cleanupPeriodDays", cl.CleanupPeriodDays)
 	set("disableClaudeAiConnectors", cl.DisableClaudeAIConnectors)
 	set("skipAutoPermissionPrompt", cl.SkipAutoPermissionPrompt)
-	s["permissions"] = claudePermissions(c, b.env.GOOS)
+	s["permissions"] = claudePermissions(c, b)
 
 	env := map[string]any{}
 	if tel, on := b.telemetry(config.Claude); on {
@@ -168,11 +168,20 @@ func claudeSettings(c *config.Config, b *builder) map[string]any {
 }
 
 // claudePermissions maps the shared permission rules to Claude's schema.
-func claudePermissions(c *config.Config, goos string) map[string]any {
+func claudePermissions(c *config.Config, b *builder) map[string]any {
+	goos := b.env.GOOS
 	p := c.Permissions
 	allow := slices.Clone(c.Harness.Claude.Allow)
 	for _, pat := range slices.Concat(p.AllowCommandPatterns, p.AllowCommands) {
 		allow = append(allow, "Bash("+pat+")")
+	}
+	for _, u := range p.AllowedURLs {
+		host, ok := claudeHost(u)
+		if !ok {
+			b.warnf("permissions.allowed_urls: %q skipped for Claude, WebFetch(domain:) matches a whole host and cannot express a path or an inner wildcard", u)
+			continue
+		}
+		allow = appendUnique(allow, "WebFetch(domain:"+host+")")
 	}
 	for _, name := range p.AllowedMCP {
 		allow = append(allow, claudeMCPRule(name))
@@ -215,6 +224,26 @@ func claudePermissions(c *config.Config, goos string) map[string]any {
 		}
 	}
 	return out
+}
+
+// claudeHost is the WebFetch(domain:) target of an allowed URL. The rule
+// matches a whole host, so only a URL with no path, or a trailing /, /* or /**,
+// can be expressed, and a leading "*." is dropped because the bare domain
+// already covers subdomains.
+func claudeHost(u string) (string, bool) {
+	_, rest, found := strings.Cut(u, "://")
+	if !found {
+		rest = u
+	}
+	host, path, _ := strings.Cut(rest, "/")
+	if path != "" && path != "*" && path != "**" {
+		return "", false
+	}
+	host = strings.TrimPrefix(host, "*.")
+	if host == "" || strings.Contains(host, "*") {
+		return "", false
+	}
+	return host, true
 }
 
 // claudeMCPRule is the allow rule for an MCP server name. Claude writes a

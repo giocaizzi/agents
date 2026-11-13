@@ -113,9 +113,14 @@ func TestClaudeSettingsFromSharedKeys(t *testing.T) {
 			AllowCommands:        []string{"git status *"},
 			AllowCommandPatterns: []string{"make *"},
 			AllowedMCP:           []string{"docs", "my.server", "mcp__acme__search"},
+			AllowedURLs: []string{
+				"https://example.com/**", "https://*.example.org/", "docs.acme.dev", "https://acme.dev/docs/**",
+				"https://*.cdn.acme.dev/**", "https://a.example/x", "https://example.com/*",
+			},
 		},
 	}
-	s := claudeSettings(c, claudeBuilder(c, nil))
+	b := claudeBuilder(c, nil)
+	s := claudeSettings(c, b)
 	if got := s["autoCompactEnabled"]; got != true {
 		t.Errorf("autoCompactEnabled = %v, want true", got)
 	}
@@ -124,9 +129,14 @@ func TestClaudeSettingsFromSharedKeys(t *testing.T) {
 		t.Errorf("env (-want +got):\n%s", diff)
 	}
 	perms, _ := s["permissions"].(map[string]any)
-	want := []string{"Bash(make *)", "Bash(git status *)", "mcp__docs__*", "mcp__my_server__*", "mcp__acme__search"}
+	want := []string{"Bash(make *)", "Bash(git status *)",
+		"WebFetch(domain:example.com)", "WebFetch(domain:example.org)", "WebFetch(domain:docs.acme.dev)", "WebFetch(domain:cdn.acme.dev)",
+		"mcp__docs__*", "mcp__my_server__*", "mcp__acme__search"}
 	if diff := cmp.Diff(want, perms["allow"]); diff != "" {
 		t.Errorf("allow (-want +got):\n%s", diff)
+	}
+	if len(b.warnings) != 2 {
+		t.Errorf("warnings = %q, want two for the path-restricted URLs", b.warnings)
 	}
 }
 
