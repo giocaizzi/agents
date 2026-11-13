@@ -37,19 +37,63 @@ func renderWorkspaces(_ *config.Config, b *builder, selected []config.Harness) e
 		names[i] = string(h)
 	}
 	for _, w := range b.workspaces() {
-		servers := make(map[string]mcpsync.ServerEntry, len(w.Servers))
-		for name, s := range w.Servers {
-			servers[name] = serverEntry(s)
-		}
-		targets, warnings := WorkspaceTargets(w.Path, servers, names, false)
-		for _, t := range targets {
-			b.add(t)
-		}
-		for _, warning := range warnings {
-			b.warnf("mcp.workspaces.%s: %s", w.Name, warning)
+		for _, h := range names {
+			servers := b.workspaceEntries("mcp.workspaces."+w.Name+".servers", h, w.Servers)
+			targets, warnings := WorkspaceTargets(w.Path, servers, []string{h}, false)
+			for _, t := range targets {
+				b.add(t)
+			}
+			for _, warning := range warnings {
+				b.warnf("mcp.workspaces.%s: %s", w.Name, warning)
+			}
 		}
 	}
 	return nil
+}
+
+// workspaceRef is how harness h reads an environment variable in a project
+// file, as a format for the variable name; false when it reads none.
+// Claude Code and Copilot expand ${VAR} in .mcp.json (VS Code reads the same
+// file); opencode spells it {env:VAR}.
+func workspaceRef(h string) (string, bool) {
+	switch h {
+	case string(config.Claude), string(config.Copilot), string(config.VSCode):
+		return "${%s}", true
+	case string(config.OpenCode):
+		return "{env:%s}", true
+	}
+	return "", false
+}
+
+// workspaceEntries converts the servers of a workspace for harness h. A
+// project file is committed, so a ${VAR} reference is never expanded into it:
+// it stays a reference in the harness's own spelling, and a server with a
+// reference is skipped (warned) for a harness that expands none.
+func (b *builder) workspaceEntries(where, h string, in map[string]config.MCPServer) map[string]mcpsync.ServerEntry {
+	style, expands := workspaceRef(h)
+	out := make(map[string]mcpsync.ServerEntry, len(in))
+	for _, name := range slices.Sorted(maps.Keys(in)) {
+		var refs []string
+		rewrite := func(v string) string {
+			text, _ := config.Expand(v, func(n string) string {
+				refs = append(refs, n)
+				if expands {
+					return fmt.Sprintf(style, n)
+				}
+				return n
+			})
+			return text
+		}
+		s := mapServer(in[name], rewrite)
+		if len(refs) > 0 && !expands {
+			slices.Sort(refs)
+			b.warnf("%s.%s: skipped for %s, which does not expand ${%s} in a project file",
+				where, name, h, strings.Join(slices.Compact(refs), "}, ${"))
+			continue
+		}
+		out[name] = serverEntry(s)
+	}
+	return out
 }
 
 // WorkspaceTargets returns the MCP files of the workspace at root for the

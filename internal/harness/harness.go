@@ -267,7 +267,10 @@ func (b *builder) mcpServers() map[string]config.MCPServer {
 	return b.mcp
 }
 
-// Workspace is one MCP workspace with its path and servers expanded.
+// Workspace is one MCP workspace with its path expanded. Its servers keep
+// their ${VAR} references, which land in committed project files: the
+// renderer rewrites or refuses them per harness. Only the OAuth client id, a
+// public value, is expanded.
 type Workspace struct {
 	Name    string
 	Path    string
@@ -288,7 +291,7 @@ func (b *builder) workspaces() []Workspace {
 		if !ok {
 			continue
 		}
-		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.expandServers(where+".servers", w.Servers)})
+		b.ws = append(b.ws, Workspace{Name: name, Path: path, Servers: b.workspaceServers(where+".servers", w.Servers)})
 	}
 	return b.ws
 }
@@ -304,6 +307,23 @@ func (b *builder) expandServers(where string, in map[string]config.MCPServer) ma
 	return out
 }
 
+// workspaceServers keeps the ${VAR} references of the servers and expands
+// only the OAuth client id; a server whose client id has an unset variable is
+// skipped (warned).
+func (b *builder) workspaceServers(where string, in map[string]config.MCPServer) map[string]config.MCPServer {
+	out := map[string]config.MCPServer{}
+	for _, name := range slices.Sorted(maps.Keys(in)) {
+		s := in[name]
+		id, ok := b.expand(where+"."+name, s.OAuth.ClientID)
+		if !ok {
+			continue
+		}
+		s.OAuth.ClientID = id
+		out[name] = s
+	}
+	return out
+}
+
 func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServer, bool) {
 	var missing []string
 	ex := func(v string) string {
@@ -311,27 +331,7 @@ func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServ
 		missing = append(missing, unset...)
 		return out
 	}
-	exMap := func(m map[string]string) map[string]string {
-		if m == nil {
-			return nil
-		}
-		out := make(map[string]string, len(m))
-		for k, v := range m {
-			out[k] = ex(v)
-		}
-		return out
-	}
-	s.URL = ex(s.URL)
-	s.Command = ex(s.Command)
-	s.Headers = exMap(s.Headers)
-	s.Env = exMap(s.Env)
-	if s.Args != nil {
-		args := make([]string, len(s.Args))
-		for i, a := range s.Args {
-			args[i] = ex(a)
-		}
-		s.Args = args
-	}
+	s = mapServer(s, ex)
 	s.OAuth.ClientID = ex(s.OAuth.ClientID)
 	if len(missing) > 0 {
 		slices.Sort(missing)
@@ -339,6 +339,32 @@ func (b *builder) expandServer(where string, s config.MCPServer) (config.MCPServ
 		return config.MCPServer{}, false
 	}
 	return s, true
+}
+
+// mapServer applies f to every string of s except the OAuth client id.
+func mapServer(s config.MCPServer, f func(string) string) config.MCPServer {
+	mapStrings := func(m map[string]string) map[string]string {
+		if m == nil {
+			return nil
+		}
+		out := make(map[string]string, len(m))
+		for k, v := range m {
+			out[k] = f(v)
+		}
+		return out
+	}
+	s.URL = f(s.URL)
+	s.Command = f(s.Command)
+	s.Headers = mapStrings(s.Headers)
+	s.Env = mapStrings(s.Env)
+	if s.Args != nil {
+		args := make([]string, len(s.Args))
+		for i, a := range s.Args {
+			args[i] = f(a)
+		}
+		s.Args = args
+	}
+	return s
 }
 
 // InstructionSpec builds the instruction composition of c. dir is the

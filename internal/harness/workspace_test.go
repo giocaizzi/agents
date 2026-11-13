@@ -74,8 +74,8 @@ func TestRenderWorkspaces(t *testing.T) {
 		t.Errorf("targets (-want +got):\n%s", diff)
 	}
 	wantWarnings := []string{
-		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
 		`mcp.workspaces.ops: server "crm": OAuth client is not public, so its secret is not synced; add the secret through the harness's own login`,
+		`mcp.workspaces.ops: opencode skips server "crm": OAuth clients are not supported`,
 	}
 	if diff := cmp.Diff(wantWarnings, b.warnings); diff != "" {
 		t.Errorf("warnings (-want +got):\n%s", diff)
