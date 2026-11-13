@@ -88,7 +88,7 @@ How apply treats files:
 - **Formats.** JSON, JSONC and TOML files are edited in place: comments, key order and unrelated formatting are preserved and new keys are appended. An unchanged file is not rewritten.
 - **Diffs.** `-n` prints a unified diff in which values of keys `agents` does not manage show as `unmanaged` and every secret as `redacted`; a file that cannot be scanned prints "diff unavailable" rather than the raw text. The old value of a managed key removed from the config prints as `«removed»` on the `-` line that held it, whatever its path, because the manifest holds no values and the secret it held is no longer known.
 - **Concurrent edits.** Each write is atomic and compares the file with what was read just before; if another program changed it meanwhile the write is refused with an error and nothing is overwritten. Re-run `agents apply`.
-- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode, except one that receives expanded secrets (`expand_env`), which is tightened to `0600` before the write. Symlinked targets are refused.
+- **Permissions.** A new file is created with mode `0600`; an existing file keeps its mode, except one that receives expanded secrets (`expand_env`), which is tightened to `0600` before the write. Symlinked targets are refused. On Windows `0600` is not enforced: chmod only clears the read-only attribute, so a file holding secrets relies on the user profile's ACLs, and a read-only file is made writable and overwritten.
 
 The files per harness are in [parity.md](parity.md#what-each-harness-receives). The VS Code `settings.json` is a check-only target: `agents` compares it and reports `drift` but never writes it.
 
