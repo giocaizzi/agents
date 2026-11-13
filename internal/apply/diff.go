@@ -127,7 +127,8 @@ func maskRetired(line string, retired []string) string {
 }
 
 // retiredValues returns the string leaves that managed paths held in oldText
-// and no longer hold anywhere in newText. A key dropped from the config (an
+// and no longer hold under a managed path in newText (an unmanaged leaf
+// prints as «unmanaged», so it does not keep a value hidden). A key dropped from the config (an
 // MCP server or header removed) leaves its secret out of Sensitive, and the
 // manifest holds no values, so every retired managed string is masked on the
 // - line that held it, whatever its path.
@@ -141,8 +142,10 @@ func retiredValues(t Target, managed [][]string, oldText, newText string) []stri
 		return nil
 	}
 	kept := map[string]bool{}
-	for _, s := range stringLeaves(newDoc, nil) {
-		kept[s] = true
+	for _, p := range managed {
+		for _, s := range stringLeaves(getPath(newDoc, p), nil) {
+			kept[s] = true
+		}
 	}
 	var out []string
 	for _, p := range managed {

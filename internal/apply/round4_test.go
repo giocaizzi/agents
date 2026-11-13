@@ -133,7 +133,6 @@ func TestDiffMasksRetiredSecretKeptUnmanaged(t *testing.T) {
 	t.Parallel()
 	t.Run("xfail: retired value also held by an unmanaged key", func(t *testing.T) {
 		t.Parallel()
-		t.Skip("xfail: retiredValues drops a value kept anywhere in the new text, including unmanaged leaves the diff masks")
 		dir := t.TempDir()
 		path := filepath.Join(dir, "s.json")
 		writeFileT(t, path, "{\n  \"mine\": {\"Authorization\": \"Bearer old-token-1234\"}\n}\n")
