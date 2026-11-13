@@ -117,6 +117,7 @@ type Permissions struct {
 	DenyCommandPrefixes  []string `json:"deny_command_prefixes,omitempty"  jsonschema:"description=Command prefixes that are denied"                       toml:"deny_command_prefixes,omitempty"`
 	AskCommandPrefixes   []string `json:"ask_command_prefixes,omitempty"   jsonschema:"description=Command prefixes that always ask"                       toml:"ask_command_prefixes,omitempty"`
 	AllowedMCP           []string `json:"allowed_mcp,omitempty"            jsonschema:"description=MCP servers or tools allowed without asking"            toml:"allowed_mcp,omitempty"`
+	Reasons              map[string]string `json:"reasons,omitempty" jsonschema:"description=Message shown when a permission rule matches (keyed by the rule pattern)" toml:"reasons,omitempty"`
 }
 
 // Models holds the model tiers, the agent assignments and the catalog

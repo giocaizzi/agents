@@ -1,0 +1,7 @@
+schema_version = 1
+
+[permissions]
+deny_command_prefixes = ["pip"]
+
+[permissions.reasons]
+npm = "use pnpm"

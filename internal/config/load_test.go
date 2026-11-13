@@ -728,6 +728,12 @@ func TestValidate(t *testing.T) {
 		{"workspace server invalid", func(c *config.Config) {
 			c.MCP.Workspaces = map[string]config.Workspace{"app": {Path: "/x", Servers: server(config.MCPServer{})}}
 		}, "mcp.workspaces.app.servers.acme"},
+		{"reason for a listed pattern", func(c *config.Config) {
+			c.Permissions = config.Permissions{DenyCommandPrefixes: []string{"pip"}, Reasons: map[string]string{"pip": "use uv"}}
+		}, ""},
+		{"reason for an unlisted pattern", func(c *config.Config) {
+			c.Permissions = config.Permissions{DenyCommandPrefixes: []string{"pip"}, Reasons: map[string]string{"npm": "use pnpm"}}
+		}, "permissions.reasons.npm"},
 		{"profile overlay server may be partial", func(c *config.Config) {
 			c.Profiles = map[string]config.Profile{"dev": {MCP: config.MCP{Servers: server(config.MCPServer{Env: map[string]string{"A": "b"}})}}}
 		}, ""},

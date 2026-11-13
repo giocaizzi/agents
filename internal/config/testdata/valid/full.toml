@@ -22,6 +22,7 @@ deny_command_exact = ["sudo reboot"]
 deny_command_prefixes = ["sudo "]
 ask_command_prefixes = ["git push"]
 allowed_mcp = ["acme-docs"]
+reasons = { "sudo reboot" = "ask the user to run it" }
 
 [models]
 default_effort_level = "high"

@@ -7,30 +7,30 @@
       "properties": {
         "agent_mode": {
           "type": "string",
-          "description": "Agent mode"
+          "description": "Agent mode. Written to antigravity."
         },
         "tool_permission": {
           "type": "string",
-          "description": "Tool permission level"
+          "description": "Tool permission level. Written to antigravity."
         },
         "enable_terminal_sandbox": {
           "type": "boolean",
-          "description": "Sandbox the terminal"
+          "description": "Sandbox the terminal. Written to antigravity."
         },
         "allow_non_workspace_access": {
           "type": "boolean",
-          "description": "Allow access outside the workspace"
+          "description": "Allow access outside the workspace. Written to antigravity."
         },
         "allow": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Extra allow rules in native syntax"
+          "description": "Extra allow rules in native syntax. Written to antigravity."
         },
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to antigravity."
         },
         "instructions": {
           "items": {
@@ -47,31 +47,31 @@
       "properties": {
         "execution_mode": {
           "type": "string",
-          "description": "Execution mode name"
+          "description": "Execution mode name. Written to antigravity. Planned for claude, copilot, vscode, codex. Not supported by opencode, pi."
         },
         "sandbox_mode": {
           "type": "string",
-          "description": "Sandbox mode name"
+          "description": "Sandbox mode name. Planned for claude, copilot, vscode, codex, antigravity. Not supported by opencode, pi."
         },
         "allow_non_workspace_access": {
           "type": "boolean",
-          "description": "Allow access outside the workspace"
+          "description": "Allow access outside the workspace. Written to antigravity. Planned for claude, vscode, opencode. Not supported by copilot, codex, pi."
         },
         "subagent_depth": {
           "type": "integer",
-          "description": "Maximum subagent nesting depth"
+          "description": "Maximum subagent nesting depth. Written to opencode. Planned for copilot. Not supported by claude, vscode, codex, pi, antigravity."
         },
         "allow_subagent_invocations": {
           "type": "boolean",
-          "description": "Allow agents to invoke subagents"
+          "description": "Allow agents to invoke subagents. Planned for vscode. Not supported by claude, copilot, codex, opencode, pi, antigravity."
         },
         "ask_timeout": {
           "type": "string",
-          "description": "How long to wait for an answer to a question"
+          "description": "How long to wait for an answer to a question. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "mode": {
           "type": "string",
-          "description": "Default agent mode"
+          "description": "Default agent mode. Planned for claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -122,30 +122,30 @@
       "properties": {
         "default_mode": {
           "type": "string",
-          "description": "Default permission mode"
+          "description": "Default permission mode. Written to claude."
         },
         "skip_auto_permission_prompt": {
           "type": "boolean",
-          "description": "Skip the auto mode permission prompt"
+          "description": "Skip the auto mode permission prompt. Written to claude."
         },
         "cleanup_period_days": {
           "type": "integer",
-          "description": "Days to keep transcripts"
+          "description": "Days to keep transcripts. Written to claude."
         },
         "disable_claude_ai_connectors": {
           "type": "boolean",
-          "description": "Turn off claude.ai connectors"
+          "description": "Turn off claude.ai connectors. Written to claude."
         },
         "allow": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Extra allow rules in native syntax"
+          "description": "Extra allow rules in native syntax. Written to claude."
         },
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to claude."
         },
         "instructions": {
           "items": {
@@ -162,23 +162,23 @@
       "properties": {
         "model": {
           "type": "string",
-          "description": "Model identifier"
+          "description": "Model identifier. Written to codex."
         },
         "model_reasoning_effort": {
           "type": "string",
-          "description": "Reasoning effort"
+          "description": "Reasoning effort. Written to codex."
         },
         "approval_policy": {
           "type": "string",
-          "description": "Approval policy"
+          "description": "Approval policy. Written to codex."
         },
         "sandbox_mode": {
           "type": "string",
-          "description": "Sandbox mode"
+          "description": "Sandbox mode. Written to codex."
         },
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to codex."
         },
         "instructions": {
           "items": {
@@ -282,27 +282,27 @@
       "properties": {
         "auto_compact": {
           "type": "boolean",
-          "description": "Compact the context automatically"
+          "description": "Compact the context automatically. Planned for claude, vscode, opencode, pi. Not supported by copilot, codex, antigravity."
         },
         "auto_compact_window": {
           "type": "integer",
-          "description": "Context size that triggers compaction"
+          "description": "Context size that triggers compaction. Written to claude. Planned for pi. Not supported by copilot, vscode, codex, opencode, antigravity."
         },
         "prompt_cache_ttl": {
           "type": "string",
-          "description": "Prompt cache lifetime"
+          "description": "Prompt cache lifetime. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "subagent_prompt_cache_ttl": {
           "type": "string",
-          "description": "Prompt cache lifetime for subagents"
+          "description": "Prompt cache lifetime for subagents. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "max_turn_tokens": {
           "type": "integer",
-          "description": "Token limit of one turn"
+          "description": "Token limit of one turn. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "max_tokens": {
           "type": "integer",
-          "description": "Token limit of one response"
+          "description": "Token limit of one response. Planned for claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -312,7 +312,7 @@
       "properties": {
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to copilot."
         },
         "instructions": {
           "items": {
@@ -376,7 +376,7 @@
       "properties": {
         "file": {
           "type": "string",
-          "description": "File of the layer relative to the instructions dir"
+          "description": "File of the layer relative to the instructions dir. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -386,7 +386,7 @@
       "properties": {
         "dir": {
           "type": "string",
-          "description": "Directory of instruction files (default is the config dir plus /instructions)"
+          "description": "Directory of instruction files (default is the config dir plus /instructions). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "edit_command": {
           "items": {
@@ -397,14 +397,14 @@
         },
         "vars": {
           "type": "object",
-          "description": "Template variables (any name)"
+          "description": "Template variables (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "layers": {
           "additionalProperties": {
             "$ref": "#/$defs/InstructionLayer"
           },
           "type": "object",
-          "description": "Declared layers (any name)"
+          "description": "Declared layers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -414,14 +414,14 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable language servers"
+          "description": "Enable language servers. Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
         },
         "servers": {
           "additionalProperties": {
             "$ref": "#/$defs/LSPServer"
           },
           "type": "object",
-          "description": "Language servers (any name)"
+          "description": "Language servers (any name). Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -434,25 +434,25 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Command line that starts the server"
+          "description": "Command line that starts the server. Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
         },
         "extensions": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "File extension to language id (any name)"
+          "description": "File extension to language id (any name). Written to claude, copilot, vscode, opencode. Not supported by codex, pi, antigravity."
         },
         "filetypes": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Editor file types"
+          "description": "Editor file types. Not supported by claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "format": {
           "type": "boolean",
-          "description": "Use the server to format"
+          "description": "Use the server to format. Planned for opencode. Not supported by claude, copilot, vscode, codex, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -465,14 +465,14 @@
             "$ref": "#/$defs/MCPServer"
           },
           "type": "object",
-          "description": "MCP servers (any name)"
+          "description": "MCP servers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "workspaces": {
           "additionalProperties": {
             "$ref": "#/$defs/Workspace"
           },
           "type": "object",
-          "description": "Workspaces with their own MCP servers (any name)"
+          "description": "Workspaces with their own MCP servers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -482,36 +482,36 @@
       "properties": {
         "type": {
           "type": "string",
-          "description": "Transport type"
+          "description": "Transport type. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "url": {
           "type": "string",
-          "description": "Remote server URL"
+          "description": "Remote server URL. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "headers": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "HTTP headers (any name)"
+          "description": "HTTP headers (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "command": {
           "type": "string",
-          "description": "Local server command"
+          "description": "Local server command. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "args": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Arguments of the command"
+          "description": "Arguments of the command. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "env": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Environment of the command (any name)"
+          "description": "Environment of the command (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "oauth": {
           "$ref": "#/$defs/OAuth",
@@ -525,29 +525,29 @@
       "properties": {
         "default_effort_level": {
           "type": "string",
-          "description": "Default reasoning effort"
+          "description": "Default reasoning effort. Written to claude. Planned for copilot, codex, pi. Not supported by vscode, opencode, antigravity."
         },
         "show_thinking_summaries": {
           "type": "boolean",
-          "description": "Show thinking summaries"
+          "description": "Show thinking summaries. Written to claude. Planned for copilot, vscode, codex, pi. Not supported by opencode, antigravity."
         },
         "default": {
           "type": "string",
-          "description": "Tier of each harness's main session model"
+          "description": "Tier of each harness's main session model. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "tiers": {
           "additionalProperties": {
             "$ref": "#/$defs/Tier"
           },
           "type": "object",
-          "description": "Named model tiers (any name)"
+          "description": "Named model tiers (any name). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "assign": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Tier per agent id (any key; globs allowed; an exact key wins over globs)"
+          "description": "Tier per agent id (any key; globs allowed; an exact key wins over globs). Written to copilot, vscode, opencode. Not supported by claude, codex, pi, antigravity."
         },
         "catalog": {
           "$ref": "#/$defs/Catalog",
@@ -561,7 +561,7 @@
       "properties": {
         "terminal_bell": {
           "type": "boolean",
-          "description": "Ring the terminal bell when a turn ends"
+          "description": "Ring the terminal bell when a turn ends. Written to claude, copilot, vscode, codex. Planned for antigravity. Not supported by opencode, pi."
         }
       },
       "additionalProperties": false,
@@ -571,15 +571,15 @@
       "properties": {
         "client_id": {
           "type": "string",
-          "description": "OAuth client id"
+          "description": "OAuth client id. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "callback_port": {
           "type": "integer",
-          "description": "Local callback port (1 to 65535)"
+          "description": "Local callback port (1 to 65535). Written to claude, copilot, vscode, codex, pi. Not supported by opencode, antigravity."
         },
         "public_client": {
           "type": "boolean",
-          "description": "The client has no secret"
+          "description": "The client has no secret. Written to copilot, vscode. Not supported by claude, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -607,15 +607,15 @@
       "properties": {
         "default_model": {
           "type": "string",
-          "description": "Default model"
+          "description": "Default model. Planned for opencode."
         },
         "sandbox": {
           "type": "boolean",
-          "description": "Run sandboxed"
+          "description": "Run sandboxed. Not supported by opencode."
         },
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to opencode."
         },
         "instructions": {
           "items": {
@@ -689,70 +689,77 @@
             "type": "string"
           },
           "type": "array",
-          "description": "Commands allowed without asking"
+          "description": "Commands allowed without asking. Written to vscode. Planned for claude, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "allowed_urls": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "URLs agents may fetch"
+          "description": "URLs agents may fetch. Written to copilot, vscode. Planned for claude, opencode, antigravity. Not supported by codex, pi."
         },
         "allow_command_patterns": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Regular expressions of commands allowed without asking"
+          "description": "Regular expressions of commands allowed without asking. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "deny_read": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Path globs agents may not read"
+          "description": "Path globs agents may not read. Written to claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
         },
         "deny_write": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Path globs agents may not write"
+          "description": "Path globs agents may not write. Written to claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
         },
         "deny_command_patterns": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Regular expressions of denied commands"
+          "description": "Regular expressions of denied commands. Written to claude, vscode, codex, opencode, antigravity. Not supported by copilot, pi."
         },
         "deny_command_exact": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Exact command lines that are denied"
+          "description": "Exact command lines that are denied. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
         },
         "deny_command_prefixes": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Command prefixes that are denied"
+          "description": "Command prefixes that are denied. Written to claude, opencode, antigravity. Planned for vscode, codex. Not supported by copilot, pi."
         },
         "ask_command_prefixes": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Command prefixes that always ask"
+          "description": "Command prefixes that always ask. Written to claude, vscode, opencode, antigravity. Planned for codex. Not supported by copilot, pi."
         },
         "allowed_mcp": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "MCP servers or tools allowed without asking"
+          "description": "MCP servers or tools allowed without asking. Planned for claude, opencode, antigravity. Not supported by copilot, vscode, codex, pi."
+        },
+        "reasons": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "type": "object",
+          "description": "Message shown when a permission rule matches (keyed by the rule pattern). Planned for codex. Not supported by claude, copilot, vscode, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -762,26 +769,26 @@
       "properties": {
         "default_provider": {
           "type": "string",
-          "description": "Default provider"
+          "description": "Default provider. Written to pi."
         },
         "default_model": {
           "type": "string",
-          "description": "Default model"
+          "description": "Default model. Written to pi."
         },
         "default_thinking_level": {
           "type": "string",
-          "description": "Default thinking level"
+          "description": "Default thinking level. Written to pi."
         },
         "packages": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "pi packages to install"
+          "description": "pi packages to install. Written to pi."
         },
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to pi."
         },
         "instructions": {
           "items": {
@@ -798,7 +805,7 @@
       "properties": {
         "registry": {
           "type": "string",
-          "description": "Plugin registry repository"
+          "description": "Plugin registry repository. Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
         },
         "enabled": {
           "additionalProperties": {
@@ -808,14 +815,14 @@
             "type": "array"
           },
           "type": "object",
-          "description": "Harnesses each plugin is enabled for (any plugin name)"
+          "description": "Harnesses each plugin is enabled for (any plugin name). Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
         },
         "disabled": {
           "items": {
             "type": "string"
           },
           "type": "array",
-          "description": "Plugins that stay off"
+          "description": "Plugins that stay off. Written to claude, copilot, vscode, pi. Planned for codex, opencode. Not supported by antigravity."
         },
         "standalone": {
           "additionalProperties": {
@@ -925,45 +932,45 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Export telemetry"
+          "description": "Export telemetry. Written to claude, codex. Planned for vscode. Not supported by copilot, opencode, pi, antigravity."
         },
         "endpoint": {
           "type": "string",
-          "description": "Collector endpoint"
+          "description": "Collector endpoint. Written to claude, codex. Planned for vscode. Not supported by copilot, opencode, pi, antigravity."
         },
         "protocol": {
           "type": "string",
-          "description": "Export protocol"
+          "description": "Export protocol. Written to claude, codex. Planned for vscode. Not supported by copilot, opencode, pi, antigravity."
         },
         "temporality": {
           "type": "string",
-          "description": "Metric temporality"
+          "description": "Metric temporality. Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         },
         "log_tool_details": {
           "type": "boolean",
-          "description": "Log tool call details"
+          "description": "Log tool call details. Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         },
         "log_tool_content": {
           "type": "boolean",
-          "description": "Log tool call content"
+          "description": "Log tool call content. Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         },
         "service_namespace": {
           "type": "string",
-          "description": "Service namespace resource attribute"
+          "description": "Service namespace resource attribute. Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         },
         "attributes": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Extra resource attributes (any name)"
+          "description": "Extra resource attributes (any name). Written to claude, codex. Planned for vscode. Not supported by copilot, opencode, pi, antigravity."
         },
         "services": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Service name per harness (any name)"
+          "description": "Service name per harness (any name). Written to claude. Planned for vscode, codex. Not supported by copilot, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -973,42 +980,42 @@
       "properties": {
         "claude": {
           "type": "string",
-          "description": "Claude Code model id"
+          "description": "Claude Code model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "copilot": {
           "type": "string",
-          "description": "Copilot CLI model id"
+          "description": "Copilot CLI model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "vscode": {
           "type": "string",
-          "description": "VS Code model id"
+          "description": "VS Code model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "codex": {
           "type": "string",
-          "description": "Codex model id"
+          "description": "Codex model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "opencode": {
           "type": "string",
-          "description": "opencode model id (provider/id)"
+          "description": "opencode model id (provider/id). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "pi": {
           "type": "string",
-          "description": "pi model id"
+          "description": "pi model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "antigravity": {
           "type": "string",
-          "description": "Antigravity model id"
+          "description": "Antigravity model id. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "effort": {
           "type": "string",
-          "description": "Reasoning effort"
+          "description": "Reasoning effort. Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         },
         "efforts": {
           "additionalProperties": {
             "type": "string"
           },
           "type": "object",
-          "description": "Reasoning effort per harness (overrides effort)"
+          "description": "Reasoning effort per harness (overrides effort). Written to claude, copilot, vscode, codex, opencode, pi. Not supported by antigravity."
         }
       },
       "additionalProperties": false,
@@ -1018,31 +1025,31 @@
       "properties": {
         "theme": {
           "type": "string",
-          "description": "Colour theme"
+          "description": "Colour theme. Written to claude, vscode. Planned for copilot, codex, opencode, pi, antigravity."
         },
         "tui_mode": {
           "type": "string",
-          "description": "Terminal UI mode"
+          "description": "Terminal UI mode. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "view_mode": {
           "type": "string",
-          "description": "Transcript view mode"
+          "description": "Transcript view mode. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "output_style": {
           "type": "string",
-          "description": "Output style"
+          "description": "Output style. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "show_turn_duration": {
           "type": "boolean",
-          "description": "Show how long each turn took"
+          "description": "Show how long each turn took. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "progress_bar": {
           "type": "boolean",
-          "description": "Show a progress bar"
+          "description": "Show a progress bar. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         },
         "time_format": {
           "type": "string",
-          "description": "Time format"
+          "description": "Time format. Written to claude. Not supported by copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -1052,7 +1059,7 @@
       "properties": {
         "settings": {
           "type": "object",
-          "description": "Native settings merged as is (any key)"
+          "description": "Native settings merged as is (any key). Written to vscode."
         },
         "instructions": {
           "items": {
@@ -1069,19 +1076,19 @@
       "properties": {
         "enabled": {
           "type": "boolean",
-          "description": "Enable voice input"
+          "description": "Enable voice input. Written to claude, copilot, vscode. Not supported by codex, opencode, pi, antigravity."
         },
         "mode": {
           "type": "string",
-          "description": "Voice mode"
+          "description": "Voice mode. Written to claude. Planned for copilot. Not supported by vscode, codex, opencode, pi, antigravity."
         },
         "auto_submit": {
           "type": "boolean",
-          "description": "Submit the transcript automatically"
+          "description": "Submit the transcript automatically. Written to claude. Planned for copilot. Not supported by vscode, codex, opencode, pi, antigravity."
         },
         "language": {
           "type": "string",
-          "description": "Dictation language"
+          "description": "Dictation language. Written to claude, vscode. Planned for copilot. Not supported by codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,
@@ -1091,14 +1098,14 @@
       "properties": {
         "path": {
           "type": "string",
-          "description": "Workspace directory"
+          "description": "Workspace directory. Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         },
         "servers": {
           "additionalProperties": {
             "$ref": "#/$defs/MCPServer"
           },
           "type": "object",
-          "description": "MCP servers of the workspace (any name)"
+          "description": "MCP servers of the workspace (any name). Written to claude, copilot, vscode, codex, opencode, pi, antigravity."
         }
       },
       "additionalProperties": false,

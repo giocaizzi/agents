@@ -36,6 +36,7 @@ func Validate(c Config) []finding.Finding {
 
 	validateLayerRefs(c, add)
 	validateModels(c.Models, add)
+	validateReasons(c.Permissions, add)
 	for _, name := range slices.Sorted(maps.Keys(c.Profiles)) {
 		p := c.Profiles[name]
 		base := "profiles." + name
@@ -101,6 +102,18 @@ func validateModels(m Models, add func(string, string, ...any)) {
 			if !Harness(h).Valid() {
 				add("models.tiers."+name+".efforts."+h, "unknown harness %q (want one of %s)", h, harnessList())
 			}
+		}
+	}
+}
+
+// validateReasons checks that every reason names a pattern of a permission
+// command list.
+func validateReasons(p Permissions, add func(string, string, ...any)) {
+	patterns := slices.Concat(p.AllowCommands, p.AllowCommandPatterns, p.DenyCommandPatterns,
+		p.DenyCommandExact, p.DenyCommandPrefixes, p.AskCommandPrefixes)
+	for _, pat := range slices.Sorted(maps.Keys(p.Reasons)) {
+		if !slices.Contains(patterns, pat) {
+			add("permissions.reasons."+pat, "matches no pattern of the permission command lists")
 		}
 	}
 }
