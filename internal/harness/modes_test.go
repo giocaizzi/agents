@@ -133,3 +133,21 @@ func TestTypedFieldsWinOverSharedModes(t *testing.T) {
 		t.Errorf("antigravity = %v, want the typed plan and strict", s)
 	}
 }
+
+// TestClaudeSandboxKeepsAsk pins that turning Claude's sandbox on does not
+// loosen execution_mode = "ask": sandbox.autoAllowBashIfSandboxed defaults to
+// true (https://code.claude.com/docs/en/settings-reference), which runs
+// sandboxed Bash commands without a prompt.
+func TestClaudeSandboxKeepsAsk(t *testing.T) {
+	t.Parallel()
+	t.Run("xfail: ask with sandbox workspace auto-allows sandboxed Bash", func(t *testing.T) {
+		t.Parallel()
+		t.Skip("xfail: sandbox_mode = workspace writes only sandbox.enabled, so Claude's default auto-allow mode skips the prompts ask asked for")
+		c := config.Config{Autonomy: config.Autonomy{ExecutionMode: "ask", SandboxMode: "workspace"}}
+		plan := renderFor(t, c, "linux", config.Claude)
+		s := findTarget(t, plan, filepath.Join("/h", ".claude", "settings.json")).Managed
+		if got := nested(s, "sandbox", "autoAllowBashIfSandboxed"); got != false {
+			t.Errorf("sandbox.autoAllowBashIfSandboxed = %v, want false under ask", got)
+		}
+	})
+}
